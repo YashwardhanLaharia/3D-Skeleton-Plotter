@@ -34,7 +34,7 @@ function JointRow({ number, label, jointId, values, onChange }) {
   );
 }
 
-function IndividualSection({ individual, onChange }) {
+function IndividualSection({ individual, isOpen, onToggle, onChange }) {
   const filledCount = JOINTS.filter((joint) => {
     const v = individual.coords[joint.id];
     return v.x !== "" && v.y !== "" && v.z !== "";
@@ -42,33 +42,46 @@ function IndividualSection({ individual, onChange }) {
 
   return (
     <section className="individual border rounded mb-2 bg-body">
-      <div className="px-2 py-1 d-flex align-items-center gap-2">
-        <span className="colour-swatch" style={{ background: individual.colour }} />
+      <button
+        type="button"
+        className="individual-header btn w-100 d-flex align-items-center gap-2 text-start"
+        onClick={() => onToggle(individual.id)}
+        aria-expanded={isOpen}
+      >
+        <span className={`chevron ${isOpen ? "open" : ""}`} aria-hidden="true">
+          ▸
+        </span>
+        <span
+          className="colour-swatch"
+          style={{ background: individual.colour }}
+        />
         <span className="small">{individual.label}</span>
         <small className="text-body-tertiary ms-auto">
           {filledCount}/{JOINTS.length}
         </small>
-      </div>
+      </button>
 
-      <div className="px-2 pb-2">
-        {JOINTS.map((joint) => (
-          <JointRow
-            key={joint.id}
-            number={joint.n}
-            label={joint.label}
-            jointId={joint.id}
-            values={individual.coords[joint.id]}
-            onChange={(jointId, axis, value) =>
-              onChange(individual.id, jointId, axis, value)
-            }
-          />
-        ))}
-      </div>
+      {isOpen && (
+        <div className="px-2 pb-2">
+          {JOINTS.map((joint) => (
+            <JointRow
+              key={joint.id}
+              number={joint.n}
+              label={joint.label}
+              jointId={joint.id}
+              values={individual.coords[joint.id]}
+              onChange={(jointId, axis, value) =>
+                onChange(individual.id, jointId, axis, value)
+              }
+            />
+          ))}
+        </div>
+      )}
     </section>
   );
 }
 
-export default function Sidebar({ individuals, onChange }) {
+export default function Sidebar({ individuals, openId, onChange, onToggle }) {
   return (
     <aside className="sidebar bg-body-tertiary border-end overflow-auto">
       <header className="sidebar-header bg-body-tertiary border-bottom px-2 py-2">
@@ -80,6 +93,8 @@ export default function Sidebar({ individuals, onChange }) {
           <IndividualSection
             key={individual.id}
             individual={individual}
+            isOpen={individual.id === openId}
+            onToggle={onToggle}
             onChange={onChange}
           />
         ))}

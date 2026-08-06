@@ -10,10 +10,12 @@ import Sidebar from "./components/Sidebar";
 import "./app.css";
 
 function makeBlankCoords() {
-  return Object.fromEntries(JOINTS.map((joint) => [joint.id, { x: "", y: "", z: "" }]));
+  return Object.fromEntries(
+    JOINTS.map((joint) => [joint.id, { x: "", y: "", z: "" }]),
+  );
 }
 
-// Placeholder Yash's 3D component. It accepts the prop shape { jointId: [x, y, z] } 
+// Placeholder Yash's 3D component. It accepts the prop shape { jointId: [x, y, z] }
 function ViewportPlaceholder({ joints }) {
   const entries = Object.entries(joints);
 
@@ -44,28 +46,37 @@ export default function App() {
   // The data model is now an array of individuals, not one coordinate object.
   // Each carries its own label, colour, and full coordinate set.
   const [individuals, setIndividuals] = useState(() => [
-  { id: "ind-1", label: "BP 1", colour: "#E69F00", coords: makeBlankCoords() },
-  { id: "ind-2", label: "BP 2", colour: "#56B4E9", coords: makeBlankCoords() },
+    {
+      id: "ind-1",
+      label: "BP 1",
+      colour: "#E69F00",
+      coords: makeBlankCoords(),
+    },
   ]);
+
+  const [openId, setOpenId] = useState("ind-1");
 
   // Called by every input box in the sidebar.
   //
   // Note this builds new objects rather than editing the existing one. React
   function handleChange(individualId, jointId, axis, rawValue) {
-  setIndividuals((previous) =>
-    previous.map((ind) =>
-      ind.id !== individualId
-        ? ind
-        : {
-            ...ind,
-            coords: {
-              ...ind.coords,
-              [jointId]: { ...ind.coords[jointId], [axis]: rawValue },
+    setIndividuals((previous) =>
+      previous.map((ind) =>
+        ind.id !== individualId
+          ? ind
+          : {
+              ...ind,
+              coords: {
+                ...ind.coords,
+                [jointId]: { ...ind.coords[jointId], [axis]: rawValue },
+              },
             },
-          }
-    )
-  );
-}
+      ),
+    );
+  }
+  function handleToggle(individualId) {
+    setOpenId((current) => (current === individualId ? null : individualId));
+  }
 
   // Convert the text state into the numeric shape
   //
@@ -83,7 +94,12 @@ export default function App() {
 
   return (
     <div className="d-flex vh-100 overflow-hidden">
-      <Sidebar individuals={individuals} onChange={handleChange} />
+      <Sidebar
+        individuals={individuals}
+        openId={openId}
+        onChange={handleChange}
+        onToggle={handleToggle}
+      />
       <ViewportPlaceholder joints={numericJoints} />
     </div>
   );
