@@ -5,21 +5,26 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { Box3, Vector3 } from "three";
 import modelUrl from "../assets/models/skeleton-male.glb";
 
+// Make Three.js orbit controls available as a React Three Fiber element.
 extend({ OrbitControls: ThreeOrbitControls });
 
 function SkeletonModel() {
   const { scene } = useLoader(GLTFLoader, modelUrl);
+
+  // Calculate the model transform once so renderer updates do not compound it.
   const transform = useMemo(() => {
     const bounds = new Box3().setFromObject(scene);
     const feetBounds = new Box3();
     const footMeshPattern = /(foot|feet|metatarsal|calcaneus)/i;
 
+    // Ignore hidden rig meshes when placing the visible feet on the ground plane.
     scene.traverse((object) => {
       if (object.isMesh && footMeshPattern.test(object.name)) {
         feetBounds.expandByObject(object);
       }
     });
 
+    // Center the model, fit it to the viewport, and place its feet on Y = 0.
     const center = bounds.getCenter(new Vector3());
     const size = bounds.getSize(new Vector3());
     const scale = 2.5 / Math.max(size.x, size.y, size.z);
@@ -35,6 +40,7 @@ function SkeletonModel() {
     };
   }, [scene]);
 
+  // Keep transforms on a wrapper so the cached GLB scene remains unchanged.
   return (
     <group scale={transform.scale} position={transform.position}>
       <primitive object={scene} />
