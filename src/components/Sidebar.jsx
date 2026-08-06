@@ -34,47 +34,52 @@ function JointRow({ number, label, jointId, values, onChange }) {
   );
 }
 
-export default function Sidebar({ coordinates, onChange }) {
-  // A point counts as recorded only when all three axes are filled. Partial
-  // entries are treated as not yet done.
+function IndividualSection({ individual, onChange }) {
   const filledCount = JOINTS.filter((joint) => {
-    const v = coordinates[joint.id];
+    const v = individual.coords[joint.id];
     return v.x !== "" && v.y !== "" && v.z !== "";
   }).length;
 
-  const percent = Math.round((filledCount / JOINTS.length) * 100);
-
   return (
-    <aside className="sidebar bg-body-tertiary border-end overflow-auto">
-      <header className="sidebar-header bg-body-tertiary border-bottom px-3 py-2">
-        <h2 className="h6 mb-1">Joint coordinates</h2>
+    <section className="individual border rounded mb-2 bg-body">
+      <div className="px-2 py-1 d-flex align-items-center gap-2">
+        <span className="colour-swatch" style={{ background: individual.colour }} />
+        <span className="small">{individual.label}</span>
+        <small className="text-body-tertiary ms-auto">
+          {filledCount}/{JOINTS.length}
+        </small>
+      </div>
 
-        <div className="d-flex align-items-center gap-2">
-          <div
-            className="progress progress-thin flex-grow-1" 
-            role="progressbar"
-            aria-label="Joints recorded"
-            aria-valuenow={filledCount}
-            aria-valuemin={0}
-            aria-valuemax={JOINTS.length}
-          >
-            <div className="progress-bar" style={{ width: `${percent}%` }} />
-          </div>
-          <small className="text-body-secondary text-nowrap">
-            {filledCount}/{JOINTS.length}
-          </small>
-        </div>
-      </header>
-
-      <div className="px-3 py-2">
+      <div className="px-2 pb-2">
         {JOINTS.map((joint) => (
-        // Never hardcode rows here!! Edit joints.js instead.
           <JointRow
             key={joint.id}
             number={joint.n}
             label={joint.label}
             jointId={joint.id}
-            values={coordinates[joint.id]}
+            values={individual.coords[joint.id]}
+            onChange={(jointId, axis, value) =>
+              onChange(individual.id, jointId, axis, value)
+            }
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+export default function Sidebar({ individuals, onChange }) {
+  return (
+    <aside className="sidebar bg-body-tertiary border-end overflow-auto">
+      <header className="sidebar-header bg-body-tertiary border-bottom px-2 py-2">
+        <h2 className="h6 mb-0">Individuals</h2>
+      </header>
+
+      <div className="p-2">
+        {individuals.map((individual) => (
+          <IndividualSection
+            key={individual.id}
+            individual={individual}
             onChange={onChange}
           />
         ))}

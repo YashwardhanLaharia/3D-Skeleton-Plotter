@@ -9,6 +9,10 @@ import { JOINTS } from "./joints";
 import Sidebar from "./components/Sidebar";
 import "./app.css";
 
+function makeBlankCoords() {
+  return Object.fromEntries(JOINTS.map((joint) => [joint.id, { x: "", y: "", z: "" }]));
+}
+
 // Placeholder Yash's 3D component. It accepts the prop shape { jointId: [x, y, z] } 
 function ViewportPlaceholder({ joints }) {
   const entries = Object.entries(joints);
@@ -37,29 +41,38 @@ function ViewportPlaceholder({ joints }) {
 }
 
 export default function App() {
-  // Coordinates are stored as Strings instead of numbers. The 3D layer only sees numbers, so the conversion happens below.
-  //
-  // Run only on first render
-  const [coordinates, setCoordinates] = useState(() =>
-    Object.fromEntries(JOINTS.map((joint) => [joint.id, { x: "", y: "", z: "" }]))
-  );
+  // The data model is now an array of individuals, not one coordinate object.
+  // Each carries its own label, colour, and full coordinate set.
+  const [individuals, setIndividuals] = useState(() => [
+  { id: "ind-1", label: "BP 1", colour: "#E69F00", coords: makeBlankCoords() },
+  { id: "ind-2", label: "BP 2", colour: "#56B4E9", coords: makeBlankCoords() },
+  ]);
 
   // Called by every input box in the sidebar.
   //
   // Note this builds new objects rather than editing the existing one. React
-  function handleChange(jointId, axis, rawValue) {
-    setCoordinates((previous) => ({
-      ...previous,
-      [jointId]: { ...previous[jointId], [axis]: rawValue },
-    }));
-  }
+  function handleChange(individualId, jointId, axis, rawValue) {
+  setIndividuals((previous) =>
+    previous.map((ind) =>
+      ind.id !== individualId
+        ? ind
+        : {
+            ...ind,
+            coords: {
+              ...ind.coords,
+              [jointId]: { ...ind.coords[jointId], [axis]: rawValue },
+            },
+          }
+    )
+  );
+}
 
   // Convert the text state into the numeric shape
   //
   // Joints missing any axis are left out entirely rather than sent as zeros
   // "not recorded" must never render as a point at the origin.
   const numericJoints = {};
-  for (const [id, v] of Object.entries(coordinates)) {
+  for (const [id, v] of Object.entries(individuals[0].coords)) {
     const x = parseFloat(v.x);
     const y = parseFloat(v.y);
     const z = parseFloat(v.z);
@@ -70,7 +83,7 @@ export default function App() {
 
   return (
     <div className="d-flex vh-100 overflow-hidden">
-      <Sidebar coordinates={coordinates} onChange={handleChange} />
+      <Sidebar individuals={individuals} onChange={handleChange} />
       <ViewportPlaceholder joints={numericJoints} />
     </div>
   );
