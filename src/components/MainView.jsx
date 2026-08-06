@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, useMemo } from "react";
 import { Canvas, extend, useLoader, useThree } from "@react-three/fiber";
 import { OrbitControls as ThreeOrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
@@ -9,21 +9,36 @@ extend({ OrbitControls: ThreeOrbitControls });
 
 function SkeletonModel() {
   const { scene } = useLoader(GLTFLoader, modelUrl);
-  const bounds = new Box3().setFromObject(scene);
-  const center = bounds.getCenter(new Vector3());
-  const size = bounds.getSize(new Vector3());
-  const scale = 2.5 / Math.max(size.x, size.y, size.z);
+  const transform = useMemo(() => {
+    const bounds = new Box3().setFromObject(scene);
+    const feetBounds = new Box3();
+    const footMeshPattern = /(foot|feet|metatarsal|calcaneus)/i;
+
+    scene.traverse((object) => {
+      if (object.isMesh && footMeshPattern.test(object.name)) {
+        feetBounds.expandByObject(object);
+      }
+    });
+
+    const center = bounds.getCenter(new Vector3());
+    const size = bounds.getSize(new Vector3());
+    const scale = 2.5 / Math.max(size.x, size.y, size.z);
+    const groundY = feetBounds.isEmpty() ? bounds.min.y : feetBounds.min.y;
+
+    return {
+      scale,
+      position: [
+        -center.x * scale,
+        -groundY * scale,
+        -center.z * scale,
+      ],
+    };
+  }, [scene]);
 
   return (
-    <primitive
-      object={scene}
-      scale={scale}
-      position={[
-        -center.x * scale,
-        -bounds.min.y * scale,
-        -center.z * scale,
-      ]}
-    />
+    <group scale={transform.scale} position={transform.position}>
+      <primitive object={scene} />
+    </group>
   );
 }
 
