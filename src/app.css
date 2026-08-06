@@ -1,0 +1,75 @@
+/* Layout and spacing are done with Bootstrap utility classes in the JSX. This
+ * file is only for what those utilities can't express.
+ *
+ * Colours come from Bootstrap's CSS variables (--bs-*) rather than fixed hex
+ * values, so this stays correct if a dark theme is ever added.
+ */
+
+.sidebar {
+  width: 380px;
+  flex-shrink: 0;
+}
+
+.sidebar-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.progress.progress-thin {
+  height: 3px;
+}
+
+.joint-num {
+  width: 1.5rem;
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.joint-label {
+  width: 8.25rem;
+  flex-shrink: 0;
+  font-size: 0.78rem;
+}
+
+.form-control.coord-input {
+  width: 3.5rem;
+  flex-shrink: 0;
+  height: auto;
+  padding: 0.15rem 0.3rem;
+  font-family: var(--bs-font-monospace);
+  font-size: 0.72rem;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.form-control.coord-input::placeholder {
+  font-family: var(--bs-body-font-family);
+  text-align: left;
+  opacity: 0.4;
+}
+
+.form-control.coord-input:not(:placeholder-shown) {
+  background-color: var(--bs-body-bg);
+  color: var(--bs-body-color);
+  font-weight: 500;
+}
+
+.viewport-inner {
+  max-width: 26rem;
+}
+
+.coord-readout {
+  font-family: var(--bs-font-monospace);
+  font-size: 0.75rem;
+  line-height: 1.7;
+  color: var(--bs-secondary-color);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-bar {
+    transition: none;
+  }
+}
