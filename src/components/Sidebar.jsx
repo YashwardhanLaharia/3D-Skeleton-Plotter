@@ -1,4 +1,5 @@
-// The coordinate entry panel. Renders one row per survey point: number, label,
+// The individuals panel. One collapsible section per body in the grave, each
+// containing a coordinate table: one row per survey point with number, label,
 // and three inputs for X, Y, Z.
 //
 // This component holds no state of its own. It receives the coordinates from
@@ -34,13 +35,26 @@ function JointRow({ number, label, jointId, values, onChange }) {
   );
 }
 
-function IndividualSection({ individual, isOpen, onToggle, onChange }) {
+// One individual: a clickable header that summarises them, and their 25 rows
+// underneath when expanded.
+function IndividualSection({
+  individual,
+  isOpen,
+  onToggle,
+  onChange,
+  onRemove,
+  canRemove,
+  onLabelChange,
+}) {
+  // A point counts as recorded only when all three axes are filled. Partial
+  // entries are treated as not yet done.
   const filledCount = JOINTS.filter((joint) => {
     const v = individual.coords[joint.id];
     return v.x !== "" && v.y !== "" && v.z !== "";
   }).length;
 
   return (
+    // The whole header toggles, so I used a button rather than a div
     <section className="individual border rounded mb-2 bg-body">
       <button
         type="button"
@@ -55,12 +69,37 @@ function IndividualSection({ individual, isOpen, onToggle, onChange }) {
           className="colour-swatch"
           style={{ background: individual.colour }}
         />
-        <span className="small">{individual.label}</span>
-        <small className="text-body-tertiary ms-auto">
+        <input
+          type="text"
+          className="form-control form-control-sm label-input"
+          placeholder="Skeleton number"
+          aria-label="Skeleton number"
+          value={individual.label}
+          onChange={(e) => onLabelChange(individual.id, e.target.value)}
+          onClick={(e) => e.stopPropagation()}
+        />
+        <small className="text-body-tertiary">
           {filledCount}/{JOINTS.length}
         </small>
+        {canRemove && (
+          <span
+            role="button"
+            tabIndex={0}
+            className="btn-close btn-close-sm"
+            aria-label={`Remove ${individual.label || "individual"}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove(individual.id);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.stopPropagation();
+                onRemove(individual.id);
+              }
+            }}
+          />
+        )}
       </button>
-
       {isOpen && (
         <div className="px-2 pb-2">
           {JOINTS.map((joint) => (
@@ -81,11 +120,27 @@ function IndividualSection({ individual, isOpen, onToggle, onChange }) {
   );
 }
 
-export default function Sidebar({ individuals, openId, onChange, onToggle }) {
+// The panel itself: an add button and the list of sections.
+export default function Sidebar({
+  individuals,
+  openId,
+  onChange,
+  onToggle,
+  onAdd,
+  onRemove,
+  onLabelChange,
+}) {
   return (
     <aside className="sidebar bg-body-tertiary border-end overflow-auto">
-      <header className="sidebar-header bg-body-tertiary border-bottom px-2 py-2">
+      <header className="sidebar-header bg-body-tertiary border-bottom px-2 py-2 d-flex align-items-center justify-content-between">
         <h2 className="h6 mb-0">Individuals</h2>
+        <button
+          type="button"
+          className="btn btn-sm btn-primary"
+          onClick={onAdd}
+        >
+          Add individual
+        </button>
       </header>
 
       <div className="p-2">
@@ -96,6 +151,9 @@ export default function Sidebar({ individuals, openId, onChange, onToggle }) {
             isOpen={individual.id === openId}
             onToggle={onToggle}
             onChange={onChange}
+            onRemove={onRemove}
+            canRemove={individuals.length > 1}
+            onLabelChange={onLabelChange}
           />
         ))}
       </div>
