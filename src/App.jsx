@@ -4,7 +4,7 @@
 // turning `coordinates` into an array of individuals, a change contained
 // almost entirely to this file.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { JOINTS } from "./joints";
 import Sidebar from "./components/Sidebar";
 import MainView from "./components/MainView";
@@ -17,6 +17,12 @@ export default function App() {
   const [coordinates, setCoordinates] = useState(() =>
     Object.fromEntries(JOINTS.map((joint) => [joint.id, { x: "", y: "", z: "" }]))
   );
+  const [rigCommand, setRigCommand] = useState(null);
+
+  useEffect(() => {
+    const unsubscribe = window.electronAPI?.onRigCommand(setRigCommand);
+    return () => unsubscribe?.();
+  }, []);
 
   // Called by every input box in the sidebar.
   //
@@ -31,7 +37,7 @@ export default function App() {
   return (
     <div className="d-flex vh-100 overflow-hidden">
       <Sidebar coordinates={coordinates} onChange={handleChange} />
-      <MainView />
+      <MainView command={rigCommand} />
     </div>
   );
 }
