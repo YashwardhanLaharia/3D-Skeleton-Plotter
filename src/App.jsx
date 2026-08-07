@@ -63,6 +63,8 @@ function ViewportPlaceholder({ individuals }) {
 }
 
 export default function App() {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
   // The data model is now an array of individuals, not one coordinate object.
   // Each carries its own label, colour, and full coordinate set.
   const [individuals, setIndividuals] = useState(() => [
@@ -151,7 +153,7 @@ export default function App() {
   });
 
   return (
-    <div className="d-flex vh-100 overflow-hidden">
+    <div className="app-shell d-flex vh-100 overflow-hidden">
       <Sidebar
         individuals={individuals}
         openId={openId}
@@ -160,7 +162,21 @@ export default function App() {
         onAdd={handleAdd}
         onRemove={handleRemove}
         onLabelChange={handleLabelChange}
+        isOpen={isSidebarOpen}
       />
+
+      <button
+        type="button"
+        className={`btn btn-light sidebar-edge-toggle border ${isSidebarOpen ? "" : "sidebar-edge-toggle-collapsed"}`}
+        aria-label={`${isSidebarOpen ? "Hide" : "Show"} sidebar`}
+        aria-controls="individuals-sidebar"
+        aria-expanded={isSidebarOpen}
+        title={`${isSidebarOpen ? "Hide" : "Show"} sidebar`}
+        onClick={() => setIsSidebarOpen((isOpen) => !isOpen)}
+      >
+        <span aria-hidden="true">{isSidebarOpen ? "‹" : "›"}</span>
+      </button>
+
       <ViewportPlaceholder individuals={forViewport} />
     </div>
   );
