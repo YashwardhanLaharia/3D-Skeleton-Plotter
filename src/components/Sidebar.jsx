@@ -1,4 +1,5 @@
-// The coordinate entry panel. Renders one row per survey point: number, label,
+// The individuals panel. One collapsible section per body in the grave, each
+// containing a coordinate table: one row per survey point with number, label,
 // and three inputs for X, Y, Z.
 //
 // This component holds no state of its own. It receives the coordinates from
@@ -34,48 +35,125 @@ function JointRow({ number, label, jointId, values, onChange }) {
   );
 }
 
-export default function Sidebar({ coordinates, onChange }) {
+// One individual: a clickable header that summarises them, and their 25 rows
+// underneath when expanded.
+function IndividualSection({
+  individual,
+  isOpen,
+  onToggle,
+  onChange,
+  onRemove,
+  canRemove,
+  onLabelChange,
+}) {
   // A point counts as recorded only when all three axes are filled. Partial
   // entries are treated as not yet done.
   const filledCount = JOINTS.filter((joint) => {
-    const v = coordinates[joint.id];
+    const v = individual.coords[joint.id];
     return v.x !== "" && v.y !== "" && v.z !== "";
   }).length;
 
-  const percent = Math.round((filledCount / JOINTS.length) * 100);
+  return (
+    // The whole header toggles, so I used a button rather than a div
+    <section className="individual border rounded mb-2 bg-body">
+      <button
+        type="button"
+        className="individual-header btn w-100 d-flex align-items-center gap-2 text-start"
+        onClick={() => onToggle(individual.id)}
+        aria-expanded={isOpen}
+      >
+        <span className={`chevron ${isOpen ? "open" : ""}`} aria-hidden="true">
+          ▸
+        </span>
+        <span
+          className="colour-swatch"
+          style={{ background: individual.colour }}
+        />
+        <input
+          type="text"
+          className="form-control form-control-sm label-input"
+          placeholder="Skeleton number"
+          aria-label="Skeleton number"
+          value={individual.label}
+          onChange={(e) => onLabelChange(individual.id, e.target.value)}
+          onClick={(e) => e.stopPropagation()}
+        />
+        <small className="text-body-tertiary">
+          {filledCount}/{JOINTS.length}
+        </small>
+        {canRemove && (
+          <span
+            role="button"
+            tabIndex={0}
+            className="btn-close btn-close-sm"
+            aria-label={`Remove ${individual.label || "individual"}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove(individual.id);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.stopPropagation();
+                onRemove(individual.id);
+              }
+            }}
+          />
+        )}
+      </button>
+      {isOpen && (
+        <div className="px-2 pb-2">
+          {JOINTS.map((joint) => (
+            <JointRow
+              key={joint.id}
+              number={joint.n}
+              label={joint.label}
+              jointId={joint.id}
+              values={individual.coords[joint.id]}
+              onChange={(jointId, axis, value) =>
+                onChange(individual.id, jointId, axis, value)
+              }
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
 
+// The panel itself: an add button and the list of sections.
+export default function Sidebar({
+  individuals,
+  openId,
+  onChange,
+  onToggle,
+  onAdd,
+  onRemove,
+  onLabelChange,
+}) {
   return (
     <aside className="sidebar bg-body-tertiary border-end overflow-auto">
-      <header className="sidebar-header bg-body-tertiary border-bottom px-3 py-2">
-        <h2 className="h6 mb-1">Joint coordinates</h2>
-
-        <div className="d-flex align-items-center gap-2">
-          <div
-            className="progress progress-thin flex-grow-1" 
-            role="progressbar"
-            aria-label="Joints recorded"
-            aria-valuenow={filledCount}
-            aria-valuemin={0}
-            aria-valuemax={JOINTS.length}
-          >
-            <div className="progress-bar" style={{ width: `${percent}%` }} />
-          </div>
-          <small className="text-body-secondary text-nowrap">
-            {filledCount}/{JOINTS.length}
-          </small>
-        </div>
+      <header className="sidebar-header bg-body-tertiary border-bottom px-2 py-2 d-flex align-items-center justify-content-between">
+        <h2 className="h6 mb-0">Individuals</h2>
+        <button
+          type="button"
+          className="btn btn-sm btn-primary"
+          onClick={onAdd}
+        >
+          Add individual
+        </button>
       </header>
 
-      <div className="px-3 py-2">
-        {JOINTS.map((joint) => (
-        // Never hardcode rows here!! Edit joints.js instead.
-          <JointRow
-            key={joint.id}
-            number={joint.n}
-            label={joint.label}
-            jointId={joint.id}
-            values={coordinates[joint.id]}
+      <div className="p-2">
+        {individuals.map((individual) => (
+          <IndividualSection
+            key={individual.id}
+            individual={individual}
+            isOpen={individual.id === openId}
+            onToggle={onToggle}
             onChange={onChange}
+            onRemove={onRemove}
+            canRemove={individuals.length > 1}
+            onLabelChange={onLabelChange}
           />
         ))}
       </div>

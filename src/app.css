@@ -4,10 +4,11 @@
  * Colours come from Bootstrap's CSS variables (--bs-*) rather than fixed hex
  * values, so this stays correct if a dark theme is ever added.
  */
-
 .sidebar {
-  width: 380px;
-  flex-shrink: 0;
+  flex: 0 0 380px;
+  min-width: 0;            
+  scrollbar-gutter: stable;
+  /* flex-shrink: 0; */
 }
 
 .sidebar-header {
@@ -36,7 +37,7 @@
 .form-control.coord-input {
   width: 3.5rem;
   flex-shrink: 0;
-  height: auto;
+  height: auto; 
   padding: 0.15rem 0.3rem;
   font-family: var(--bs-font-monospace);
   font-size: 0.72rem;
@@ -57,6 +58,8 @@
   font-weight: 500;
 }
 
+/* --- Viewport placeholder */
+
 .viewport-inner {
   max-width: 26rem;
 }
@@ -70,6 +73,68 @@
 
 @media (prefers-reduced-motion: reduce) {
   .progress-bar {
+    transition: none;
+  }
+}
+
+/* --- Individuals accordion ------------------------------------------------ */
+
+.individual-header {
+  padding: 0.4rem 0.5rem;
+  border: 0;
+  border-radius: inherit;
+  box-shadow: none;
+}
+
+.individual-header:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: -2px;
+}
+
+.chevron {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 0.75rem;
+  font-size: 0.7rem;
+  color: var(--bs-secondary-color);
+  transition: transform 0.12s ease;
+}
+
+.chevron.open {
+  transform: rotate(90deg);
+}
+
+.colour-swatch {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.form-control.label-input {
+  width: auto;
+  min-width: 0;
+  flex: 1 1 auto;
+  height: auto;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.78rem;
+}
+
+.btn-close-sm {
+  flex-shrink: 0;
+  padding: 0.25rem;
+  background-size: 0.55rem;
+  opacity: 0.4;
+}
+
+.btn-close-sm:hover {
+  opacity: 0.9;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chevron {
     transition: none;
   }
 }
