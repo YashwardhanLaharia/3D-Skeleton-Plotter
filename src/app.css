@@ -6,7 +6,35 @@
  */
 .app-shell {
   --sidebar-width: 380px;
+}
+
+.app-menu-bar {
+  flex: 0 0 auto;
+  user-select: none;
+}
+
+.app-menu-button {
+  padding: 0.2rem 0.65rem;
+  border: 0;
+  border-radius: var(--bs-border-radius-sm);
+  background: transparent;
+  color: var(--bs-body-color);
+  font-size: 0.8rem;
+}
+
+.app-menu-button:hover,
+.app-menu-button:focus-visible {
+  background: var(--bs-secondary-bg);
+}
+
+.app-menu-button:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: -2px;
+}
+
+.app-workspace {
   position: relative;
+  min-height: 0;
 }
 
 .sidebar {

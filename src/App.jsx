@@ -153,31 +153,43 @@ export default function App() {
   });
 
   return (
-    <div className="app-shell d-flex vh-100 overflow-hidden">
-      <Sidebar
-        individuals={individuals}
-        openId={openId}
-        onChange={handleChange}
-        onToggle={handleToggle}
-        onAdd={handleAdd}
-        onRemove={handleRemove}
-        onLabelChange={handleLabelChange}
-        isOpen={isSidebarOpen}
-      />
+    <div className="app-shell d-flex flex-column vh-100 overflow-hidden">
+      <header className="app-menu-bar bg-body-tertiary border-bottom px-1 py-1">
+        <nav className="d-flex align-items-center" aria-label="Application menu">
+          {["File", "Edit", "Settings", "Help", "Language", "View"].map((item) => (
+            <button key={item} type="button" className="app-menu-button">
+              {item}
+            </button>
+          ))}
+        </nav>
+      </header>
 
-      <button
-        type="button"
-        className={`btn btn-light sidebar-edge-toggle border ${isSidebarOpen ? "" : "sidebar-edge-toggle-collapsed"}`}
-        aria-label={`${isSidebarOpen ? "Hide" : "Show"} sidebar`}
-        aria-controls="individuals-sidebar"
-        aria-expanded={isSidebarOpen}
-        title={`${isSidebarOpen ? "Hide" : "Show"} sidebar`}
-        onClick={() => setIsSidebarOpen((isOpen) => !isOpen)}
-      >
-        <span aria-hidden="true">{isSidebarOpen ? "‹" : "›"}</span>
-      </button>
+      <div className="app-workspace d-flex flex-grow-1 overflow-hidden">
+        <Sidebar
+          individuals={individuals}
+          openId={openId}
+          onChange={handleChange}
+          onToggle={handleToggle}
+          onAdd={handleAdd}
+          onRemove={handleRemove}
+          onLabelChange={handleLabelChange}
+          isOpen={isSidebarOpen}
+        />
 
-      <ViewportPlaceholder individuals={forViewport} />
+        <button
+          type="button"
+          className={`btn btn-light sidebar-edge-toggle border ${isSidebarOpen ? "" : "sidebar-edge-toggle-collapsed"}`}
+          aria-label={`${isSidebarOpen ? "Hide" : "Show"} sidebar`}
+          aria-controls="individuals-sidebar"
+          aria-expanded={isSidebarOpen}
+          title={`${isSidebarOpen ? "Hide" : "Show"} sidebar`}
+          onClick={() => setIsSidebarOpen((isOpen) => !isOpen)}
+        >
+          <span aria-hidden="true">{isSidebarOpen ? "‹" : "›"}</span>
+        </button>
+
+        <ViewportPlaceholder individuals={forViewport} />
+      </div>
     </div>
   );
 }
