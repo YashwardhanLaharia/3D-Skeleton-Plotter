@@ -5,6 +5,7 @@ import {
 } from "./rigConfig.js";
 import { DIGITS, DIGIT_JOINT_TYPES } from "./digits/digitsConfig.js";
 import { RigSceneBinding } from "./binding/RigSceneBinding.js";
+import { validateRigCommand } from "./commands/RigCommandValidator.js";
 import { RigState } from "./state/RigState.js";
 import {
   applyRotation,
@@ -62,8 +63,9 @@ export class SkeletonRigController {
   }
 
   execute(command) {
-    if (!command || typeof command !== "object") {
-      return { ok: false, error: "A command object is required" };
+    const validation = validateRigCommand(command);
+    if (!validation.ok) {
+      return validation;
     }
 
     if (command.type === "rotate-joint") {
@@ -78,11 +80,7 @@ export class SkeletonRigController {
     if (command.type === "reset-digit") {
       return this.resetDigit(command.jointId, command.digit);
     }
-    if (command.type === "reset-all") {
-      return this.resetAll();
-    }
-
-    return { ok: false, error: `Unknown command type: ${command.type}` };
+    return this.resetAll();
   }
 
   rotateJoint(jointId, axis, amount) {
