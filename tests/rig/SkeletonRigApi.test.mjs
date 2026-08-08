@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 import { GLTFLoader } from "../../node_modules/three/examples/jsm/loaders/GLTFLoader.js";
-import { createSkeletonRig } from "../../src/rig/SkeletonRigApi.js";
+import {
+  createSkeletonRig,
+  RIG_JOINT_IDS,
+  RIG_ROTATION_AXES,
+} from "../../src/rig/SkeletonRigApi.js";
 import { JOINT_ROTATIONS } from "../../src/rig/rigConfig.js";
 import { DIGITS } from "../../src/rig/digits/digitsConfig.js";
 import { TORSO_ATTACHMENTS } from "../../src/rig/torso/torsoConfig.js";
@@ -34,6 +38,19 @@ test("public API rotates joints without exposing model bone names", async () => 
   assert.equal(result.axis, "z");
   assert.equal(result.value, 10);
   assert.equal(rig.getState().jointRotations.shoulder_l.z, 10);
+});
+
+test("public API exposes stable identifiers and keeps rotate compatibility", async () => {
+  assert.equal(RIG_JOINT_IDS.includes("shoulder_l"), true);
+  assert.deepEqual(RIG_ROTATION_AXES, ["x", "y", "z"]);
+
+  const rig = createSkeletonRig(await loadScene());
+  const explicit = rig.rotateJoint("shoulder_l", "z", 10);
+  const alias = rig.rotate("shoulder_l", "z", -10);
+
+  assert.equal(explicit.ok, true);
+  assert.equal(alias.ok, true);
+  assert.equal(rig.getState().jointRotations.shoulder_l.z, 0);
 });
 
 test("controller preserves domain errors after command validation", async () => {

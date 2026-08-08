@@ -1,5 +1,12 @@
+import { JOINT_ROTATIONS } from "./rigConfig.js";
 import { SkeletonRigController } from "./SkeletonRigController.js";
 
+export const RIG_JOINT_IDS = Object.freeze(Object.keys(JOINT_ROTATIONS));
+export const RIG_ROTATION_AXES = Object.freeze(["x", "y", "z"]);
+
+/**
+ * Public model-control facade. Callers use rig joint IDs and never GLB bone names.
+ */
 export class SkeletonRigApi {
   #controller;
 
@@ -11,7 +18,10 @@ export class SkeletonRigApi {
     return this.#controller.execute(command);
   }
 
-  rotate(jointId, axis, degrees) {
+  /**
+   * Applies an incremental rotation to a configured joint.
+   */
+  rotateJoint(jointId, axis, degrees) {
     return this.execute({
       type: "rotate-joint",
       jointId,
@@ -20,6 +30,16 @@ export class SkeletonRigApi {
     });
   }
 
+  /**
+   * Compatibility alias for rotateJoint().
+   */
+  rotate(jointId, axis, degrees) {
+    return this.rotateJoint(jointId, axis, degrees);
+  }
+
+  /**
+   * Applies an incremental rotation to one configured finger or toe digit.
+   */
   rotateDigit(jointId, digit, axis, degrees) {
     return this.execute({
       type: "rotate-digit",
