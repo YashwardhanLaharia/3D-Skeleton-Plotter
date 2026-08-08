@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { BODY_REGIONS, JOINT_ROTATIONS } from "../rigConfig.js";
+import { DIGITS, DIGIT_JOINT_TYPES } from "../digits/digitsConfig.js";
 
 const ROTATION_AXES = ["x", "y", "z"];
 const ROTATION_STEP = 5;
@@ -38,21 +39,19 @@ function HoldButton({ children, onRepeat, className = "btn btn-outline-secondary
   );
 }
 
-function AxisHoldButtons({ label, onRotate }) {
-  return (
-    <div className="d-flex align-items-center gap-1 mb-1">
-      <span className="small text-body-secondary flex-grow-1">{label}</span>
-      <HoldButton onRepeat={() => onRotate(-1)}>−</HoldButton>
-      <HoldButton onRepeat={() => onRotate(1)}>+</HoldButton>
-    </div>
-  );
-}
-
 export default function LimbRigControls() {
   const [selectedRegion, setSelectedRegion] = useState("head");
   const [selectedJoint, setSelectedJoint] = useState("neck");
+  const [selectedDigit, setSelectedDigit] = useState("1");
   const [selectedAxis, setSelectedAxis] = useState("x");
   const commandId = useRef(0);
+
+  const jointType = DIGIT_JOINT_TYPES[selectedJoint];
+  const digitConfig = jointType ? DIGITS[jointType] : null;
+  const digitMode = Boolean(digitConfig);
+  const digitList = digitConfig
+    ? Object.entries(digitConfig.labelFor)
+    : [];
 
   function sendCommand(command) {
     commandId.current += 1;
@@ -65,6 +64,16 @@ export default function LimbRigControls() {
   }
 
   function rotateJoint(direction) {
+    if (digitMode) {
+      sendCommand({
+        type: "rotate-digit",
+        jointId: selectedJoint,
+        digit: selectedDigit,
+        axis: selectedAxis,
+        amount: direction * ROTATION_STEP,
+      });
+      return;
+    }
     sendCommand({
       type: "rotate-joint",
       jointId: selectedJoint,
@@ -73,22 +82,11 @@ export default function LimbRigControls() {
     });
   }
 
-  function rotateRegion(axis, direction) {
-    sendCommand({
-      type: "rotate-region",
-      region: selectedRegion,
-      axis,
-      amount: direction * ROTATION_STEP,
-    });
-  }
-
   const joint = JOINT_ROTATIONS[selectedJoint];
   const axisLimits = joint.limits[selectedAxis];
-  const controlNote = selectedJoint.startsWith("fingertips")
-    ? "middle-finger control"
-    : selectedJoint.startsWith("toes")
-      ? "third-toe control"
-      : null;
+  const selectedDigitLabel = digitConfig
+    ? digitConfig.labelFor[selectedDigit] ?? ""
+    : "";
 
   return (
     <main className="p-3">
@@ -126,9 +124,30 @@ export default function LimbRigControls() {
         ))}
       </select>
 
+      {digitMode && (
+        <>
+          <label className="form-label small mt-3 mb-1" htmlFor="limb-digit-select">
+            {digitConfig.label}
+          </label>
+          <select
+            id="limb-digit-select"
+            className="form-select form-select-sm"
+            value={selectedDigit}
+            onChange={(event) => setSelectedDigit(event.target.value)}
+          >
+            {digitList.map(([digit, label]) => (
+              <option key={digit} value={digit}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </>
+      )}
+
       <div className="small text-body-secondary mt-3">
-        {joint.label}: {axisLimits[0]}° to {axisLimits[1]}°
-        {controlNote && ` (${controlNote})`}
+        {digitMode
+          ? `${selectedDigitLabel}: ${axisLimits[0]}° to ${axisLimits[1]}°`
+          : `${joint.label}: ${axisLimits[0]}° to ${axisLimits[1]}°`}
       </div>
 
       <div className="d-flex gap-1 mt-2">
@@ -151,38 +170,31 @@ export default function LimbRigControls() {
 
       <div className="d-flex gap-2 mt-2">
         <HoldButton onRepeat={() => rotateJoint(-1)}>
-          Joint −{ROTATION_STEP}°
+          {digitMode ? "Digit" : "Joint"} −{ROTATION_STEP}°
         </HoldButton>
         <HoldButton onRepeat={() => rotateJoint(1)}>
-          Joint +{ROTATION_STEP}°
+          {digitMode ? "Digit" : "Joint"} +{ROTATION_STEP}°
         </HoldButton>
       </div>
 
-      <div className="small text-body-secondary mt-4 mb-1">
-        Rotate selected region by {ROTATION_STEP}°
-      </div>
-      {ROTATION_AXES.map((axis) => (
-        <AxisHoldButtons
-          key={axis}
-          label={`Rotate ${axis.toUpperCase()}`}
-          onRotate={(direction) => rotateRegion(axis, direction)}
-        />
-      ))}
-
       <div className="d-flex gap-2 mt-3">
+        {digitMode && (
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-secondary"
+            onClick={() =>
+              sendCommand({ type: "reset-digit", jointId: selectedJoint, digit: selectedDigit })
+            }
+          >
+            Reset digit
+          </button>
+        )}
         <button
           type="button"
           className="btn btn-sm btn-outline-secondary"
           onClick={() => sendCommand({ type: "reset-joint", jointId: selectedJoint })}
         >
           Reset joint
-        </button>
-        <button
-          type="button"
-          className="btn btn-sm btn-outline-secondary"
-          onClick={() => sendCommand({ type: "reset-region", region: selectedRegion })}
-        >
-          Reset limb
         </button>
         <button
           type="button"

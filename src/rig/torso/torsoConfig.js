@@ -33,8 +33,6 @@ export const SPINAL_BONE_NAMES = [
 
 export const LOWER_BODY_SACRAL_BONE_NAMES = [
   "DEF-SpineLumbar5",
-  "DEF-FemurL",
-  "DEF-FemurR",
 ];
 
 export const TORSO_REGION_JOINT_IDS = [

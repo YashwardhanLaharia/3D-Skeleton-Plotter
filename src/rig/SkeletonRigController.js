@@ -3,6 +3,7 @@ import {
   JOINT_ROTATIONS,
   RIGHT_ARM_JOINTS,
 } from "./rigConfig.js";
+import { DIGITS, DIGIT_JOINT_TYPES, digitSide } from "./digits/digitsConfig.js";
 import { TORSO_ATTACHMENTS } from "./torso/torsoConfig.js";
 import {
   applyRotation,
@@ -25,16 +26,14 @@ export class SkeletonRigController {
       ])
     );
     this.regionBones = this.resolveRegions();
-    this.jointRestRotations = this.captureRestRotations(this.jointBones);
-    this.regionRestRotations = this.captureRestRotations(
-      Object.values(this.regionBones).flat().reduce((bones, bone) => {
-        bones[bone.name] = bone;
-        return bones;
-      }, {})
-    );
+    this.digitBones = this.resolveDigitBones();
+    this.jointRestRotations = this.captureRestRotations({
+      ...this.jointBones,
+      ...this.digitBones,
+    });
     this.restTorsoAttachment = this.captureTorsoAttachment();
     this.jointRotations = this.createRotationState(Object.keys(JOINT_ROTATIONS));
-    this.regionRotations = this.createRotationState(Object.keys(BODY_REGIONS));
+    this.digitRotations = this.createRotationState(Object.keys(this.digitBones));
   }
 
   resolveJointBones() {
@@ -57,6 +56,25 @@ export class SkeletonRigController {
           .filter(Boolean),
       ])
     );
+  }
+
+  digitKey(jointId, digit) {
+    return `${jointId}__${digit}`;
+  }
+
+  resolveDigitBones() {
+    const digits = {};
+    for (const [jointId, jointType] of Object.entries(DIGIT_JOINT_TYPES)) {
+      const config = DIGITS[jointType];
+      const side = digitSide(jointId);
+      for (const digit of Object.keys(config.labelFor)) {
+        digits[this.digitKey(jointId, digit)] = config
+          .boneNames(digit, side)
+          .map((boneName) => this.scene.getObjectByName(boneName))
+          .filter(Boolean);
+      }
+    }
+    return digits;
   }
 
   captureRestRotations(bones) {
@@ -96,11 +114,11 @@ export class SkeletonRigController {
     if (command.type === "reset-joint") {
       return this.resetJoint(command.jointId);
     }
-    if (command.type === "rotate-region") {
-      return this.rotateRegion(command.region, command.axis, command.amount);
+    if (command.type === "rotate-digit") {
+      return this.rotateDigit(command.jointId, command.digit, command.axis, command.amount);
     }
-    if (command.type === "reset-region") {
-      return this.resetRegion(command.region);
+    if (command.type === "reset-digit") {
+      return this.resetDigit(command.jointId, command.digit);
     }
     if (command.type === "reset-all") {
       return this.resetAll();
@@ -124,10 +142,7 @@ export class SkeletonRigController {
       min,
       max
     );
-    this.applyAllRotations();
-    this.syncTorsoAttachment(
-      ["manubrium", "sacral_promontory"].includes(jointId)
-    );
+    this.applyAllRotations(jointId !== "neck");
 
     return {
       ok: true,
@@ -149,47 +164,50 @@ export class SkeletonRigController {
     return { ok: true, type: "reset-joint", jointId };
   }
 
-  rotateRegion(region, axis, amount) {
-    const bones = this.regionBones[region];
+  rotateDigit(jointId, digit, axis, amount) {
+    const key = this.digitKey(jointId, digit);
+    const bones = this.digitBones[key];
     const degrees = Number(amount);
+    const limits = { x: [-90, 90], y: [-90, 90], z: [-90, 90] };
 
-    if (!bones || !this.regionRotations[region] || !["x", "y", "z"].includes(axis) || !Number.isFinite(degrees)) {
-      return { ok: false, error: "Invalid region rotation command" };
+    if (!DIGIT_JOINT_TYPES[jointId] || !bones || !limits[axis] || !Number.isFinite(degrees)) {
+      return { ok: false, error: "Invalid digit rotation command" };
     }
 
-    this.regionRotations[region][axis] += degrees;
+    const [min, max] = limits[axis];
+    this.digitRotations[key][axis] = clamp(
+      this.digitRotations[key][axis] + degrees,
+      min,
+      max
+    );
     this.applyAllRotations();
-    this.syncTorsoAttachment(region === "torso");
 
     return {
       ok: true,
-      type: "rotate-region",
-      region,
+      type: "rotate-digit",
+      jointId,
+      digit,
       axis,
-      amount: degrees,
-      rotation: { ...this.regionRotations[region] },
+      value: this.digitRotations[key][axis],
       bones: bones.map((bone) => bone.name),
     };
   }
 
-  resetRegion(region) {
-    if (!this.regionRotations[region]) {
-      return { ok: false, error: `Unknown region: ${region}` };
+  resetDigit(jointId, digit) {
+    const key = this.digitKey(jointId, digit);
+    if (!this.digitRotations[key]) {
+      return { ok: false, error: `Unknown digit: ${digit}` };
     }
 
-    this.regionRotations[region] = { x: 0, y: 0, z: 0 };
-    for (const jointId of BODY_REGIONS[region].jointIds) {
-      this.jointRotations[jointId] = { x: 0, y: 0, z: 0 };
-    }
+    this.digitRotations[key] = { x: 0, y: 0, z: 0 };
     this.applyAllRotations();
-    return { ok: true, type: "reset-region", region };
+    return { ok: true, type: "reset-digit", jointId, digit };
   }
 
   resetAll() {
     this.jointRotations = this.createRotationState(Object.keys(JOINT_ROTATIONS));
-    this.regionRotations = this.createRotationState(Object.keys(BODY_REGIONS));
+    this.digitRotations = this.createRotationState(Object.keys(this.digitBones));
     this.applyAllRotations();
-    this.syncTorsoAttachment(true);
     return { ok: true, type: "reset-all" };
   }
 
@@ -203,48 +221,55 @@ export class SkeletonRigController {
         };
       }
     }
-    this.applyAllRotations();
+    const neckRotation = this.jointRotations.neck;
+    const syncTorso =
+      !neckRotation ||
+      Object.values(neckRotation).every((value) => value === 0);
+    this.applyAllRotations(syncTorso);
     return this.getState().jointRotations;
   }
 
-  applyAllRotations() {
+  applyAllRotations(syncTorso = true) {
     const rotations = new Map();
-
-    for (const [region, bones] of Object.entries(this.regionBones)) {
-      const factor = BODY_REGIONS[region].distribute
-        ? 1 / bones.length
-        : 1;
-      for (const bone of bones) {
-        const rotation = rotations.get(bone.name) ?? { x: 0, y: 0, z: 0 };
-        rotation.x += this.regionRotations[region].x * factor;
-        rotation.y += this.regionRotations[region].y * factor;
-        rotation.z += this.regionRotations[region].z * factor;
-        rotations.set(bone.name, rotation);
-      }
-    }
 
     for (const [jointId, config] of Object.entries(JOINT_ROTATIONS)) {
       const factor = config.distribute ? 1 / config.boneNames.length : 1;
-      for (const boneName of config.boneNames) {
-        const rotation = rotations.get(boneName) ?? { x: 0, y: 0, z: 0 };
-        rotation.x += this.jointRotations[jointId].x * factor;
-        rotation.y += this.jointRotations[jointId].y * factor;
-        rotation.z += this.jointRotations[jointId].z * factor;
-        rotations.set(boneName, rotation);
-      }
+      this.accumulateRotation(
+        rotations,
+        config.boneNames,
+        this.jointRotations[jointId],
+        factor
+      );
+    }
+    for (const [key, bones] of Object.entries(this.digitBones)) {
+      this.accumulateRotation(
+        rotations,
+        bones.map((bone) => bone.name),
+        this.digitRotations[key],
+        1
+      );
     }
 
     for (const [boneName, rotation] of rotations) {
       const bone = this.scene.getObjectByName(boneName);
-      const restRotation =
-        this.jointRestRotations[boneName] ?? this.regionRestRotations[boneName];
+      const restRotation = this.jointRestRotations[boneName];
       if (bone && restRotation) {
         applyRotation(bone, restRotation, rotation);
       }
     }
 
     this.scene.updateMatrixWorld(true);
-    this.syncTorsoAttachment(true);
+    this.syncTorsoAttachment(syncTorso);
+  }
+
+  accumulateRotation(rotations, boneNames, state, factor) {
+    for (const boneName of boneNames) {
+      const rotation = rotations.get(boneName) ?? { x: 0, y: 0, z: 0 };
+      rotation.x += (state?.x ?? 0) * factor;
+      rotation.y += (state?.y ?? 0) * factor;
+      rotation.z += (state?.z ?? 0) * factor;
+      rotations.set(boneName, rotation);
+    }
   }
 
   syncTorsoAttachment(enabled) {
@@ -285,9 +310,9 @@ export class SkeletonRigController {
           { ...rotation },
         ])
       ),
-      regionRotations: Object.fromEntries(
-        Object.entries(this.regionRotations).map(([region, rotation]) => [
-          region,
+      digitRotations: Object.fromEntries(
+        Object.entries(this.digitRotations).map(([digitKey, rotation]) => [
+          digitKey,
           { ...rotation },
         ])
       ),
