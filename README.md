@@ -32,6 +32,8 @@ secondRig.rotate("knee_l", "x", -10);
 
 Joint IDs, axes, and rotation limits are defined by the rig configuration. The API returns `{ ok: true, ... }` for successful operations and `{ ok: false, error }` for invalid commands.
 
+Pose updates are explicit: `patchPose(pose)` changes only the supplied joints, while `replacePose(pose)` resets the existing joint and digit state before applying the supplied joints. `setPose(pose)` remains as a compatibility alias for partial updates.
+
 ### Development
 
 ```bash
