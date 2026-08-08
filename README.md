@@ -6,6 +6,32 @@ A standalone desktop application, built using Electron and React, for private fo
 
 ## Usage
 
+### Rig API
+
+The model can be controlled through an instance of `SkeletonRigApi` without using model bone names:
+
+```js
+import { createSkeletonRig } from "./src/rig/SkeletonRigApi.js";
+
+const rig = createSkeletonRig(scene);
+rig.rotate("shoulder_l", "z", 10);
+rig.rotateDigit("fingertips_r", "2", "y", 15);
+rig.resetJoint("shoulder_l");
+rig.resetAll();
+```
+
+Each skeleton scene should have its own rig instance, so state and transformations remain independent:
+
+```js
+const firstRig = createSkeletonRig(firstScene);
+const secondRig = createSkeletonRig(secondScene);
+
+firstRig.rotate("knee_l", "x", 20);
+secondRig.rotate("knee_l", "x", -10);
+```
+
+Joint IDs, axes, and rotation limits are defined by the rig configuration. The API returns `{ ok: true, ... }` for successful operations and `{ ok: false, error }` for invalid commands.
+
 ### Development
 
 ```bash
