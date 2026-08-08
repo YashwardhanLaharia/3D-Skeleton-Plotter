@@ -27,6 +27,7 @@ export class RigSceneBinding {
     this.bonesByName = this.createBoneIndex();
   }
 
+  // Multiple configuration targets can reference the same scene bone.
   createBoneIndex() {
     const bones = [
       ...Object.values(this.jointBones).flat(),
@@ -38,10 +39,12 @@ export class RigSceneBinding {
     return new Map(bones.map((bone) => [bone.name, bone]));
   }
 
+  // All later transform application uses this cached index instead of scene lookups.
   getBone(name) {
     return this.bonesByName.get(name);
   }
 
+  // Joint chains may contain several bones when a rotation is distributed.
   resolveJointBones() {
     return Object.fromEntries(
       Object.entries(JOINT_ROTATIONS).map(([jointId, config]) => [
@@ -53,6 +56,7 @@ export class RigSceneBinding {
     );
   }
 
+  // Region roots are used for diagnostics to verify that configured joints remain attached.
   resolveRegions() {
     return Object.fromEntries(
       Object.entries(BODY_REGIONS).map(([region, config]) => [
@@ -64,6 +68,7 @@ export class RigSceneBinding {
     );
   }
 
+  // Each digit key maps to its complete finger or toe chain for isolated rotation.
   resolveDigitBones() {
     const digits = {};
 

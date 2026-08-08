@@ -41,10 +41,12 @@ export class SkeletonRigController {
     );
   }
 
+  // Digit state uses a compound key so each hand and foot remains independent.
   digitKey(jointId, digit) {
     return `${jointId}__${digit}`;
   }
 
+  // Rotations are always applied relative to the model's imported rest pose.
   captureRestRotations(bones) {
     return Object.fromEntries(
       Object.values(bones)
@@ -62,6 +64,7 @@ export class SkeletonRigController {
     };
   }
 
+  // Validate protocol shape first; target-specific validation stays in the operation methods.
   execute(command) {
     const validation = validateRigCommand(command);
     if (!validation.ok) {
@@ -83,6 +86,7 @@ export class SkeletonRigController {
     return this.resetAll();
   }
 
+  // A joint command stores accumulated degrees; applyAllRotations converts them to bone rotations.
   rotateJoint(jointId, axis, amount) {
     const config = JOINT_ROTATIONS[jointId];
     const bone = this.bones[jointId];
@@ -226,6 +230,7 @@ export class SkeletonRigController {
     this.applyAllRotations(syncTorso);
   }
 
+  // Rebuild every affected bone from rest rotations so repeated commands do not compound rounding errors.
   applyAllRotations(syncTorso = true) {
     const rotations = new Map();
 
@@ -269,6 +274,7 @@ export class SkeletonRigController {
     }
   }
 
+  // Neck rotation is intentionally excluded from torso attachment synchronization.
   syncTorsoAttachment(enabled) {
     if (!enabled) {
       return;
@@ -300,6 +306,7 @@ export class SkeletonRigController {
     return this.state.getState();
   }
 
+  // Diagnostics expose binding health without requiring callers to inspect Three.js objects.
   getDiagnostics() {
     return {
       jointCount: Object.keys(JOINT_ROTATIONS).length,

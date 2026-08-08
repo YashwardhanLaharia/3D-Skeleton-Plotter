@@ -1,3 +1,4 @@
+// Neck rotation is distributed across the cervical and upper thoracic chain.
 export const CERVICAL_BONE_NAMES = [
   "DEF-SpineCervical1",
   "DEF-SpineCervical2",
@@ -8,6 +9,7 @@ export const CERVICAL_BONE_NAMES = [
   "DEF-SpineThoracic010",
 ];
 
+// The torso chain follows the model hierarchy from pelvis through the cervical spine.
 export const SPINAL_BONE_NAMES = [
   "DEF-Pelvis",
   "DEF-SpineLumbar5",
@@ -31,6 +33,7 @@ export const SPINAL_BONE_NAMES = [
   ...CERVICAL_BONE_NAMES.slice(0, -1).reverse(),
 ];
 
+// Sacral movement currently drives only the lumbar attachment point.
 export const LOWER_BODY_SACRAL_BONE_NAMES = [
   "DEF-SpineLumbar5",
 ];

@@ -44,6 +44,7 @@ export function validateRigCommand(command) {
   return { ok: false, error: `Unknown command type: ${command.type}` };
 }
 
+// Rotation commands accept numeric strings because IPC payloads may be serialized.
 function isRotationCommand(command) {
   return Boolean(
     isIdentifier(command.jointId) &&
@@ -52,10 +53,12 @@ function isRotationCommand(command) {
   );
 }
 
+// IDs are strings so callers cannot accidentally address a numeric array index.
 function isIdentifier(value) {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+// Blank strings and booleans are rejected even though Number() can coerce them.
 function isAmount(value) {
   if (typeof value === "number") {
     return Number.isFinite(value);

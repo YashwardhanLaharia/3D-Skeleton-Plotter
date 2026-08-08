@@ -1,11 +1,14 @@
 import { Box3, Matrix4, Vector3 } from "three";
 
+// Foot meshes provide a more reliable ground reference than the full skeleton bounds.
 const FOOT_MESH_PATTERN = /(foot|feet|metatarsal|calcaneus)/i;
 
+/** Keeps an accumulated rotation within its configured axis limits. */
 export function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
+/** Applies degree offsets on top of a bone's imported rest rotation. */
 export function applyRotation(bone, restRotation, rotation) {
   const nextRotation = restRotation.clone();
   nextRotation.x += (rotation.x * Math.PI) / 180;
@@ -14,6 +17,7 @@ export function applyRotation(bone, restRotation, rotation) {
   bone.rotation.copy(nextRotation);
 }
 
+/** Calculates scale and ground placement for the viewport wrapper. */
 export function getDisplayTransform(scene) {
   const bounds = new Box3().setFromObject(scene);
   const feetBounds = new Box3();
@@ -39,6 +43,7 @@ export function getDisplayTransform(scene) {
   };
 }
 
+/** Copies a driver's world-space delta onto an attached root bone. */
 export function syncAttachment({
   scene,
   driver,
@@ -51,6 +56,7 @@ export function syncAttachment({
   }
 
   scene.updateMatrixWorld(true);
+  // Convert the driver's rest-to-current delta into the attachment's local space.
   const driverDelta = new Matrix4()
     .copy(driver.matrixWorld)
     .multiply(new Matrix4().copy(restDriver).invert());

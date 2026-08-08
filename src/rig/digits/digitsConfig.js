@@ -1,3 +1,4 @@
+// Shared limits keep hand and foot digit controls consistent across all axes.
 export const DIGIT_ROTATION_LIMITS = {
   x: [-90, 90],
   y: [-90, 90],
@@ -28,6 +29,7 @@ export const DIGITS = {
     label: "Digit",
     labelFor: DIGIT_NUMBER_LABELS,
     limits: DIGIT_ROTATION_LIMITS,
+    // The thumb chain omits an intermediate phalanx in the GLB.
     boneNames: (digit, side) =>
       Number(digit) === 1
         ? [
@@ -48,6 +50,7 @@ export const DIGITS = {
     label: "Toe",
     labelFor: TOE_NUMBER_LABELS,
     limits: DIGIT_ROTATION_LIMITS,
+    // The big-toe distal bone has a model-specific 001 suffix.
     boneNames: (digit, side) =>
       Number(digit) === 1
         ? [

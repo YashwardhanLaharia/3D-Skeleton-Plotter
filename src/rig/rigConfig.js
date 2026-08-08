@@ -8,6 +8,7 @@ import {
   TORSO_REGION_JOINT_IDS,
 } from "./torso/torsoConfig.js";
 
+// Joint limits are symmetric because commands apply incremental signed degrees.
 function limits(max) {
   return {
     x: [-max, max],
@@ -16,6 +17,7 @@ function limits(max) {
   };
 }
 
+// Regions group controllable joints and identify the root bones used for attachment checks.
 export const BODY_REGIONS = {
   head: {
     label: "Head",
@@ -50,6 +52,7 @@ export const BODY_REGIONS = {
   },
 };
 
+// This registry is the rig's authoritative list of controllable joints.
 const JOINT_DEFINITIONS = {
   head_centre: {
     label: "centre of head",
@@ -70,6 +73,7 @@ const JOINT_DEFINITIONS = {
     boneNames: ["DEF-Mandible"],
     max: 35,
   },
+  // primaryBoneName is the representative control/diagnostic bone; boneNames is the full chain.
   manubrium: {
     label: "manubrium",
     region: "torso",
@@ -114,6 +118,7 @@ const JOINT_DEFINITIONS = {
   toes_r: { label: "right toes", region: "rightLeg", boneNames: ["DEF-MetatarsalR3"], max: 60 },
 };
 
+// Normalize authoring definitions into the runtime shape consumed by the controller.
 export const JOINT_ROTATIONS = Object.fromEntries(
   Object.entries(JOINT_DEFINITIONS).map(([jointId, config]) => [
     jointId,

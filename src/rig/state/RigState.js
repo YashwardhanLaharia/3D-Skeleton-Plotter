@@ -1,3 +1,4 @@
+// Every target starts at zero relative to the imported model pose.
 function createRotationState(keys) {
   return Object.fromEntries(
     keys.map((key) => [key, { x: 0, y: 0, z: 0 }])
@@ -14,6 +15,7 @@ export class RigState {
     this.digitRotations = createRotationState(digitKeys);
   }
 
+  // State owns clamping so every caller follows the same limit rules.
   incrementJoint(jointId, axis, degrees, limits) {
     this.jointRotations[jointId][axis] = this.increment(
       this.jointRotations[jointId][axis],
@@ -52,11 +54,13 @@ export class RigState {
     this.digitRotations[digitKey] = { x: 0, y: 0, z: 0 };
   }
 
+  // Rebuild maps to remove accumulated values while preserving configured keys.
   resetAll() {
     this.jointRotations = createRotationState(Object.keys(this.jointRotations));
     this.digitRotations = createRotationState(Object.keys(this.digitRotations));
   }
 
+  // Return copies so external consumers cannot mutate internal rig state.
   getState() {
     return {
       jointRotations: Object.fromEntries(

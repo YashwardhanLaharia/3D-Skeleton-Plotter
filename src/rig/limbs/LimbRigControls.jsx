@@ -2,10 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { BODY_REGIONS, JOINT_ROTATIONS } from "../rigConfig.js";
 import { DIGITS, DIGIT_JOINT_TYPES } from "../digits/digitsConfig.js";
 
+// UI controls use small repeated degree steps rather than exposing raw model transforms.
 const ROTATION_AXES = ["x", "y", "z"];
 const ROTATION_STEP = 5;
 const REPEAT_INTERVAL = 100;
 
+/** Repeats a rotation command while the pointer remains pressed. */
 function HoldButton({ children, onRepeat, className = "btn btn-outline-secondary" }) {
   const interval = useRef(null);
 
@@ -39,6 +41,10 @@ function HoldButton({ children, onRepeat, className = "btn btn-outline-secondary
   );
 }
 
+/**
+ * Renders the standalone controls window and sends model-independent commands
+ * through the preload bridge to the main skeleton view.
+ */
 export default function LimbRigControls() {
   const [selectedRegion, setSelectedRegion] = useState("head");
   const [selectedJoint, setSelectedJoint] = useState("neck");
@@ -53,6 +59,7 @@ export default function LimbRigControls() {
     ? Object.entries(digitConfig.labelFor)
     : [];
 
+  // IDs let future IPC acknowledgements correlate repeated hold-button commands.
   function sendCommand(command) {
     commandId.current += 1;
     window.electronAPI?.sendRigCommand({ ...command, id: commandId.current });
@@ -63,6 +70,7 @@ export default function LimbRigControls() {
     setSelectedJoint(BODY_REGIONS[region].jointIds[0]);
   }
 
+  // Digit selections reuse the same UI action but emit a different command type.
   function rotateJoint(direction) {
     if (digitMode) {
       sendCommand({
