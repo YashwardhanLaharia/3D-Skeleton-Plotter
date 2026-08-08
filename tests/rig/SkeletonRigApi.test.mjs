@@ -35,6 +35,23 @@ test("public API rotates joints without exposing model bone names", async () => 
   assert.equal(rig.getState().jointRotations.shoulder_l.z, 10);
 });
 
+test("controller preserves domain errors after command validation", async () => {
+  const rig = createSkeletonRig(await loadScene());
+
+  assert.deepEqual(rig.execute({ type: "reset-joint", jointId: "unknown" }), {
+    ok: false,
+    error: "Unknown joint: unknown",
+  });
+  assert.deepEqual(
+    rig.execute({ type: "reset-digit", jointId: "toes_r", digit: "9" }),
+    { ok: false, error: "Unknown digit: 9" }
+  );
+  assert.equal(
+    rig.execute({ type: "rotate-joint", jointId: "knee_l", axis: "x", amount: "10" }).ok,
+    true
+  );
+});
+
 test("rig configuration owns labels and digit rotation limits", async () => {
   assert.equal(JOINT_ROTATIONS.neck.label, "neck");
   assert.equal(JOINT_ROTATIONS.head_centre.label, "centre of head");

@@ -5,7 +5,7 @@ const AXES = new Set(["x", "y", "z"]);
  * Model-specific joint and digit existence remains the controller's job.
  */
 export function validateRigCommand(command) {
-  if (!command || typeof command !== "object") {
+  if (!command || typeof command !== "object" || Array.isArray(command)) {
     return { ok: false, error: "A command object is required" };
   }
 
@@ -14,13 +14,13 @@ export function validateRigCommand(command) {
   }
 
   if (command.type === "reset-joint") {
-    return command.jointId
+    return isIdentifier(command.jointId)
       ? { ok: true, command }
       : { ok: false, error: "Invalid joint reset command" };
   }
 
   if (command.type === "reset-digit") {
-    return command.jointId && command.digit
+    return isIdentifier(command.jointId) && isIdentifier(command.digit)
       ? { ok: true, command }
       : { ok: false, error: "Invalid digit reset command" };
   }
@@ -32,7 +32,11 @@ export function validateRigCommand(command) {
   }
 
   if (command.type === "rotate-digit") {
-    return command.jointId && command.digit && isRotationCommand(command)
+    return (
+      isIdentifier(command.jointId) &&
+      isIdentifier(command.digit) &&
+      isRotationCommand(command)
+    )
       ? { ok: true, command }
       : { ok: false, error: "Invalid digit rotation command" };
   }
@@ -42,8 +46,24 @@ export function validateRigCommand(command) {
 
 function isRotationCommand(command) {
   return Boolean(
-    command.jointId &&
+    isIdentifier(command.jointId) &&
       AXES.has(command.axis) &&
-      Number.isFinite(Number(command.amount))
+      isAmount(command.amount)
+  );
+}
+
+function isIdentifier(value) {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function isAmount(value) {
+  if (typeof value === "number") {
+    return Number.isFinite(value);
+  }
+
+  return (
+    typeof value === "string" &&
+    value.trim().length > 0 &&
+    Number.isFinite(Number(value))
   );
 }

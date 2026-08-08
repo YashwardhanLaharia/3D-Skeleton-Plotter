@@ -17,17 +17,28 @@ test("command validator accepts supported command shapes", () => {
 });
 
 test("command validator rejects malformed commands before model lookup", () => {
-  assert.deepEqual(validateRigCommand(null), {
-    ok: false,
-    error: "A command object is required",
+  const invalidCommands = [
+    null,
+    [],
+    { type: "reset-joint", jointId: "" },
+    { type: "reset-digit", jointId: "toes_r", digit: 2 },
+    { type: "rotate-joint", jointId: "knee_l", axis: "q", amount: 10 },
+    { type: "rotate-joint", jointId: "knee_l", axis: "x", amount: true },
+    { type: "rotate-joint", jointId: "knee_l", axis: "x", amount: "" },
+    { type: "rotate-joint", jointId: "knee_l", axis: "x", amount: Number.NaN },
+    { type: "rotate-digit", jointId: "toes_r", digit: "2", axis: "x", amount: "nope" },
+  ];
+
+  invalidCommands.forEach((command) => {
+    assert.equal(validateRigCommand(command).ok, false, JSON.stringify(command));
   });
+
   assert.deepEqual(
-    validateRigCommand({ type: "rotate-joint", jointId: "knee_l", axis: "q", amount: 10 }),
-    { ok: false, error: "Invalid joint rotation command" }
-  );
-  assert.deepEqual(
-    validateRigCommand({ type: "rotate-digit", jointId: "toes_r", digit: "2", axis: "x", amount: "nope" }),
-    { ok: false, error: "Invalid digit rotation command" }
+    validateRigCommand({ type: "rotate-joint", jointId: "knee_l", axis: "x", amount: "10" }),
+    {
+      ok: true,
+      command: { type: "rotate-joint", jointId: "knee_l", axis: "x", amount: "10" },
+    }
   );
   assert.deepEqual(validateRigCommand({ type: "unknown" }), {
     ok: false,
