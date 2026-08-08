@@ -24,6 +24,22 @@ export class RigSceneBinding {
         TORSO_ATTACHMENTS.attachedRootBoneName
       ),
     };
+    this.bonesByName = this.createBoneIndex();
+  }
+
+  createBoneIndex() {
+    const bones = [
+      ...Object.values(this.jointBones).flat(),
+      ...Object.values(this.regionBones).flat(),
+      ...Object.values(this.digitBones).flat(),
+      ...Object.values(this.attachments),
+    ].filter(Boolean);
+
+    return new Map(bones.map((bone) => [bone.name, bone]));
+  }
+
+  getBone(name) {
+    return this.bonesByName.get(name);
   }
 
   resolveJointBones() {

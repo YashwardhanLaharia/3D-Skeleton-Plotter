@@ -49,6 +49,11 @@ test("rig configuration owns labels and digit rotation limits", async () => {
 
   assert.equal(result.ok, true);
   assert.equal(result.value, DIGITS.fingertip.limits.x[1]);
+
+  const diagnostics = rig.getDiagnostics();
+  assert.equal(diagnostics.digits.fingertips_r__2.found, true);
+  assert.equal(diagnostics.attachments.driver.found, true);
+  assert.equal(diagnostics.attachments.attachment.found, true);
 });
 
 test("public API supports pose, digit, and reset operations", async () => {

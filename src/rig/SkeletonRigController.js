@@ -194,7 +194,7 @@ export class SkeletonRigController {
     }
 
     for (const [boneName, rotation] of rotations) {
-      const bone = this.scene.getObjectByName(boneName);
+      const bone = this.binding.getBone(boneName);
       const restRotation = this.jointRestRotations[boneName];
       if (bone && restRotation) {
         applyRotation(bone, restRotation, rotation);
@@ -262,6 +262,25 @@ export class SkeletonRigController {
           },
         ])
       ),
+      digits: Object.fromEntries(
+        Object.entries(this.digitBones).map(([digitKey, bones]) => [
+          digitKey,
+          {
+            found: bones.length > 0,
+            foundBones: bones.map((bone) => bone.name),
+          },
+        ])
+      ),
+      attachments: {
+        driver: {
+          found: Boolean(this.binding.attachments.driver),
+          boneName: this.binding.attachments.driver?.name,
+        },
+        attachment: {
+          found: Boolean(this.binding.attachments.attachment),
+          boneName: this.binding.attachments.attachment?.name,
+        },
+      },
       regions: Object.fromEntries(
         Object.entries(BODY_REGIONS).map(([region, config]) => [
           region,
