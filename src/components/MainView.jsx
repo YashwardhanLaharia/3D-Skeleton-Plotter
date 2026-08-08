@@ -2,7 +2,7 @@ import { Suspense, useEffect, useMemo } from "react";
 import { Canvas, extend, useLoader, useThree } from "@react-three/fiber";
 import { OrbitControls as ThreeOrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { SkeletonRigController } from "../rig/SkeletonRigController.js";
+import { createSkeletonRig } from "../rig/SkeletonRigApi.js";
 import modelUrl from "../assets/models/skeleton-male.glb";
 
 // Make Three.js orbit controls available as a React Three Fiber element.
@@ -12,7 +12,7 @@ const EMPTY_POSE = Object.freeze({});
 
 function SkeletonModel({ pose = EMPTY_POSE, command }) {
   const { scene } = useLoader(GLTFLoader, modelUrl);
-  const rig = useMemo(() => new SkeletonRigController(scene), [scene]);
+  const rig = useMemo(() => createSkeletonRig(scene), [scene]);
   const transform = useMemo(() => rig.getDisplayTransform(), [rig]);
 
   useEffect(() => {
