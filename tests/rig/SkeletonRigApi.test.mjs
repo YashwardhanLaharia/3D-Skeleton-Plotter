@@ -3,6 +3,8 @@ import fs from "node:fs";
 import test from "node:test";
 import { GLTFLoader } from "../../node_modules/three/examples/jsm/loaders/GLTFLoader.js";
 import { createSkeletonRig } from "../../src/rig/SkeletonRigApi.js";
+import { JOINT_ROTATIONS } from "../../src/rig/rigConfig.js";
+import { DIGITS } from "../../src/rig/digits/digitsConfig.js";
 
 const modelPath = new URL(
   "../../src/assets/models/skeleton-male.glb",
@@ -31,6 +33,22 @@ test("public API rotates joints without exposing model bone names", async () => 
   assert.equal(result.axis, "z");
   assert.equal(result.value, 10);
   assert.equal(rig.getState().jointRotations.shoulder_l.z, 10);
+});
+
+test("rig configuration owns labels and digit rotation limits", async () => {
+  assert.equal(JOINT_ROTATIONS.neck.label, "neck");
+  assert.equal(JOINT_ROTATIONS.head_centre.label, "centre of head");
+  assert.deepEqual(DIGITS.fingertip.limits, {
+    x: [-90, 90],
+    y: [-90, 90],
+    z: [-90, 90],
+  });
+
+  const rig = createSkeletonRig(await loadScene());
+  const result = rig.rotateDigit("fingertips_r", "2", "x", 100);
+
+  assert.equal(result.ok, true);
+  assert.equal(result.value, DIGITS.fingertip.limits.x[1]);
 });
 
 test("public API supports pose, digit, and reset operations", async () => {

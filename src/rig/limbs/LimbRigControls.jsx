@@ -83,7 +83,7 @@ export default function LimbRigControls() {
   }
 
   const joint = JOINT_ROTATIONS[selectedJoint];
-  const axisLimits = joint.limits[selectedAxis];
+  const axisLimits = digitConfig?.limits[selectedAxis] ?? joint.limits[selectedAxis];
   const selectedDigitLabel = digitConfig
     ? digitConfig.labelFor[selectedDigit] ?? ""
     : "";

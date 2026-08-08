@@ -167,10 +167,12 @@ export class SkeletonRigController {
   rotateDigit(jointId, digit, axis, amount) {
     const key = this.digitKey(jointId, digit);
     const bones = this.digitBones[key];
+    const jointType = DIGIT_JOINT_TYPES[jointId];
+    const config = jointType ? DIGITS[jointType] : null;
     const degrees = Number(amount);
-    const limits = { x: [-90, 90], y: [-90, 90], z: [-90, 90] };
+    const limits = config?.limits;
 
-    if (!DIGIT_JOINT_TYPES[jointId] || !bones || !limits[axis] || !Number.isFinite(degrees)) {
+    if (!config || !bones || bones.length === 0 || !limits?.[axis] || !Number.isFinite(degrees)) {
       return { ok: false, error: "Invalid digit rotation command" };
     }
 

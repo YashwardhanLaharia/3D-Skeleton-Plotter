@@ -1,3 +1,9 @@
+export const DIGIT_ROTATION_LIMITS = {
+  x: [-90, 90],
+  y: [-90, 90],
+  z: [-90, 90],
+};
+
 export const DIGIT_NUMBER_LABELS = {
   1: "Thumb",
   2: "Index",
@@ -20,6 +26,7 @@ export const DIGITS = {
     sideSuffixes: ["L", "R"],
     label: "Digit",
     labelFor: DIGIT_NUMBER_LABELS,
+    limits: DIGIT_ROTATION_LIMITS,
     boneName: (digit, side) => `DEF-Distal_Phalanges_${digit}${side}`,
     boneNames: (digit, side) =>
       Number(digit) === 1
@@ -40,6 +47,7 @@ export const DIGITS = {
     sideSuffixes: ["L", "R"],
     label: "Toe",
     labelFor: TOE_NUMBER_LABELS,
+    limits: DIGIT_ROTATION_LIMITS,
     boneName: (digit, side) =>
       `DEF-Distal_Phalange_${digit}_(foot)${side}`,
     boneNames: (digit, side) =>
