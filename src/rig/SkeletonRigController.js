@@ -3,8 +3,8 @@ import {
   JOINT_ROTATIONS,
   RIGHT_ARM_JOINTS,
 } from "./rigConfig.js";
-import { DIGITS, DIGIT_JOINT_TYPES, digitSide } from "./digits/digitsConfig.js";
-import { TORSO_ATTACHMENTS } from "./torso/torsoConfig.js";
+import { DIGITS, DIGIT_JOINT_TYPES } from "./digits/digitsConfig.js";
+import { RigSceneBinding } from "./binding/RigSceneBinding.js";
 import {
   applyRotation,
   clamp,
@@ -14,19 +14,21 @@ import {
 
 export { BODY_REGIONS, JOINT_ROTATIONS, RIGHT_ARM_JOINTS } from "./rigConfig.js";
 
+/**
+ * Coordinates rig state and scene mutation for one loaded skeleton instance.
+ * Scene-specific bone names are kept behind RigSceneBinding.
+ */
 export class SkeletonRigController {
   constructor(scene) {
     this.scene = scene;
     this.scene.updateMatrixWorld(true);
-    this.jointBones = this.resolveJointBones();
-    this.bones = Object.fromEntries(
-      Object.entries(JOINT_ROTATIONS).map(([jointId, config]) => [
-        jointId,
-        this.scene.getObjectByName(config.boneName),
-      ])
-    );
-    this.regionBones = this.resolveRegions();
-    this.digitBones = this.resolveDigitBones();
+
+    // Bind the model once. Every controller owns its own binding and rotation state.
+    this.binding = new RigSceneBinding(scene);
+    this.jointBones = this.binding.jointBones;
+    this.bones = this.binding.bones;
+    this.regionBones = this.binding.regionBones;
+    this.digitBones = this.binding.digitBones;
     this.jointRestRotations = this.captureRestRotations({
       ...this.jointBones,
       ...this.digitBones,
@@ -36,45 +38,8 @@ export class SkeletonRigController {
     this.digitRotations = this.createRotationState(Object.keys(this.digitBones));
   }
 
-  resolveJointBones() {
-    return Object.fromEntries(
-      Object.entries(JOINT_ROTATIONS).map(([jointId, config]) => [
-        jointId,
-        config.boneNames
-          .map((boneName) => this.scene.getObjectByName(boneName))
-          .filter(Boolean),
-      ])
-    );
-  }
-
-  resolveRegions() {
-    return Object.fromEntries(
-      Object.entries(BODY_REGIONS).map(([region, config]) => [
-        region,
-        config.boneNames
-          .map((boneName) => this.scene.getObjectByName(boneName))
-          .filter(Boolean),
-      ])
-    );
-  }
-
   digitKey(jointId, digit) {
     return `${jointId}__${digit}`;
-  }
-
-  resolveDigitBones() {
-    const digits = {};
-    for (const [jointId, jointType] of Object.entries(DIGIT_JOINT_TYPES)) {
-      const config = DIGITS[jointType];
-      const side = digitSide(jointId);
-      for (const digit of Object.keys(config.labelFor)) {
-        digits[this.digitKey(jointId, digit)] = config
-          .boneNames(digit, side)
-          .map((boneName) => this.scene.getObjectByName(boneName))
-          .filter(Boolean);
-      }
-    }
-    return digits;
   }
 
   captureRestRotations(bones) {
@@ -93,10 +58,7 @@ export class SkeletonRigController {
   }
 
   captureTorsoAttachment() {
-    const driver = this.scene.getObjectByName(TORSO_ATTACHMENTS.driverBoneName);
-    const attachment = this.scene.getObjectByName(
-      TORSO_ATTACHMENTS.attachedRootBoneName
-    );
+    const { driver, attachment } = this.binding.attachments;
     return {
       driver: driver?.matrixWorld.clone(),
       attachment: attachment?.matrixWorld.clone(),
@@ -279,10 +241,7 @@ export class SkeletonRigController {
       return;
     }
 
-    const driver = this.scene.getObjectByName(TORSO_ATTACHMENTS.driverBoneName);
-    const attachment = this.scene.getObjectByName(
-      TORSO_ATTACHMENTS.attachedRootBoneName
-    );
+    const { driver, attachment } = this.binding.attachments;
     syncAttachment({
       scene: this.scene,
       driver,
