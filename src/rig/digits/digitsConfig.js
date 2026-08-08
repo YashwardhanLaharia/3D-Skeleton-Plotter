@@ -20,6 +20,7 @@ export const TOE_NUMBER_LABELS = {
   5: "Little toe",
 };
 
+// Each digit definition exposes the complete rotation chain used by the rig.
 export const DIGITS = {
   fingertip: {
     jointType: "fingertip",
@@ -27,7 +28,6 @@ export const DIGITS = {
     label: "Digit",
     labelFor: DIGIT_NUMBER_LABELS,
     limits: DIGIT_ROTATION_LIMITS,
-    boneName: (digit, side) => `DEF-Distal_Phalanges_${digit}${side}`,
     boneNames: (digit, side) =>
       Number(digit) === 1
         ? [
@@ -48,8 +48,6 @@ export const DIGITS = {
     label: "Toe",
     labelFor: TOE_NUMBER_LABELS,
     limits: DIGIT_ROTATION_LIMITS,
-    boneName: (digit, side) =>
-      `DEF-Distal_Phalange_${digit}_(foot)${side}`,
     boneNames: (digit, side) =>
       Number(digit) === 1
         ? [

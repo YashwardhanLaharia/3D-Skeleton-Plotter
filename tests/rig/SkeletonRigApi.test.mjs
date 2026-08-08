@@ -5,6 +5,7 @@ import { GLTFLoader } from "../../node_modules/three/examples/jsm/loaders/GLTFLo
 import { createSkeletonRig } from "../../src/rig/SkeletonRigApi.js";
 import { JOINT_ROTATIONS } from "../../src/rig/rigConfig.js";
 import { DIGITS } from "../../src/rig/digits/digitsConfig.js";
+import { TORSO_ATTACHMENTS } from "../../src/rig/torso/torsoConfig.js";
 
 const modelPath = new URL(
   "../../src/assets/models/skeleton-male.glb",
@@ -60,6 +61,9 @@ test("rig configuration owns labels and digit rotation limits", async () => {
     y: [-90, 90],
     z: [-90, 90],
   });
+  assert.equal("boneName" in DIGITS.fingertip, false);
+  assert.equal("boneName" in DIGITS.toe, false);
+  assert.equal("shoulderBoneNames" in TORSO_ATTACHMENTS, false);
 
   const rig = createSkeletonRig(await loadScene());
   const result = rig.rotateDigit("fingertips_r", "2", "x", 100);

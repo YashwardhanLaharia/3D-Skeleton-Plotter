@@ -40,8 +40,8 @@ export const TORSO_REGION_JOINT_IDS = [
   "sacral_promontory",
 ];
 
+// The attachment policy follows the thoracic driver and sternum root.
 export const TORSO_ATTACHMENTS = {
   driverBoneName: "DEF-SpineThoracic010",
   attachedRootBoneName: "DEF-Sternum",
-  shoulderBoneNames: ["DEF-ClavicleL", "DEF-ClavicleR"],
 };
