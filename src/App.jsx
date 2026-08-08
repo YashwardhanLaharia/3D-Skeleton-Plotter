@@ -156,7 +156,7 @@ export default function App() {
     <div className="app-shell d-flex flex-column vh-100 overflow-hidden">
       <header className="app-menu-bar bg-body-tertiary border-bottom px-1 py-1">
         <nav className="d-flex align-items-center" aria-label="Application menu">
-          {["File", "Edit", "Settings", "Help", "Language", "View"].map((item) => (
+                {["File", "Edit", "Settings", "Help", "Language", "View"].map((item) => (
             <button key={item} type="button" className="app-menu-button">
               {item}
             </button>

@@ -7,6 +7,8 @@
 
 import { JOINTS } from "../joints";
 
+const DECIMAL_PATTERN = /^\d*\.?\d*$/;
+
 // One row of the table. Purely presentational: displays what it's given, tells the parent when the user types.
 
 function JointRow({ number, label, jointId, values, onChange }) {
@@ -24,11 +26,17 @@ function JointRow({ number, label, jointId, values, onChange }) {
           key={axis}
           type="text"
           inputMode="decimal"
+          pattern="[0-9]*[.]?[0-9]*"
           className="form-control form-control-sm coord-input"
           placeholder={axis.toUpperCase()}
           aria-label={`${label}, ${axis.toUpperCase()}`}
           value={values[axis]}
-          onChange={(e) => onChange(jointId, axis, e.target.value)}
+          onChange={(e) => {
+            const nextValue = e.target.value;
+            if (DECIMAL_PATTERN.test(nextValue)) {
+              onChange(jointId, axis, nextValue);
+            }
+          }}
         />
       ))}
     </div>
