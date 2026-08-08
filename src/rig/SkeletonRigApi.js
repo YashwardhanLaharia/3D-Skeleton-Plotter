@@ -42,8 +42,25 @@ export class SkeletonRigApi {
     return this.execute({ type: "reset-all" });
   }
 
+  /**
+   * Applies a partial pose while preserving the existing setPose contract.
+   */
   setPose(pose) {
     return this.#controller.setPose(pose);
+  }
+
+  /**
+   * Updates only the joints included in the supplied pose.
+   */
+  patchPose(pose) {
+    return this.#controller.patchPose(pose);
+  }
+
+  /**
+   * Resets the current pose, then applies the supplied joint rotations.
+   */
+  replacePose(pose) {
+    return this.#controller.replacePose(pose);
   }
 
   getState() {

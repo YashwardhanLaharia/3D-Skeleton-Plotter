@@ -158,18 +158,72 @@ export class SkeletonRigController {
     return { ok: true, type: "reset-all" };
   }
 
+  // Retain the original partial-pose behavior for existing callers.
   setPose(pose = {}) {
+    const result = this.patchPose(pose);
+    return result.ok ? result.jointRotations : result;
+  }
+
+  // Patch and replace share validation and application rules, but differ in state reset behavior.
+  patchPose(pose = {}) {
+    const validation = this.validatePose(pose);
+    if (!validation.ok) {
+      return validation;
+    }
+
+    this.applyPose(pose);
+    return {
+      ok: true,
+      type: "patch-pose",
+      jointRotations: this.getState().jointRotations,
+    };
+  }
+
+  // Replacement resets both joint and digit state before applying the new pose.
+  replacePose(pose = {}) {
+    const validation = this.validatePose(pose);
+    if (!validation.ok) {
+      return validation;
+    }
+
+    this.state.resetAll();
+    this.applyPose(pose);
+    return {
+      ok: true,
+      type: "replace-pose",
+      jointRotations: this.getState().jointRotations,
+    };
+  }
+
+  validatePose(pose) {
+    if (!pose || typeof pose !== "object" || Array.isArray(pose)) {
+      return { ok: false, error: "A pose object is required" };
+    }
+
+    for (const [jointId, rotation] of Object.entries(pose)) {
+      if (
+        JOINT_ROTATIONS[jointId] &&
+        (!rotation || typeof rotation !== "object" || Array.isArray(rotation))
+      ) {
+        return { ok: false, error: `Invalid pose rotation: ${jointId}` };
+      }
+    }
+
+    return { ok: true };
+  }
+
+  applyPose(pose) {
     for (const [jointId, rotation] of Object.entries(pose)) {
       if (JOINT_ROTATIONS[jointId]) {
         this.state.setJointRotation(jointId, rotation);
       }
     }
+
     const neckRotation = this.state.jointRotations.neck;
     const syncTorso =
       !neckRotation ||
       Object.values(neckRotation).every((value) => value === 0);
     this.applyAllRotations(syncTorso);
-    return this.getState().jointRotations;
   }
 
   applyAllRotations(syncTorso = true) {

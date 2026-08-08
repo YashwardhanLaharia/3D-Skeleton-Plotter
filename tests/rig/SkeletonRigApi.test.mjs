@@ -73,6 +73,43 @@ test("rig configuration owns labels and digit rotation limits", async () => {
   assert.equal(diagnostics.attachments.attachment.found, true);
 });
 
+test("patch and replace pose operations have explicit state semantics", async () => {
+  const rig = createSkeletonRig(await loadScene());
+
+  rig.rotate("elbow_r", "x", 20);
+  rig.rotateDigit("fingertips_r", "2", "y", 15);
+  assert.equal(rig.patchPose({ shoulder_r: { z: 10 } }).ok, true);
+  assert.equal(rig.getState().jointRotations.elbow_r.x, 20);
+  assert.equal(rig.getState().digitRotations.fingertips_r__2.y, 15);
+
+  const result = rig.replacePose({ shoulder_r: { z: 5 } });
+  assert.equal(result.ok, true);
+  assert.equal(rig.getState().jointRotations.shoulder_r.z, 5);
+  assert.equal(rig.getState().jointRotations.elbow_r.x, 0);
+  assert.equal(rig.getState().digitRotations.fingertips_r__2.y, 0);
+});
+
+test("pose methods reject malformed pose rotations", async () => {
+  const rig = createSkeletonRig(await loadScene());
+
+  assert.deepEqual(rig.patchPose(null), {
+    ok: false,
+    error: "A pose object is required",
+  });
+  assert.deepEqual(rig.replacePose([]), {
+    ok: false,
+    error: "A pose object is required",
+  });
+  assert.deepEqual(rig.patchPose({ elbow_r: null }), {
+    ok: false,
+    error: "Invalid pose rotation: elbow_r",
+  });
+  assert.deepEqual(rig.setPose({ elbow_r: null }), {
+    ok: false,
+    error: "Invalid pose rotation: elbow_r",
+  });
+});
+
 test("public API supports pose, digit, and reset operations", async () => {
   const rig = createSkeletonRig(await loadScene());
 
