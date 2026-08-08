@@ -1,42 +1,106 @@
-// The root component.
+// The root component owns individuals, sidebar state, and rig commands.
 
-// Current scope: one skeleton. Multiple skeletons in one grave will mean
-// turning `coordinates` into an array of individuals, a change contained
-// almost entirely to this file.
-
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { JOINTS } from "./joints";
 import Sidebar from "./components/Sidebar";
 import MainView from "./components/MainView";
 import "./app.css";
 
-export default function App() {
-  // Coordinates are stored as Strings instead of numbers. The 3D layer only sees numbers, so the conversion happens below.
-  //
-  // Run only on first render
-  const [coordinates, setCoordinates] = useState(() =>
-    Object.fromEntries(JOINTS.map((joint) => [joint.id, { x: "", y: "", z: "" }]))
+const PALETTE = [
+  "#E69F00",
+  "#56B4E9",
+  "#009E73",
+  "#F0E442",
+  "#0072B2",
+  "#D55E00",
+  "#CC79A7",
+];
+
+function makeBlankCoords() {
+  return Object.fromEntries(
+    JOINTS.map((joint) => [joint.id, { x: "", y: "", z: "" }])
   );
+}
+
+export default function App() {
+  const [individuals, setIndividuals] = useState(() => [
+    {
+      id: "ind-1",
+      label: "",
+      colour: "#E69F00",
+      coords: makeBlankCoords(),
+    },
+  ]);
+  const [openId, setOpenId] = useState("ind-1");
   const [rigCommand, setRigCommand] = useState(null);
+  const nextId = useRef(2);
 
   useEffect(() => {
     const unsubscribe = window.electronAPI?.onRigCommand(setRigCommand);
     return () => unsubscribe?.();
   }, []);
 
-  // Called by every input box in the sidebar.
-  //
-  // Note this builds new objects rather than editing the existing one. React
-  function handleChange(jointId, axis, rawValue) {
-    setCoordinates((previous) => ({
+  function handleChange(individualId, jointId, axis, rawValue) {
+    setIndividuals((previous) =>
+      previous.map((individual) =>
+        individual.id !== individualId
+          ? individual
+          : {
+              ...individual,
+              coords: {
+                ...individual.coords,
+                [jointId]: {
+                  ...individual.coords[jointId],
+                  [axis]: rawValue,
+                },
+              },
+            }
+      )
+    );
+  }
+
+  function handleLabelChange(individualId, label) {
+    setIndividuals((previous) =>
+      previous.map((individual) =>
+        individual.id === individualId ? { ...individual, label } : individual
+      )
+    );
+  }
+
+  function handleToggle(individualId) {
+    setOpenId((current) => (current === individualId ? null : individualId));
+  }
+
+  function handleAdd() {
+    const id = `ind-${nextId.current}`;
+    const colour = PALETTE[(nextId.current - 1) % PALETTE.length];
+    nextId.current += 1;
+
+    setIndividuals((previous) => [
       ...previous,
-      [jointId]: { ...previous[jointId], [axis]: rawValue },
-    }));
+      { id, label: "", colour, coords: makeBlankCoords() },
+    ]);
+    setOpenId(id);
+  }
+
+  function handleRemove(individualId) {
+    setIndividuals((previous) =>
+      previous.filter((individual) => individual.id !== individualId)
+    );
+    setOpenId((current) => (current === individualId ? null : current));
   }
 
   return (
     <div className="d-flex vh-100 overflow-hidden">
-      <Sidebar coordinates={coordinates} onChange={handleChange} />
+      <Sidebar
+        individuals={individuals}
+        openId={openId}
+        onChange={handleChange}
+        onToggle={handleToggle}
+        onAdd={handleAdd}
+        onRemove={handleRemove}
+        onLabelChange={handleLabelChange}
+      />
       <MainView command={rigCommand} />
     </div>
   );
