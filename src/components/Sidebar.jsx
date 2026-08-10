@@ -7,6 +7,8 @@
 
 import { JOINTS } from "../joints";
 
+const DECIMAL_PATTERN = /^\d*\.?\d*$/;
+
 // One row of the table. Purely presentational: displays what it's given, tells the parent when the user types.
 
 function JointRow({ number, label, jointId, values, onChange }) {
@@ -24,11 +26,17 @@ function JointRow({ number, label, jointId, values, onChange }) {
           key={axis}
           type="text"
           inputMode="decimal"
+          pattern="[0-9]*[.]?[0-9]*"
           className="form-control form-control-sm coord-input"
           placeholder={axis.toUpperCase()}
           aria-label={`${label}, ${axis.toUpperCase()}`}
           value={values[axis]}
-          onChange={(e) => onChange(jointId, axis, e.target.value)}
+          onChange={(e) => {
+            const nextValue = e.target.value;
+            if (DECIMAL_PATTERN.test(nextValue)) {
+              onChange(jointId, axis, nextValue);
+            }
+          }}
         />
       ))}
     </div>
@@ -129,34 +137,43 @@ export default function Sidebar({
   onAdd,
   onRemove,
   onLabelChange,
+  isOpen,
 }) {
   return (
-    <aside className="sidebar bg-body-tertiary border-end overflow-auto">
-      <header className="sidebar-header bg-body-tertiary border-bottom px-2 py-2 d-flex align-items-center justify-content-between">
-        <h2 className="h6 mb-0">Individuals</h2>
-        <button
-          type="button"
-          className="btn btn-sm btn-primary"
-          onClick={onAdd}
-        >
-          Add individual
-        </button>
-      </header>
+    <aside
+      id="individuals-sidebar"
+      className={`sidebar bg-body-tertiary border-end ${isOpen ? "overflow-auto" : "sidebar-collapsed"}`}
+      aria-hidden={!isOpen}
+    >
+      {isOpen && (
+        <div className="sidebar-content">
+          <header className="sidebar-header bg-body-tertiary border-bottom px-2 py-2 d-flex align-items-center justify-content-between">
+            <h2 className="h6 mb-0">Individuals</h2>
+            <button
+              type="button"
+              className="btn btn-sm btn-primary"
+              onClick={onAdd}
+            >
+              Add individual
+            </button>
+          </header>
 
-      <div className="p-2">
-        {individuals.map((individual) => (
-          <IndividualSection
-            key={individual.id}
-            individual={individual}
-            isOpen={individual.id === openId}
-            onToggle={onToggle}
-            onChange={onChange}
-            onRemove={onRemove}
-            canRemove={individuals.length > 1}
-            onLabelChange={onLabelChange}
-          />
-        ))}
-      </div>
+          <div className="p-2">
+            {individuals.map((individual) => (
+              <IndividualSection
+                key={individual.id}
+                individual={individual}
+                isOpen={individual.id === openId}
+                onToggle={onToggle}
+                onChange={onChange}
+                onRemove={onRemove}
+                canRemove={individuals.length > 1}
+                onLabelChange={onLabelChange}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </aside>
   );
 }
