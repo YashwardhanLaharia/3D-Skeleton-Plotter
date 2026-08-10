@@ -1,6 +1,6 @@
-import { app, Menu, BrowserWindow, ipcMain } from 'electron';
-
+import { app, Menu, BrowserWindow, ipcMain, dialog } from 'electron';
 import path from 'node:path';
+import fs from 'node:fs/promises';
 import started from 'electron-squirrel-startup';
 
 // Handle creating shortcuts on Windows when installing/uninstalling
@@ -54,6 +54,14 @@ ipcMain.on('rig-command', (_event, command) => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('rig-command', command);
   }
+});
+
+console.log('registering save-project handler');
+
+ipcMain.handle('save-project', async (_event, payload) => {
+  const filePath = path.join(app.getPath('documents'), 'test-project.skel');
+  await fs.writeFile(filePath, JSON.stringify(payload, null, 2), 'utf-8');
+  return { ok: true, path: filePath };
 });
 
 // Define custom menu template

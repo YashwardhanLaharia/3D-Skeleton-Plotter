@@ -18,7 +18,7 @@ const PALETTE = [
 
 function makeBlankCoords() {
   return Object.fromEntries(
-    JOINTS.map((joint) => [joint.id, { x: "", y: "", z: "" }])
+    JOINTS.map((joint) => [joint.id, { x: "", y: "", z: "" }]),
   );
 }
 
@@ -58,16 +58,16 @@ export default function App() {
                   [axis]: rawValue,
                 },
               },
-            }
-      )
+            },
+      ),
     );
   }
 
   function handleLabelChange(individualId, label) {
     setIndividuals((previous) =>
       previous.map((individual) =>
-        individual.id === individualId ? { ...individual, label } : individual
-      )
+        individual.id === individualId ? { ...individual, label } : individual,
+      ),
     );
   }
 
@@ -89,7 +89,7 @@ export default function App() {
 
   function handleRemove(individualId) {
     setIndividuals((previous) =>
-      previous.filter((individual) => individual.id !== individualId)
+      previous.filter((individual) => individual.id !== individualId),
     );
     setOpenId((current) => (current === individualId ? null : current));
   }
@@ -97,12 +97,29 @@ export default function App() {
   return (
     <div className="app-shell d-flex flex-column vh-100 overflow-hidden">
       <header className="app-menu-bar bg-body-tertiary border-bottom px-1 py-1">
-        <nav className="d-flex align-items-center" aria-label="Application menu">
-                {["File", "Edit", "Settings", "Help", "Language", "View"].map((item) => (
-            <button key={item} type="button" className="app-menu-button">
-              {item}
-            </button>
-          ))}
+        <nav
+          className="d-flex align-items-center"
+          aria-label="Application menu"
+        >
+          {["File", "Edit", "Settings", "Help", "Language", "View"].map(
+            (item) => (
+              <button key={item} type="button" className="app-menu-button">
+                {item}
+              </button>
+            ),
+          )}
+          <button
+            type="button"
+            className="app-menu-button"
+            onClick={async () => {
+              const result = await window.electronAPI.saveProject({
+                hello: "world",
+              });
+              console.log("save result:", result);
+            }}
+          >
+            TEST SAVE
+          </button>
         </nav>
       </header>
 
