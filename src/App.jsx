@@ -96,6 +96,18 @@ export default function App() {
     setOpenId((current) => (current === individualId ? null : current));
   }
 
+  async function handleOpen() {
+    const result = await window.electronAPI.openProject();
+
+    if (!result.ok) {
+      if (!result.canceled) console.error(result.error);
+      return;
+    }
+
+    setIndividuals(result.data.individuals);
+    setOpenId(result.data.individuals[0]?.id ?? null);
+  }
+
   function buildProjectData() {
     return {
       schemaVersion: SCHEMA_VERSION,
@@ -135,6 +147,13 @@ export default function App() {
             }}
           >
             TEST SAVE
+          </button>
+          <button
+            type="button"
+            className="app-menu-button"
+            onClick={handleOpen}
+          >
+            TEST OPEN
           </button>
         </nav>
       </header>

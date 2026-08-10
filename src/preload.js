@@ -12,4 +12,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveProject(request) {
     return ipcRenderer.invoke('save-project', request);
   },
+  openProject() {
+    return ipcRenderer.invoke('open-project');
+  },
 });

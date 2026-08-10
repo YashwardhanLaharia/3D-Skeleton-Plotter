@@ -80,6 +80,27 @@ ipcMain.handle('save-project', async (_event, { payload, filePath }) => {
   }
 });
 
+ipcMain.handle('open-project', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Open project',
+    properties: ['openFile'],
+    filters: [{ name: 'Skeleton Plotter project', extensions: ['skel'] }],
+  });
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return { ok: false, canceled: true };
+  }
+
+  const filePath = result.filePaths[0];
+
+  try {
+    const text = await fs.readFile(filePath, 'utf-8');
+    return { ok: true, path: filePath, data: JSON.parse(text) };
+  } catch (error) {
+    return { ok: false, error: `Could not read this file: ${error.message}` };
+  }
+});
+
 // Define custom menu template
 const menuTemplate = [
   {
