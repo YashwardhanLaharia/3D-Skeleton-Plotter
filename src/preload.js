@@ -9,7 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('rig-command', listener);
     return () => ipcRenderer.removeListener('rig-command', listener);
   },
-  saveProject(payload) {
-    return ipcRenderer.invoke('save-project', payload);
+  saveProject(request) {
+    return ipcRenderer.invoke('save-project', request);
   },
 });

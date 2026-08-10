@@ -56,12 +56,28 @@ ipcMain.on('rig-command', (_event, command) => {
   }
 });
 
-console.log('registering save-project handler');
+ipcMain.handle('save-project', async (_event, { payload, filePath }) => {
+  let targetPath = filePath;
 
-ipcMain.handle('save-project', async (_event, payload) => {
-  const filePath = path.join(app.getPath('documents'), 'test-project.skel');
-  await fs.writeFile(filePath, JSON.stringify(payload, null, 2), 'utf-8');
-  return { ok: true, path: filePath };
+  if (!targetPath) {
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: 'Save project',
+      defaultPath: 'reconstruction.skel',
+      filters: [{ name: 'Skeleton Plotter project', extensions: ['skel'] }],
+    });
+
+    if (result.canceled || !result.filePath) {
+      return { ok: false, canceled: true };
+    }
+    targetPath = result.filePath;
+  }
+
+  try {
+    await fs.writeFile(targetPath, JSON.stringify(payload, null, 2), 'utf-8');
+    return { ok: true, path: targetPath };
+  } catch (error) {
+    return { ok: false, error: `Could not save: ${error.message}` };
+  }
 });
 
 // Define custom menu template

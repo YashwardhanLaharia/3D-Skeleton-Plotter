@@ -113,7 +113,8 @@ export default function App() {
             className="app-menu-button"
             onClick={async () => {
               const result = await window.electronAPI.saveProject({
-                hello: "world",
+                payload: { hello: "world" },
+                filePath: null,
               });
               console.log("save result:", result);
             }}
