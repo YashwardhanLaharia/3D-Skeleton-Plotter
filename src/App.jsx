@@ -1,6 +1,11 @@
 // The root component owns individuals, sidebar state, and rig commands.
 
 import { useEffect, useRef, useState } from "react";
+import {
+  validateProject,
+  normaliseIndividual,
+  SCHEMA_VERSION,
+} from "./projectFile";
 import { JOINTS } from "./joints";
 import Sidebar from "./components/Sidebar";
 import MainView from "./components/MainView";
@@ -21,8 +26,6 @@ function makeBlankCoords() {
     JOINTS.map((joint) => [joint.id, { x: "", y: "", z: "" }]),
   );
 }
-
-const SCHEMA_VERSION = 1;
 
 export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -104,12 +107,21 @@ export default function App() {
       return;
     }
 
-    setIndividuals(result.data.individuals);
-    const numbers = result.data.individuals
-      .map((individual) => Number(String(individual.id).replace("ind-", "")))
+    const check = validateProject(result.data);
+    if (!check.ok) {
+      console.error(check.issues.join("\n"));
+      return;
+    }
+
+    const loaded = result.data.individuals.map(normaliseIndividual);
+    setIndividuals(loaded);
+
+    const numbers = loaded
+      .map((individual) => Number(individual.id.replace("ind-", "")))
       .filter((value) => Number.isFinite(value));
     nextId.current = numbers.length ? Math.max(...numbers) + 1 : 1;
-    setOpenId(result.data.individuals[0]?.id ?? null);
+
+    setOpenId(loaded[0]?.id ?? null);
   }
 
   function buildProjectData() {
