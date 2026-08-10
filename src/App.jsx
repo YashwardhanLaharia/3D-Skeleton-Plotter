@@ -105,6 +105,10 @@ export default function App() {
     }
 
     setIndividuals(result.data.individuals);
+    const numbers = result.data.individuals
+      .map((individual) => Number(String(individual.id).replace("ind-", "")))
+      .filter((value) => Number.isFinite(value));
+    nextId.current = numbers.length ? Math.max(...numbers) + 1 : 1;
     setOpenId(result.data.individuals[0]?.id ?? null);
   }
 
