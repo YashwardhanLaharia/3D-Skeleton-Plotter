@@ -41,6 +41,8 @@ export default function App() {
     },
   ]);
   const [openId, setOpenId] = useState("ind-1");
+  const [filePath, setFilePath] = useState(null);
+  const [isDirty, setIsDirty] = useState(false);
   const [rigCommand, setRigCommand] = useState(null);
   const nextId = useRef(2);
 
@@ -66,6 +68,8 @@ export default function App() {
             },
       ),
     );
+
+    setIsDirty(true);
   }
 
   function handleLabelChange(individualId, label) {
@@ -74,6 +78,7 @@ export default function App() {
         individual.id === individualId ? { ...individual, label } : individual,
       ),
     );
+    setIsDirty(true);
   }
 
   function handleToggle(individualId) {
@@ -90,6 +95,8 @@ export default function App() {
       { id, label: "", colour, coords: makeBlankCoords() },
     ]);
     setOpenId(id);
+
+    setIsDirty(true);
   }
 
   function handleRemove(individualId) {
@@ -97,6 +104,8 @@ export default function App() {
       previous.filter((individual) => individual.id !== individualId),
     );
     setOpenId((current) => (current === individualId ? null : current));
+
+    setIsDirty(true);
   }
 
   async function handleOpen() {
@@ -122,6 +131,10 @@ export default function App() {
     nextId.current = numbers.length ? Math.max(...numbers) + 1 : 1;
 
     setOpenId(loaded[0]?.id ?? null);
+
+    setFilePath(result.path);
+
+    setIsDirty(false);
   }
 
   function buildProjectData() {
@@ -140,12 +153,18 @@ export default function App() {
   async function handleSave(forcePrompt) {
     const result = await window.electronAPI.saveProject({
       payload: buildProjectData(),
-      filePath: null,
+      filePath: forcePrompt ? null : filePath,
     });
-    if (!result.ok) return;
-    console.log("saved to", result.path);
+
+    if (!result.ok) {
+      if (!result.canceled) console.error(result.error);
+      return;
+    }
+
+    setFilePath(result.path);
+    setIsDirty(false);
   }
-  
+
   // Menu clicks arrive from the main process. The ref keeps the listener pointing
   // at the latest handlers: registering once with [] would capture the state as
   // it was on first render, so saving would write an empty project forever.
@@ -161,6 +180,11 @@ export default function App() {
     return () => unsubscribe?.();
   }, []);
 
+  useEffect(() => {
+    const name = filePath ? filePath.split(/[\\/]/).pop() : "Untitled";
+    document.title = `${isDirty ? "• " : ""}${name} — Skeleton Plotter`;
+  }, [filePath, isDirty]);
+
   return (
     <div className="app-shell d-flex flex-column vh-100 overflow-hidden">
       <header className="app-menu-bar bg-body-tertiary border-bottom px-1 py-1">
@@ -168,13 +192,11 @@ export default function App() {
           className="d-flex align-items-center"
           aria-label="Application menu"
         >
-          {["File", "Edit", "Settings", "Help", "Language", "View"].map(
-            (item) => (
-              <button key={item} type="button" className="app-menu-button">
-                {item}
-              </button>
-            ),
-          )}
+          {["Edit", "Settings", "Help", "Language", "View"].map((item) => (
+            <button key={item} type="button" className="app-menu-button">
+              {item}
+            </button>
+          ))}
         </nav>
       </header>
 
