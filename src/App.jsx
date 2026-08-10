@@ -22,6 +22,8 @@ function makeBlankCoords() {
   );
 }
 
+const SCHEMA_VERSION = 1;
+
 export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
@@ -94,6 +96,19 @@ export default function App() {
     setOpenId((current) => (current === individualId ? null : current));
   }
 
+  function buildProjectData() {
+    return {
+      schemaVersion: SCHEMA_VERSION,
+      savedAt: new Date().toISOString(),
+      individuals: individuals.map((individual) => ({
+        id: individual.id,
+        label: individual.label,
+        colour: individual.colour,
+        coords: individual.coords,
+      })),
+    };
+  }
+
   return (
     <div className="app-shell d-flex flex-column vh-100 overflow-hidden">
       <header className="app-menu-bar bg-body-tertiary border-bottom px-1 py-1">
@@ -113,7 +128,7 @@ export default function App() {
             className="app-menu-button"
             onClick={async () => {
               const result = await window.electronAPI.saveProject({
-                payload: { hello: "world" },
+                payload: buildProjectData(),
                 filePath: null,
               });
               console.log("save result:", result);
