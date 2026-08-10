@@ -137,6 +137,30 @@ export default function App() {
     };
   }
 
+  async function handleSave(forcePrompt) {
+    const result = await window.electronAPI.saveProject({
+      payload: buildProjectData(),
+      filePath: null,
+    });
+    if (!result.ok) return;
+    console.log("saved to", result.path);
+  }
+  
+  // Menu clicks arrive from the main process. The ref keeps the listener pointing
+  // at the latest handlers: registering once with [] would capture the state as
+  // it was on first render, so saving would write an empty project forever.
+  const actionsRef = useRef(null);
+  actionsRef.current = { handleOpen, handleSave };
+
+  useEffect(() => {
+    const unsubscribe = window.electronAPI?.onMenuAction((action) => {
+      if (action === "menu-open") actionsRef.current.handleOpen();
+      if (action === "menu-save") actionsRef.current.handleSave(false);
+      if (action === "menu-save-as") actionsRef.current.handleSave(true);
+    });
+    return () => unsubscribe?.();
+  }, []);
+
   return (
     <div className="app-shell d-flex flex-column vh-100 overflow-hidden">
       <header className="app-menu-bar bg-body-tertiary border-bottom px-1 py-1">
@@ -151,26 +175,6 @@ export default function App() {
               </button>
             ),
           )}
-          <button
-            type="button"
-            className="app-menu-button"
-            onClick={async () => {
-              const result = await window.electronAPI.saveProject({
-                payload: buildProjectData(),
-                filePath: null,
-              });
-              console.log("save result:", result);
-            }}
-          >
-            TEST SAVE
-          </button>
-          <button
-            type="button"
-            className="app-menu-button"
-            onClick={handleOpen}
-          >
-            TEST OPEN
-          </button>
         </nav>
       </header>
 

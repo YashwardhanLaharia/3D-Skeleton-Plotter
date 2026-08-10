@@ -101,15 +101,23 @@ ipcMain.handle('open-project', async () => {
   }
 });
 
+const sendToRenderer = (channel) => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(channel);
+  }
+};
 // Define custom menu template
 const menuTemplate = [
   {
     label: 'File',
     submenu: [
-      { label: 'Open', click: () => console.log('Open') },
+      { label: 'Open…', accelerator: 'CmdOrCtrl+O', click: () => sendToRenderer('menu-open') },
       { type: 'separator' },
-      { role: 'quit' }
-    ]
+      { label: 'Save', accelerator: 'CmdOrCtrl+S', click: () => sendToRenderer('menu-save') },
+      { label: 'Save As…', accelerator: 'CmdOrCtrl+Shift+S', click: () => sendToRenderer('menu-save-as') },
+      { type: 'separator' },
+      { role: 'quit' },
+    ],
   },
   {
     label: 'Rig',

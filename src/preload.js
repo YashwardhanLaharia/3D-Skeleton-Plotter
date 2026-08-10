@@ -15,4 +15,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openProject() {
     return ipcRenderer.invoke('open-project');
   },
+  onMenuAction(callback) {
+    const channels = ['menu-open', 'menu-save', 'menu-save-as'];
+    const removers = channels.map((channel) => {
+      const listener = () => callback(channel);
+      ipcRenderer.on(channel, listener);
+      return () => ipcRenderer.removeListener(channel, listener);
+    });
+    return () => removers.forEach((remove) => remove());
+  },
 });
