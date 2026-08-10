@@ -1,15 +1,11 @@
-// The root component.
+// The root component owns individuals, sidebar state, and rig commands.
 
-// Holds all application state: the individuals in the grave, their coordinates,
-// and which section is currently expanded. Everything below this file is
-// presentational and owns nothing.
-
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { JOINTS } from "./joints";
 import Sidebar from "./components/Sidebar";
+import MainView from "./components/MainView";
 import "./app.css";
 
-// Hardcoded palette of seven colours. Standard Okabe-ito palette
 const PALETTE = [
   "#E69F00",
   "#56B4E9",
@@ -20,45 +16,9 @@ const PALETTE = [
   "#CC79A7",
 ];
 
-// A fresh, empty coordinate set. Called once per individual, so it has to
-// return a new object every time rather than sharing one.
 function makeBlankCoords() {
   return Object.fromEntries(
-    JOINTS.map((joint) => [joint.id, { x: "", y: "", z: "" }]),
-  );
-}
-
-// Placeholder for Yash's 3D component. Takes the shape (just a placeholder for now):
-// [{ id, label, colour, joints: { jointId: [x, y, z] } }]
-function ViewportPlaceholder({ individuals }) {
-  const plotted = individuals.filter(
-    (ind) => Object.keys(ind.joints).length > 0,
-  );
-
-  return (
-    <main className="flex-grow-1 d-flex align-items-center justify-content-center bg-body-secondary p-4">
-      <div className="viewport-inner">
-        <p className="fw-semibold text-body-secondary mb-2">3D viewport</p>
-
-        {plotted.length === 0 ? (
-          <p className="text-body-tertiary mb-0">
-            Enter a joint's X, Y and Z in the sidebar to plot it.
-          </p>
-        ) : (
-          <ul className="list-unstyled coord-readout mb-0">
-            {plotted.map((ind) => (
-              <li key={ind.id} className="mb-1">
-                <span
-                  className="colour-swatch me-2"
-                  style={{ background: ind.colour }}
-                />
-                {ind.label || "Unnamed"} — {Object.keys(ind.joints).length} points
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </main>
+    JOINTS.map((joint) => [joint.id, { x: "", y: "", z: "" }])
   );
 }
 
@@ -75,44 +35,42 @@ export default function App() {
       coords: makeBlankCoords(),
     },
   ]);
-
-  // Which section is expanded. Deliberately kept out of `individuals`: it's a
-  // view concern and shouldn't end up in a saved project file next to the
-  // measurements.
   const [openId, setOpenId] = useState("ind-1");
-
-  // Counter for unique ids
+  const [rigCommand, setRigCommand] = useState(null);
   const nextId = useRef(2);
 
-  // Called by every input box in the sidebar.
-  //
-  // Note this builds new objects rather than editing the existing one.
+  useEffect(() => {
+    const unsubscribe = window.electronAPI?.onRigCommand(setRigCommand);
+    return () => unsubscribe?.();
+  }, []);
+
   function handleChange(individualId, jointId, axis, rawValue) {
     setIndividuals((previous) =>
-      previous.map((ind) =>
-        ind.id !== individualId
-          ? ind
+      previous.map((individual) =>
+        individual.id !== individualId
+          ? individual
           : {
-              ...ind,
+              ...individual,
               coords: {
-                ...ind.coords,
-                [jointId]: { ...ind.coords[jointId], [axis]: rawValue },
+                ...individual.coords,
+                [jointId]: {
+                  ...individual.coords[jointId],
+                  [axis]: rawValue,
+                },
               },
-            },
-      ),
+            }
+      )
     );
   }
 
-  // Only two levels of spread here, since the label is a top-level field.
   function handleLabelChange(individualId, label) {
     setIndividuals((previous) =>
-      previous.map((ind) =>
-        ind.id === individualId ? { ...ind, label } : ind,
-      ),
+      previous.map((individual) =>
+        individual.id === individualId ? { ...individual, label } : individual
+      )
     );
   }
 
-  // Clicking the open section closes it
   function handleToggle(individualId) {
     setOpenId((current) => (current === individualId ? null : individualId));
   }
@@ -131,26 +89,10 @@ export default function App() {
 
   function handleRemove(individualId) {
     setIndividuals((previous) =>
-      previous.filter((ind) => ind.id !== individualId),
+      previous.filter((individual) => individual.id !== individualId)
     );
     setOpenId((current) => (current === individualId ? null : current));
   }
-
-  // Convert the text state into some numeric shape
-  //
-  // Joints missing any axis are left out entirely
-  const forViewport = individuals.map((ind) => {
-    const joints = {};
-    for (const [id, v] of Object.entries(ind.coords)) {
-      const x = parseFloat(v.x);
-      const y = parseFloat(v.y);
-      const z = parseFloat(v.z);
-      if (!isNaN(x) && !isNaN(y) && !isNaN(z)) {
-        joints[id] = [x, y, z];
-      }
-    }
-    return { id: ind.id, label: ind.label, colour: ind.colour, joints };
-  });
 
   return (
     <div className="app-shell d-flex flex-column vh-100 overflow-hidden">

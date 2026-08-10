@@ -54,6 +54,9 @@
 
 .sidebar-content {
   width: var(--sidebar-width);
+  flex: 0 0 380px;
+  min-width: 0;
+  scrollbar-gutter: stable;
 }
 
 .sidebar-header {
@@ -104,7 +107,7 @@
 .form-control.coord-input {
   width: 3.5rem;
   flex-shrink: 0;
-  height: auto; 
+  height: auto;
   padding: 0.15rem 0.3rem;
   font-family: var(--bs-font-monospace);
   font-size: 0.72rem;
@@ -125,17 +128,8 @@
   font-weight: 500;
 }
 
-/* --- Viewport placeholder */
-
-.viewport-inner {
-  max-width: 26rem;
-}
-
-.coord-readout {
-  font-family: var(--bs-font-monospace);
-  font-size: 0.75rem;
-  line-height: 1.7;
-  color: var(--bs-secondary-color);
+.viewport {
+  min-width: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -144,9 +138,11 @@
   .progress-bar {
     transition: none;
   }
+.viewport canvas {
+  display: block;
+  height: 100% !important;
+  width: 100% !important;
 }
-
-/* --- Individuals accordion ------------------------------------------------ */
 
 .individual-header {
   padding: 0.4rem 0.5rem;
@@ -203,6 +199,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .progress-bar,
   .chevron {
     transition: none;
   }
