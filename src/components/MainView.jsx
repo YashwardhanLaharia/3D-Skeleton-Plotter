@@ -26,10 +26,14 @@ function SkeletonModel({ pose = EMPTY_POSE, command }) {
   }, [command, rig]);
 
   return (
-    <group scale={transform.scale} position={transform.position}>
-      <primitive object={scene} />
-    </group>
-  );
+  <group
+    scale={transform.scale}
+    position={transform.position}
+    rotation={[0, Math.PI / 4, 0]}
+  >
+    <primitive object={scene} />
+  </group>
+);
 }
 
 function LoadingModel() {
