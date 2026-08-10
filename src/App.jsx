@@ -130,7 +130,7 @@ export default function App() {
           <span aria-hidden="true">{isSidebarOpen ? "‹" : "›"}</span>
         </button>
 
-        <ViewportPlaceholder individuals={forViewport} />
+        <MainView command={rigCommand} />
       </div>
     </div>
   );
