@@ -5,7 +5,8 @@ export const RIG_JOINT_IDS = Object.freeze(Object.keys(JOINT_ROTATIONS));
 export const RIG_ROTATION_AXES = Object.freeze(["x", "y", "z"]);
 
 /**
- * Public model-control facade. Callers use rig joint IDs and never GLB bone names.
+ * Public model-control facade.
+ * Callers use rig joint IDs and never GLB bone names.
  */
 export class SkeletonRigApi {
   #controller;
@@ -53,19 +54,36 @@ export class SkeletonRigApi {
     });
   }
 
+  /**
+   * Sets the rotation of the entire skeleton object.
+   * Rotation values are supplied in degrees.
+   */
+  setObjectRotation(rotation) {
+    return this.#controller.setObjectRotation(rotation);
+  }
+
   /** Resets one joint to its captured model pose. */
   resetJoint(jointId) {
-    return this.execute({ type: "reset-joint", jointId });
+    return this.execute({
+      type: "reset-joint",
+      jointId,
+    });
   }
 
   /** Resets one finger or toe digit to its captured model pose. */
   resetDigit(jointId, digit) {
-    return this.execute({ type: "reset-digit", jointId, digit });
+    return this.execute({
+      type: "reset-digit",
+      jointId,
+      digit,
+    });
   }
 
   /** Resets all joint and digit rotations for this skeleton instance. */
   resetAll() {
-    return this.execute({ type: "reset-all" });
+    return this.execute({
+      type: "reset-all",
+    });
   }
 
   /**
