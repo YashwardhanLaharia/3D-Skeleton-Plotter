@@ -18,6 +18,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   confirmDiscard(context) {
     return ipcRenderer.invoke('confirm-discard', context);
   },
+  onRequestClose(callback) {
+    const listener = () => callback();
+    ipcRenderer.on('request-close', listener);
+    return () => ipcRenderer.removeListener('request-close', listener);
+  },
+  confirmClose() {
+    return ipcRenderer.invoke('confirm-close');
+  },
   onMenuAction(callback) {
     const channels = ['menu-open', 'menu-save', 'menu-save-as'];
     const removers = channels.map((channel) => {

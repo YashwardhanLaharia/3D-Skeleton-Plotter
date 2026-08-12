@@ -10,6 +10,7 @@ if (started) {
 
 let mainWindow;
 let rigControlsWindow;
+let isQuitting = false;
 
 const loadWindow = (window, query = {}) => {
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
@@ -121,6 +122,12 @@ ipcMain.handle("confirm-discard", async (_event, context) => {
   return "cancel";
 });
 
+ipcMain.handle("confirm-close", async () => {
+  isQuitting = true;
+  mainWindow.close();
+  return { ok: true };
+});
+
 const sendToRenderer = (channel) => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send(channel);
@@ -175,6 +182,13 @@ const createWindow = () => {
 
   // Load the index.html of the app.
   loadWindow(mainWindow);
+
+  mainWindow.on("close", (event) => {
+    if (isQuitting) return;
+
+    event.preventDefault();
+    mainWindow.webContents.send("request-close");
+  });
 
   // Open the DevTools.
   mainWindow.webContents.openDevTools();

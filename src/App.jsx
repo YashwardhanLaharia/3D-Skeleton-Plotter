@@ -174,11 +174,23 @@ export default function App() {
     return true;
   }
 
+  async function handleRequestClose() {
+    if (isDirty) {
+      const choice = await window.electronAPI.confirmDiscard("close");
+      if (choice === "cancel") return;
+      if (choice === "save") {
+        const saved = await handleSave(false);
+        if (!saved) return;
+      }
+    }
+    window.electronAPI.confirmClose();
+  }
+
   // Menu clicks arrive from the main process. The ref keeps the listener pointing
   // at the latest handlers: registering once with [] would capture the state as
   // it was on first render, so saving would write an empty project forever.
   const actionsRef = useRef(null);
-  actionsRef.current = { handleOpen, handleSave };
+  actionsRef.current = { handleOpen, handleSave, handleRequestClose };
 
   useEffect(() => {
     const unsubscribe = window.electronAPI?.onMenuAction((action) => {
@@ -189,6 +201,16 @@ export default function App() {
     return () => unsubscribe?.();
   }, []);
 
+  // The close handler must read live state, so it goes through the same ref as
+  // the menu actions. Registering with [] and calling handleRequestClose directly
+  // would capture isDirty from the first render and the prompt would never appear.
+  useEffect(() => {
+    const unsubscribe = window.electronAPI?.onRequestClose(() => {
+      actionsRef.current.handleRequestClose();
+    });
+    return () => unsubscribe?.();
+  }, []);
+  
   useEffect(() => {
     const name = filePath ? filePath.split(/[\\/]/).pop() : "Untitled";
     document.title = `${isDirty ? "• " : ""}${name} — Skeleton Plotter`;
