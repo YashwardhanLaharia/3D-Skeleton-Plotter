@@ -155,7 +155,7 @@ const menuTemplate = [
         click: () => sendToRenderer("menu-save-as"),
       },
       { type: "separator" },
-      { role: "quit" },
+      { label: 'Quit', accelerator: 'CmdOrCtrl+Q', click: () => mainWindow.close() },
     ],
   },
   {
