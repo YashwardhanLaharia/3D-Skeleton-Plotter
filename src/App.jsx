@@ -109,6 +109,14 @@ export default function App() {
   }
 
   async function handleOpen() {
+    if (isDirty) {
+      const choice = await window.electronAPI.confirmDiscard("open");
+      if (choice === "cancel") return;
+      if (choice === "save") {
+        const saved = await handleSave(false);
+        if (!saved) return;
+      }
+    }
     const result = await window.electronAPI.openProject();
 
     if (!result.ok) {
@@ -158,11 +166,12 @@ export default function App() {
 
     if (!result.ok) {
       if (!result.canceled) console.error(result.error);
-      return;
+      return false;
     }
 
     setFilePath(result.path);
     setIsDirty(false);
+    return true;
   }
 
   // Menu clicks arrive from the main process. The ref keeps the listener pointing

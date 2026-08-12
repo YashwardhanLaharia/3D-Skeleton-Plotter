@@ -15,6 +15,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openProject() {
     return ipcRenderer.invoke('open-project');
   },
+  confirmDiscard(context) {
+    return ipcRenderer.invoke('confirm-discard', context);
+  },
   onMenuAction(callback) {
     const channels = ['menu-open', 'menu-save', 'menu-save-as'];
     const removers = channels.map((channel) => {
