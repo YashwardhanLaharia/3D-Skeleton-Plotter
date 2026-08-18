@@ -32,6 +32,16 @@
   outline-offset: -2px;
 }
 
+.app-file-menu {
+  min-width: 13rem;
+  font-size: 0.8rem;
+}
+
+.app-menu-shortcut {
+  color: var(--bs-secondary-color);
+  font-size: 0.72rem;
+}
+
 .app-workspace {
   position: relative;
   min-height: 0;

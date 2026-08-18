@@ -227,6 +227,63 @@ export default function App() {
 
   return (
     <div className="app-shell d-flex flex-column vh-100 overflow-hidden">
+      <header className="app-menu-bar bg-body-tertiary border-bottom px-1 py-1">
+        <nav
+          className="d-flex align-items-center"
+          aria-label="Application menu"
+        >
+          <div className="dropdown">
+            <button
+              type="button"
+              className="app-menu-button dropdown-toggle"
+              data-bs-toggle="dropdown"
+              aria-expanded="false"
+            >
+              File
+            </button>
+            <ul className="dropdown-menu app-file-menu">
+              <li>
+                <button
+                  type="button"
+                  className="dropdown-item d-flex justify-content-between gap-4"
+                  onClick={handleOpen}
+                >
+                  <span>Open…</span>
+                  <span className="app-menu-shortcut">Ctrl+O</span>
+                </button>
+              </li>
+              <li><hr className="dropdown-divider" /></li>
+              <li>
+                <button
+                  type="button"
+                  className="dropdown-item d-flex justify-content-between gap-4"
+                  onClick={() => handleSave(false)}
+                >
+                  <span>Save</span>
+                  <span className="app-menu-shortcut">Ctrl+S</span>
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  className="dropdown-item d-flex justify-content-between gap-4"
+                  onClick={() => handleSave(true)}
+                >
+                  <span>Save As…</span>
+                  <span className="app-menu-shortcut">Ctrl+Shift+S</span>
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          {["Edit", "Settings", "Help", "View"].map((item) => (
+            <button key={item} type="button" className="app-menu-button">
+              {item}
+            </button>
+          ))}
+        </nav>
+      </header>
+
       <div className="app-workspace d-flex flex-grow-1 overflow-hidden">
         <Sidebar
           individuals={individuals}
