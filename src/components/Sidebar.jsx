@@ -52,6 +52,7 @@ function IndividualSection({
   onChange,
   onRemove,
   canRemove,
+  onColourChange,
   onLabelChange,
 }) {
   // A point counts as recorded only when all three axes are filled. Partial
@@ -70,18 +71,21 @@ function IndividualSection({
         onClick={() => onToggle(individual.id)}
         aria-expanded={isOpen}
       >
-        <span className={`chevron ${isOpen ? "open" : ""}`} aria-hidden="true">
-          ▸
-        </span>
-        <span
-          className="colour-swatch"
-          style={{ background: individual.colour }}
-        />
+        <input
+          type="color"
+          className="form-control form-control-color"
+          id="colorPicker"
+          value={individual.colour} 
+          title="Choose your color"
+          style={{ height: "24px", width: "29px", padding: "5px", margin: "0" }}
+          onChange={(e) => onColourChange(individual.id, e.target.value)}
+          onClick={(e) => e.stopPropagation()}
+           />
         <input
           type="text"
           className="form-control form-control-sm label-input"
-          placeholder="Skeleton number"
-          aria-label="Skeleton number"
+          placeholder="Label"
+          aria-label="Label"
           value={individual.label}
           onChange={(e) => onLabelChange(individual.id, e.target.value)}
           onClick={(e) => e.stopPropagation()}
@@ -136,6 +140,7 @@ export default function Sidebar({
   onToggle,
   onAdd,
   onRemove,
+  onColourChange,
   onLabelChange,
   isOpen,
 }) {
@@ -168,6 +173,7 @@ export default function Sidebar({
                 onChange={onChange}
                 onRemove={onRemove}
                 canRemove={individuals.length > 1}
+                onColourChange={onColourChange}
                 onLabelChange={onLabelChange}
               />
             ))}

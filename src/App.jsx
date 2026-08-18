@@ -40,6 +40,7 @@ export default function App() {
       coords: makeBlankCoords(),
     },
   ]);
+
   const [openId, setOpenId] = useState("ind-1");
   const [filePath, setFilePath] = useState(null);
   const [isDirty, setIsDirty] = useState(false);
@@ -69,6 +70,15 @@ export default function App() {
       ),
     );
 
+    setIsDirty(true);
+  }
+
+  function handleColourChange(individualId, colour) {
+    setIndividuals((previous) =>
+      previous.map((individual) =>
+        individual.id === individualId ? { ...individual, colour } : individual,
+      ),
+    );
     setIsDirty(true);
   }
 
@@ -104,7 +114,6 @@ export default function App() {
       previous.filter((individual) => individual.id !== individualId),
     );
     setOpenId((current) => (current === individualId ? null : current));
-
     setIsDirty(true);
   }
 
@@ -218,19 +227,6 @@ export default function App() {
 
   return (
     <div className="app-shell d-flex flex-column vh-100 overflow-hidden">
-      <header className="app-menu-bar bg-body-tertiary border-bottom px-1 py-1">
-        <nav
-          className="d-flex align-items-center"
-          aria-label="Application menu"
-        >
-          {["Edit", "Settings", "Help", "Language", "View"].map((item) => (
-            <button key={item} type="button" className="app-menu-button">
-              {item}
-            </button>
-          ))}
-        </nav>
-      </header>
-
       <div className="app-workspace d-flex flex-grow-1 overflow-hidden">
         <Sidebar
           individuals={individuals}
@@ -240,6 +236,7 @@ export default function App() {
           onAdd={handleAdd}
           onRemove={handleRemove}
           onLabelChange={handleLabelChange}
+          onColourChange={handleColourChange}
           isOpen={isSidebarOpen}
         />
 
@@ -255,7 +252,7 @@ export default function App() {
           <span aria-hidden="true">{isSidebarOpen ? "‹" : "›"}</span>
         </button>
 
-        <MainView command={rigCommand} />
+        <MainView individuals={individuals} command={rigCommand} />
       </div>
     </div>
   );
