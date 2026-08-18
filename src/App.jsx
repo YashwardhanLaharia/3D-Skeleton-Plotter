@@ -106,6 +106,15 @@ export default function App() {
     setIsDirty(true);
   }
 
+  function handleColourChange(individualId, colour) {
+    setIndividuals((previous) =>
+      previous.map((individual) =>
+        individual.id === individualId ? { ...individual, colour } : individual,
+      ),
+    );
+    setIsDirty(true);
+  }
+
   function handleLabelChange(individualId, label) {
     dispatch({ type: "set-label", individualId, label });
     setIsDirty(true);
