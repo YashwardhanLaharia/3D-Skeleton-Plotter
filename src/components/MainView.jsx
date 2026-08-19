@@ -4,30 +4,36 @@ import { OrbitControls as ThreeOrbitControls } from "three/examples/jsm/controls
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { createSkeletonRig } from "../rig/SkeletonRigApi.js";
 import modelUrl from "../assets/models/skeleton-male.glb";
+import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 
 // Make Three.js orbit controls available as a React Three Fiber element.
 extend({ OrbitControls: ThreeOrbitControls });
 
 const EMPTY_POSE = Object.freeze({});
 
-function SkeletonModel({ pose = EMPTY_POSE, command }) {
+function SkeletonModel({ colour, coords = EMPTY_POSE }) {
   const { scene } = useLoader(GLTFLoader, modelUrl);
-  const rig = useMemo(() => createSkeletonRig(scene), [scene]);
+  const clonedScene = useMemo(() => SkeletonUtils.clone(scene), [scene]);
+  const rig = useMemo(() => createSkeletonRig(clonedScene), [clonedScene]);
   const transform = useMemo(() => rig.getDisplayTransform(), [rig]);
 
   useEffect(() => {
-    rig.setPose(pose);
-  }, [pose, rig]);
+    rig.setPose(coords);
+  }, [coords, rig]);
 
   useEffect(() => {
-    if (command) {
-      rig.execute(command);
+    if (colour) {
+      clonedScene.traverse((child) => {
+        if (child.isMesh) {
+          child.material.color.set(colour);
+        }
+      });
     }
-  }, [command, rig]);
+  }, [colour, clonedScene]);
 
   return (
     <group scale={transform.scale} position={transform.position}>
-      <primitive object={scene} />
+      <primitive object={clonedScene} />
     </group>
   );
 }
@@ -46,7 +52,7 @@ function CameraControls() {
   return <orbitControls args={[camera, gl.domElement]} />;
 }
 
-export default function MainView({ pose = EMPTY_POSE, command }) {
+export default function MainView({ individuals = [] }) {
   return (
     <main className="viewport flex-grow-1 bg-body-secondary">
       <Canvas camera={{ position: [0, 1.4, 4], fov: 45 }}>
@@ -54,9 +60,11 @@ export default function MainView({ pose = EMPTY_POSE, command }) {
         <ambientLight intensity={1.5} />
         <directionalLight position={[3, 4, 5]} intensity={2} />
         <directionalLight position={[-3, 2, -4]} intensity={1} />
-        <Suspense fallback={<LoadingModel />}>
-          <SkeletonModel pose={pose} command={command} />
-        </Suspense>
+        {individuals.map((individual) => (
+          <Suspense fallback={<LoadingModel />}>
+            <SkeletonModel key={individual.id} colour={individual.colour} coords={individual.coords} />
+          </Suspense>
+        ))}
         <gridHelper args={[4, 12, "#adb5bd", "#ced4da"]} />
         <CameraControls />
       </Canvas>
