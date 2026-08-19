@@ -82,15 +82,6 @@ export default function App() {
     setIsDirty(true);
   }
 
-  function handleColourChange(individualId, colour) {
-    setIndividuals((previous) =>
-      previous.map((individual) =>
-        individual.id === individualId ? { ...individual, colour } : individual,
-      ),
-    );
-    setIsDirty(true);
-  }
-
   function handleLabelChange(individualId, label) {
     setIndividuals((previous) =>
       previous.map((individual) =>
@@ -118,12 +109,19 @@ export default function App() {
     setIsDirty(true);
   }
 
-  function handleRemove(individualId) {
+  async function handleRemove(individualId) {
     setIndividuals((previous) =>
       previous.filter((individual) => individual.id !== individualId),
     );
     setOpenId((current) => (current === individualId ? null : current));
-    setIsDirty(true);
+  }
+
+  async function handleRemoveAttempt(individualId) {
+    const choice = await window.electronAPI.confirmRemove(individualId);
+    if (choice === "cancel") return;
+    if (choice === "remove") {
+      await handleRemove(individualId);
+    }
   }
 
   async function handleOpen() {
@@ -243,7 +241,7 @@ export default function App() {
           onChange={handleChange}
           onToggle={handleToggle}
           onAdd={handleAdd}
-          onRemove={handleRemove}
+          onRemove={handleRemoveAttempt}
           onLabelChange={handleLabelChange}
           onColourChange={handleColourChange}
           isOpen={isSidebarOpen}

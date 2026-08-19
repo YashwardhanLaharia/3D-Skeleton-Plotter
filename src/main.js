@@ -128,6 +128,20 @@ ipcMain.handle("confirm-close", async () => {
   return { ok: true };
 });
 
+ipcMain.handle("confirm-remove", async (_event) => {
+  const result = await dialog.showMessageBox(mainWindow, {
+    type: "warning",
+    buttons: ["Remove", "Cancel"],
+    defaultId: 0,
+    cancelId: 1,
+    title: "Remove individual",
+    message: "Are you sure you want to remove this individual?",
+  });
+
+  if (result.response === 0) return "remove";
+  return "cancel";
+});
+
 const sendToRenderer = (channel) => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send(channel);

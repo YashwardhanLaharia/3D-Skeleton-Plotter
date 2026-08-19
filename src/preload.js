@@ -18,6 +18,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   confirmDiscard(context) {
     return ipcRenderer.invoke('confirm-discard', context);
   },
+  confirmRemove() {
+    return ipcRenderer.invoke('confirm-remove');
+  },
   onRequestClose(callback) {
     const listener = () => callback();
     ipcRenderer.on('request-close', listener);
