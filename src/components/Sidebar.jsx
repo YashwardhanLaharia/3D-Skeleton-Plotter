@@ -258,6 +258,7 @@ export default function Sidebar({
                   onChange={onChange}
                   onRemove={() => setPendingRemoval(individual)}
                   canRemove={individuals.length > 1}
+                  onColourChange={onColourChange}
                   onLabelChange={onLabelChange}
                 />
               ))}
