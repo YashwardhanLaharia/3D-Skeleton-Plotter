@@ -9,6 +9,7 @@ import {
 import { JOINTS } from "./joints";
 import Sidebar from "./components/Sidebar";
 import MainView from "./components/MainView";
+import HelpTour from "./components/HelpTour";
 import "./app.css";
 
 const PALETTE = [
@@ -45,6 +46,7 @@ export default function App() {
   const [filePath, setFilePath] = useState(null);
   const [isDirty, setIsDirty] = useState(false);
   const [rigCommand, setRigCommand] = useState(null);
+  const [helpStep, setHelpStep] = useState(null);
   const nextId = useRef(2);
 
   useEffect(() => {
@@ -276,11 +278,24 @@ export default function App() {
             </ul>
           </div>
 
-          {["Edit", "Settings", "Help", "View"].map((item) => (
+          {["Edit", "Settings"].map((item) => (
             <button key={item} type="button" className="app-menu-button">
               {item}
             </button>
           ))}
+          <button
+            type="button"
+            className="app-menu-button"
+            onClick={() => {
+              setIsSidebarOpen(true);
+              setHelpStep(0);
+            }}
+          >
+            Help
+          </button>
+          <button type="button" className="app-menu-button">
+            View
+          </button>
         </nav>
       </header>
 
@@ -311,6 +326,15 @@ export default function App() {
 
         <MainView individuals={individuals} command={rigCommand} />
       </div>
+
+      {helpStep !== null && (
+        <HelpTour
+          key={helpStep}
+          stepIndex={helpStep}
+          onNext={() => setHelpStep((current) => current + 1)}
+          onClose={() => setHelpStep(null)}
+        />
+      )}
     </div>
   );
 }
