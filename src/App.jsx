@@ -7,7 +7,7 @@ import {
   SCHEMA_VERSION,
 } from "./projectFile";
 
-import { historyReducer, makeInitialHistory, diffSnapshots } from "./reducer";
+import { historyReducer, makeInitialHistory, diffSnapshots, findLastKnownLabel } from "./reducer";
 
 import { JOINTS } from "./joints";
 import Sidebar from "./components/Sidebar";
@@ -124,7 +124,10 @@ export default function App() {
 
     // Structural changes announce themselves; field changes are shown in place.
     if (change.field === "added" || change.field === "removed") {
-      const name = change.label?.trim() || "unnamed individual";
+            const known = change.needsLabelLookup
+        ? findLastKnownLabel(history, change.individualId)
+        : change.label;
+      const name = known?.trim() || "unnamed individual";
       setNotice(
         change.field === "added" ? `Restored ${name}` : `Removed ${name}`,
       );

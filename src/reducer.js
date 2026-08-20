@@ -143,10 +143,12 @@ export function diffSnapshots(before, after) {
     const removed = before.find(
       (individual) => !after.some((other) => other.id === individual.id),
     );
+
     return {
       field: "removed",
       individualId: removed?.id,
       label: removed?.label,
+      needsLabelLookup: !removed?.label?.trim(),
     };
   }
 
@@ -174,6 +176,22 @@ export function diffSnapshots(before, after) {
         }
       }
     }
+  }
+
+  return null;
+}
+
+// Searches backwards through history for the most recent non-empty label for an
+// id. Used when a structural undo lands on a snapshot where the label was
+// already reverted.
+export function findLastKnownLabel(history, individualId) {
+  const timeline = [...history.past, history.present, ...history.future];
+
+  for (let i = timeline.length - 1; i >= 0; i -= 1) {
+    const match = timeline[i].find(
+      (individual) => individual.id === individualId,
+    );
+    if (match?.label?.trim()) return match.label;
   }
 
   return null;
