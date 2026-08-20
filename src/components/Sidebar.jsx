@@ -1,12 +1,8 @@
 // The individuals panel. One collapsible section per body in the grave, each
 // containing a coordinate table: one row per survey point with number, label,
 // and three inputs for X, Y, Z.
-//
-// This component holds no state of its own. It receives the coordinates from
-// App and reports every keystroke back up via onChange.
-
 import { JOINTS } from "../joints";
-import { useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const DECIMAL_PATTERN = /^\d*\.?\d*$/;
 
@@ -196,6 +192,85 @@ function IndividualSection({
   );
 }
 
+function DeleteConfirmation({ individual, onCancel, onConfirm }) {
+  const name = individual.label.trim() || "this skeleton";
+
+  return (
+    <>
+      <div
+        className="modal d-block"
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-skeleton-title"
+        aria-describedby="delete-skeleton-description"
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            onCancel();
+          }
+        }}
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget) {
+            onCancel();
+          }
+        }}
+      >
+        <div className="modal-dialog modal-dialog-centered delete-confirmation-dialog">
+          <div className="modal-content delete-confirmation-card">
+            <div className="modal-body position-relative p-4 text-center">
+              <button
+                type="button"
+                className="btn-close delete-confirmation-close"
+                aria-label="Close"
+                onClick={onCancel}
+              />
+              <div className="delete-confirmation-icon" aria-hidden="true">
+                <svg
+                  viewBox="0 0 16 16"
+                  fill="currentColor"
+                  focusable="false"
+                >
+                  <path d="M8.982 1.566a1.13 1.13 0 0 0-1.964 0L.165 13.233c-.457.778.091 1.767.982 1.767h13.706c.89 0 1.438-.99.982-1.767zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5m.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2" />
+                </svg>
+              </div>
+              <h2
+                className="delete-confirmation-title"
+                id="delete-skeleton-title"
+              >
+                Delete skeleton?
+              </h2>
+              <p
+                className="delete-confirmation-copy"
+                id="delete-skeleton-description"
+              >
+                Delete {name} and all of its coordinates?
+              </p>
+              <div className="d-flex gap-2 mt-4">
+                <button
+                  type="button"
+                  className="btn btn-light border flex-fill delete-confirmation-action"
+                  onClick={onCancel}
+                  autoFocus
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-danger flex-fill delete-confirmation-action"
+                  onClick={onConfirm}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="modal-backdrop show delete-confirmation-backdrop" />
+    </>
+  );
+}
+
 // The panel itself: an add button and the list of sections.
 export default function Sidebar({
   individuals,
@@ -215,77 +290,94 @@ export default function Sidebar({
   highlight,
   notice,
 }) {
+  const [pendingRemoval, setPendingRemoval] = useState(null);
+
+  function confirmRemoval() {
+    onRemove(pendingRemoval.id);
+    setPendingRemoval(null);
+  }
+
   return (
-    <aside
-      id="individuals-sidebar"
-      className={`sidebar bg-body-tertiary border-end ${isOpen ? "overflow-auto" : "sidebar-collapsed"}`}
-      aria-hidden={!isOpen}
-    >
-      {isOpen && (
-        <div className="sidebar-content">
-          <header className="sidebar-header bg-body-tertiary border-bottom px-2 py-2 d-flex align-items-center justify-content-between">
-            <h2 className="h6 mb-0">Individuals</h2>
-            <div className="d-flex align-items-center gap-1">
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-secondary history-btn"
-                onClick={onUndo}
-                disabled={!canUndo}
-                title="Undo (Ctrl+Z)"
-                aria-label="Undo"
-              >
-                <span aria-hidden="true">↶</span>
-              </button>
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-secondary history-btn"
-                onClick={onRedo}
-                disabled={!canRedo}
-                title="Redo (Ctrl+Shift+Z)"
-                aria-label="Redo"
-              >
-                <span aria-hidden="true">↷</span>
-              </button>
-              <button
-                type="button"
-                className="btn btn-sm btn-primary"
-                onClick={onAdd}
-              >
-                Add individual
-              </button>
-            </div>
-          </header>
+    <>
+      <aside
+        id="individuals-sidebar"
+        className={`sidebar bg-body-tertiary border-end ${isOpen ? "overflow-auto" : "sidebar-collapsed"}`}
+        aria-hidden={!isOpen}
+      >
+        {isOpen && (
+          <div className="sidebar-content">
+            <header className="sidebar-header bg-body-tertiary border-bottom px-2 py-2 d-flex align-items-center justify-content-between">
+              <h2 className="h6 mb-0">Individuals</h2>
+              <div className="d-flex align-items-center gap-1">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary history-btn"
+                  onClick={onUndo}
+                  disabled={!canUndo}
+                  title="Undo (Ctrl+Z)"
+                  aria-label="Undo"
+                >
+                  <span aria-hidden="true">↶</span>
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary history-btn"
+                  onClick={onRedo}
+                  disabled={!canRedo}
+                  title="Redo (Ctrl+Shift+Z)"
+                  aria-label="Redo"
+                >
+                  <span aria-hidden="true">↷</span>
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-primary"
+                  onClick={onAdd}
+                >
+                  Add individual
+                </button>
+              </div>
+            </header>
 
-          {notice && (
-            <div
-              className="history-notice px-2 py-1 small text-body-secondary border-bottom"
-              role="status"
-            >
-              {notice}
-            </div>
-          )}
+            {notice && (
+              <div
+                className="history-notice px-2 py-1 small text-body-secondary border-bottom"
+                role="status"
+              >
+                {notice}
+              </div>
+            )}
 
-          <div className="p-2">
-            {individuals.map((individual) => (
-              <IndividualSection
-                key={individual.id}
-                individual={individual}
-                isOpen={individual.id === openId}
-                onToggle={onToggle}
-                onChange={onChange}
-                onCommit={onCommit}
-                onRemove={onRemove}
-                canRemove={individuals.length > 1}
-                onColourChange={onColourChange}
-                onLabelChange={onLabelChange}
-                highlight={
-                  highlight?.individualId === individual.id ? highlight : null
-                }
-              />
-            ))}
+            <div className="p-2">
+              {individuals.map((individual) => (
+                <IndividualSection
+                  key={individual.id}
+                  individual={individual}
+                  isOpen={individual.id === openId}
+                  onToggle={onToggle}
+                  onChange={onChange}
+                  onCommit={onCommit}
+                  onRemove={() => setPendingRemoval(individual)}
+                  canRemove={individuals.length > 1}
+                  onColourChange={onColourChange}
+                  onLabelChange={onLabelChange}
+                  highlight={
+                    highlight?.individualId === individual.id ? highlight : null
+                  }
+                />
+              ))}
+            </div>
           </div>
-        </div>
+        )}
+      </aside>
+
+      {pendingRemoval && (
+        <DeleteConfirmation
+          individual={pendingRemoval}
+          onCancel={() => setPendingRemoval(null)}
+          onConfirm={confirmRemoval}
+        />
       )}
-    </aside>
+    </>
   );
 }
