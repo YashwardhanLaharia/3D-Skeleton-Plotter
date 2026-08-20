@@ -7,7 +7,7 @@ import {
   SCHEMA_VERSION,
 } from "./projectFile";
 
-import { historyReducer, makeInitialHistory } from "./reducer";
+import { historyReducer, makeInitialHistory, diffSnapshots } from "./reducer";
 
 import { JOINTS } from "./joints";
 import Sidebar from "./components/Sidebar";
@@ -49,6 +49,8 @@ export default function App() {
   const individuals = history.present;
   const canUndo = history.past.length > 0;
   const canRedo = history.future.length > 0;
+  // Which field to flash after an undo. Cleared after some time
+  const [highlight, setHighlight] = useState(null);
 
   const [openId, setOpenId] = useState("ind-1");
   const [filePath, setFilePath] = useState(null);
@@ -112,15 +114,31 @@ export default function App() {
     setIsDirty(true);
   }
 
+  // Reveal the effect: expand the affected individual and flash the field, so
+  // an undo inside a collapsed section isn't silent.
+  function revealChange(before, after) {
+    const change = diffSnapshots(before, after);
+    if (!change) return;
+
+    setOpenId(change.individualId);
+    setHighlight(change);
+  }
+
   function handleUndo() {
     if (!canUndo) return;
+    const before = history.present;
+    const after = history.past[history.past.length - 1];
     dispatch({ type: "undo" });
+    revealChange(before, after);
     setIsDirty(true);
   }
 
   function handleRedo() {
     if (!canRedo) return;
+    const before = history.present;
+    const after = history.future[0];
     dispatch({ type: "redo" });
+    revealChange(before, after);
     setIsDirty(true);
   }
 
@@ -233,6 +251,14 @@ export default function App() {
     return () => unsubscribe?.();
   }, []);
 
+    // Clear the flash after it plays. The dependency is the highlight object
+  // itself, so re-undoing the same field restarts the animation.
+  useEffect(() => {
+    if (!highlight) return;
+    const timer = setTimeout(() => setHighlight(null), 1200);
+    return () => clearTimeout(timer);
+  }, [highlight]);
+
   // Registered once; reads handlers through the ref so it never captures stale
   // state. preventDefault stops the browser's own input undo from fighting ours
   // The inputs are React-controlled, so native undo would desync them.
@@ -276,6 +302,7 @@ export default function App() {
           onRedo={handleRedo}
           canUndo={canUndo}
           canRedo={canRedo}
+          highlight={highlight}
           onToggle={handleToggle}
           onAdd={handleAdd}
           onRemove={handleRemove}
