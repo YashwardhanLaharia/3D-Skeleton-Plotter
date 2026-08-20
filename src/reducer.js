@@ -121,3 +121,41 @@ export function historyReducer(state, action) {
       return state;
   }
 }
+
+// Compares two snapshots and reports the first difference found. Used to reveal
+// the effect of an undo, since a change may sit inside a collapsed section
+// where the user would otherwise see nothing happen.
+//
+// Returns null when nothing changed, or when the difference is structural
+// (an individual added or removed) — those are visible without help.
+export function diffSnapshots(before, after) {
+  if (before.length !== after.length) return null;
+
+  for (let i = 0; i < after.length; i += 1) {
+    const a = before[i];
+    const b = after[i];
+    if (!a || !b || a.id !== b.id) return null;
+
+    if (a.label !== b.label) {
+      return { individualId: b.id, field: "label" };
+    }
+
+    if (a.colour !== b.colour) {
+      return { individualId: b.id, field: "colour" };
+    }
+
+    for (const jointId of Object.keys(b.coords)) {
+      const coordA = a.coords[jointId];
+      const coordB = b.coords[jointId];
+      if (!coordA) continue;
+
+      for (const axis of ["x", "y", "z"]) {
+        if (coordA[axis] !== coordB[axis]) {
+          return { individualId: b.id, field: "coord", jointId, axis };
+        }
+      }
+    }
+  }
+
+  return null;
+}
