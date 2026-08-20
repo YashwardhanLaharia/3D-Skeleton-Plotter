@@ -138,6 +138,7 @@
   .progress-bar {
     transition: none;
   }
+}
 .viewport canvas {
   display: block;
   height: 100% !important;
@@ -212,4 +213,22 @@
   font-size: 0.9rem;
   line-height: 1.2;
 }
+
+
+/* Flash the field an undo changed. The section may have just been expanded, so
+   the user needs pointing at the specific input, not just the individual. */
+@keyframes coord-flash {
+  0%   { background-color: var(--bs-warning-bg-subtle); }
+  100% { background-color: transparent; }
+}
+
+.form-control.coord-input-flash {
+  animation: coord-flash 1.2s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .form-control.coord-input-flash {
+    animation: none;
+    outline: 2px solid var(#fff3cd);
+  }
 }

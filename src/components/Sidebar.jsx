@@ -6,12 +6,28 @@
 // App and reports every keystroke back up via onChange.
 
 import { JOINTS } from "../joints";
+import { useEffect, useRef } from "react";
 
 const DECIMAL_PATTERN = /^\d*\.?\d*$/;
 
 // One row of the table. Purely presentational: displays what it's given, tells the parent when the user types.
+function JointRow({
+  number,
+  label,
+  jointId,
+  values,
+  onChange,
+  onCommit,
+  highlightAxis,
+}) {
+  const inputRef = useRef(null);
 
-function JointRow({ number, label, jointId, values, onChange, onCommit }) {
+  useEffect(() => {
+    if (highlightAxis) {
+      inputRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+  }, [highlightAxis]);
+
   return (
     <div className="d-flex align-items-center gap-1 mb-1">
       <span className="joint-num text-body-tertiary text-end">{number}</span>
@@ -27,7 +43,9 @@ function JointRow({ number, label, jointId, values, onChange, onCommit }) {
           type="text"
           inputMode="decimal"
           pattern="[0-9]*[.]?[0-9]*"
-          className="form-control form-control-sm coord-input"
+          className={`form-control form-control-sm coord-input${
+            highlightAxis === axis ? " coord-input-flash" : ""
+          }`}
           placeholder={axis.toUpperCase()}
           aria-label={`${label}, ${axis.toUpperCase()}`}
           value={values[axis]}
@@ -39,6 +57,7 @@ function JointRow({ number, label, jointId, values, onChange, onCommit }) {
           }}
           onBlur={onCommit}
           onCommit={onCommit}
+          ref={highlightAxis === axis ? inputRef : null}
         />
       ))}
     </div>
@@ -57,6 +76,7 @@ function IndividualSection({
   canRemove,
   onColourChange,
   onLabelChange,
+  highlight,
 }) {
   // A point counts as recorded only when all three axes are filled. Partial
   // entries are treated as not yet done.
@@ -76,7 +96,9 @@ function IndividualSection({
       >
         <input
           type="color"
-          className="form-control form-control-color"
+          className={`form-control form-control-color${
+            highlight?.field === "colour" ? " coord-input-flash" : ""
+          }`}
           id="colorPicker"
           value={individual.colour}
           title="Choose your color"
@@ -87,7 +109,9 @@ function IndividualSection({
         />
         <input
           type="text"
-          className="form-control form-control-sm label-input"
+          className={`form-control form-control-sm label-input${
+            highlight?.field === "label" ? " coord-input-flash" : ""
+          }`}
           placeholder="Label"
           aria-label="Label"
           value={individual.label}
@@ -130,6 +154,11 @@ function IndividualSection({
                 onChange(individual.id, jointId, axis, value)
               }
               onCommit={onCommit}
+              highlightAxis={
+                highlight?.field === "coord" && highlight.jointId === joint.id
+                  ? highlight.axis
+                  : null
+              }
             />
           ))}
         </div>
@@ -154,6 +183,7 @@ export default function Sidebar({
   onColourChange,
   onLabelChange,
   isOpen,
+  highlight,
 }) {
   return (
     <aside
@@ -209,6 +239,9 @@ export default function Sidebar({
                 canRemove={individuals.length > 1}
                 onColourChange={onColourChange}
                 onLabelChange={onLabelChange}
+                highlight={
+                  highlight?.individualId === individual.id ? highlight : null
+                }
               />
             ))}
           </div>
