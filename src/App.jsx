@@ -51,6 +51,8 @@ export default function App() {
   const canRedo = history.future.length > 0;
   // Which field to flash after an undo. Cleared after some time
   const [highlight, setHighlight] = useState(null);
+  // Transient message for changes such as adding individuals, which are inconvenient to highlight in place
+  const [notice, setNotice] = useState(null);
 
   const [openId, setOpenId] = useState("ind-1");
   const [filePath, setFilePath] = useState(null);
@@ -119,6 +121,16 @@ export default function App() {
   function revealChange(before, after) {
     const change = diffSnapshots(before, after);
     if (!change) return;
+
+    // Structural changes announce themselves; field changes are shown in place.
+    if (change.field === "added" || change.field === "removed") {
+      const name = change.label?.trim() || "unnamed individual";
+      setNotice(
+        change.field === "added" ? `Restored ${name}` : `Removed ${name}`,
+      );
+      if (change.field === "added") setOpenId(change.individualId);
+      return;
+    }
 
     setOpenId(change.individualId);
     setHighlight(change);
@@ -251,13 +263,19 @@ export default function App() {
     return () => unsubscribe?.();
   }, []);
 
-    // Clear the flash after it plays. The dependency is the highlight object
+  // Clear the flash after it plays. The dependency is the highlight object
   // itself, so re-undoing the same field restarts the animation.
   useEffect(() => {
     if (!highlight) return;
     const timer = setTimeout(() => setHighlight(null), 1200);
     return () => clearTimeout(timer);
   }, [highlight]);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(null), 2500);
+    return () => clearTimeout(timer);
+  }, [notice]);
 
   // Registered once; reads handlers through the ref so it never captures stale
   // state. preventDefault stops the browser's own input undo from fighting ours
@@ -303,6 +321,7 @@ export default function App() {
           canUndo={canUndo}
           canRedo={canRedo}
           highlight={highlight}
+          notice={notice}
           onToggle={handleToggle}
           onAdd={handleAdd}
           onRemove={handleRemove}

@@ -232,3 +232,21 @@
     outline: 2px solid var(#fff3cd);
   }
 }
+
+/* Notice for structural undos. Sits under the header rather than floating, so
+   it can't cover the list it's describing. */
+.history-notice {
+  background-color: var(--bs-warning-bg-subtle);
+  animation: notice-in 0.15s ease-out;
+}
+
+@keyframes notice-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .history-notice {
+    animation: none;
+  }
+}

@@ -86,7 +86,6 @@ function JointRow({
               moveFocus(e.target, 1, 0);
             }
           }}
-          onCommit={onCommit}
           ref={highlightAxis === axis ? inputRef : null}
         />
       ))}
@@ -214,6 +213,7 @@ export default function Sidebar({
   onLabelChange,
   isOpen,
   highlight,
+  notice,
 }) {
   return (
     <aside
@@ -255,6 +255,15 @@ export default function Sidebar({
               </button>
             </div>
           </header>
+
+          {notice && (
+            <div
+              className="history-notice px-2 py-1 small text-body-secondary border-bottom"
+              role="status"
+            >
+              {notice}
+            </div>
+          )}
 
           <div className="p-2">
             {individuals.map((individual) => (
