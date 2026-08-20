@@ -206,7 +206,13 @@ export default function App() {
   // at the latest handlers: registering once with [] would capture the state as
   // it was on first render, so saving would write an empty project forever.
   const actionsRef = useRef(null);
-  actionsRef.current = { handleOpen, handleSave, handleRequestClose };
+  actionsRef.current = {
+    handleOpen,
+    handleSave,
+    handleRequestClose,
+    handleUndo,
+    handleRedo,
+  };
 
   useEffect(() => {
     const unsubscribe = window.electronAPI?.onMenuAction((action) => {
@@ -225,6 +231,32 @@ export default function App() {
       actionsRef.current.handleRequestClose();
     });
     return () => unsubscribe?.();
+  }, []);
+
+  // Registered once; reads handlers through the ref so it never captures stale
+  // state. preventDefault stops the browser's own input undo from fighting ours
+  // The inputs are React-controlled, so native undo would desync them.
+  useEffect(() => {
+    function onKeyDown(event) {
+      if (!event.ctrlKey && !event.metaKey) return;
+
+      const key = event.key.toLowerCase();
+
+      if (key === "z") {
+        event.preventDefault();
+        if (event.shiftKey) actionsRef.current.handleRedo();
+        else actionsRef.current.handleUndo();
+      }
+
+      // Windows convention for redo.
+      if (key === "y") {
+        event.preventDefault();
+        actionsRef.current.handleRedo();
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
   useEffect(() => {
