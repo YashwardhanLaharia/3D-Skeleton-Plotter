@@ -10,6 +10,22 @@ import { useEffect, useRef } from "react";
 
 const DECIMAL_PATTERN = /^\d*\.?\d*$/;
 
+// Data-entry grid navigation with keyboard arrows
+function moveFocus(input, rowDelta, colDelta) {
+  const grid = input.closest(".individual");
+  if (!grid) return;
+
+  const inputs = Array.from(grid.querySelectorAll(".coord-input"));
+  const index = inputs.indexOf(input);
+  if (index === -1) return;
+
+  const next = index + rowDelta * 3 + colDelta;
+  if (next < 0 || next >= inputs.length) return;
+
+  inputs[next].focus();
+  inputs[next].select();
+}
+
 // One row of the table. Purely presentational: displays what it's given, tells the parent when the user types.
 function JointRow({
   number,
@@ -56,6 +72,20 @@ function JointRow({
             }
           }}
           onBlur={onCommit}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              moveFocus(e.target, 1, 0);
+            }
+            if (e.key === "ArrowUp") {
+              e.preventDefault();
+              moveFocus(e.target, -1, 0);
+            }
+            if (e.key === "Enter") {
+              e.preventDefault();
+              moveFocus(e.target, 1, 0);
+            }
+          }}
           onCommit={onCommit}
           ref={highlightAxis === axis ? inputRef : null}
         />
