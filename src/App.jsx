@@ -1,11 +1,14 @@
 // The root component owns individuals, sidebar state, and rig commands.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import {
   validateProject,
   normaliseIndividual,
   SCHEMA_VERSION,
 } from "./projectFile";
+
+import { historyReducer, makeInitialHistory } from "./reducer";
+
 import { JOINTS } from "./joints";
 import Sidebar from "./components/Sidebar";
 import MainView from "./components/MainView";
@@ -32,14 +35,20 @@ export default function App() {
 
   // The data model is now an array of individuals, not one coordinate object.
   // Each carries its own label, colour, and full coordinate set.
-  const [individuals, setIndividuals] = useState(() => [
-    {
-      id: "ind-1",
-      label: "",
-      colour: "#E69F00",
-      coords: makeBlankCoords(),
-    },
-  ]);
+  const [history, dispatch] = useReducer(historyReducer, undefined, () =>
+    makeInitialHistory([
+      {
+        id: "ind-1",
+        label: "",
+        colour: "#E69F00",
+        coords: makeBlankCoords(),
+      },
+    ]),
+  );
+
+  const individuals = history.present;
+  const canUndo = history.past.length > 0;
+  const canRedo = history.future.length > 0;
 
   const [openId, setOpenId] = useState("ind-1");
   const [filePath, setFilePath] = useState(null);
@@ -53,41 +62,29 @@ export default function App() {
   }, []);
 
   function handleChange(individualId, jointId, axis, rawValue) {
-    setIndividuals((previous) =>
-      previous.map((individual) =>
-        individual.id !== individualId
-          ? individual
-          : {
-              ...individual,
-              coords: {
-                ...individual.coords,
-                [jointId]: {
-                  ...individual.coords[jointId],
-                  [axis]: rawValue,
-                },
-              },
-            },
-      ),
-    );
-
+    dispatch({
+      type: "set-coord",
+      individualId,
+      jointId,
+      axis,
+      value: rawValue,
+    });
     setIsDirty(true);
   }
 
+  // Called on blur. Ends the current edit run so the next field starts a new
+  // history entry.
+  function handleCommit() {
+    dispatch({ type: "commit" });
+  }
+
   function handleColourChange(individualId, colour) {
-    setIndividuals((previous) =>
-      previous.map((individual) =>
-        individual.id === individualId ? { ...individual, colour } : individual,
-      ),
-    );
+    dispatch({ type: "set-colour", individualId, colour });
     setIsDirty(true);
   }
 
   function handleLabelChange(individualId, label) {
-    setIndividuals((previous) =>
-      previous.map((individual) =>
-        individual.id === individualId ? { ...individual, label } : individual,
-      ),
-    );
+    dispatch({ type: "set-label", individualId, label });
     setIsDirty(true);
   }
 
@@ -100,19 +97,17 @@ export default function App() {
     const colour = PALETTE[(nextId.current - 1) % PALETTE.length];
     nextId.current += 1;
 
-    setIndividuals((previous) => [
-      ...previous,
-      { id, label: "", colour, coords: makeBlankCoords() },
-    ]);
+    dispatch({
+      type: "add",
+      individual: { id, label: "", colour, coords: makeBlankCoords() },
+    });
     setOpenId(id);
 
     setIsDirty(true);
   }
 
   function handleRemove(individualId) {
-    setIndividuals((previous) =>
-      previous.filter((individual) => individual.id !== individualId),
-    );
+    dispatch({ type: "remove", individualId });
     setOpenId((current) => (current === individualId ? null : current));
     setIsDirty(true);
   }
@@ -140,7 +135,7 @@ export default function App() {
     }
 
     const loaded = result.data.individuals.map(normaliseIndividual);
-    setIndividuals(loaded);
+    dispatch({ type: "load", individuals: loaded });
 
     const numbers = loaded
       .map((individual) => Number(individual.id.replace("ind-", "")))
@@ -219,7 +214,7 @@ export default function App() {
     });
     return () => unsubscribe?.();
   }, []);
-  
+
   useEffect(() => {
     const name = filePath ? filePath.split(/[\\/]/).pop() : "Untitled";
     document.title = `${isDirty ? "• " : ""}${name} — Skeleton Plotter`;
