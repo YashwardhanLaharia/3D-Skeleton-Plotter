@@ -227,6 +227,7 @@ export default function App() {
           individuals={individuals}
           openId={openId}
           onChange={handleChange}
+          onCommit={handleCommit}
           onToggle={handleToggle}
           onAdd={handleAdd}
           onRemove={handleRemove}

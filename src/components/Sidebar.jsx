@@ -11,7 +11,7 @@ const DECIMAL_PATTERN = /^\d*\.?\d*$/;
 
 // One row of the table. Purely presentational: displays what it's given, tells the parent when the user types.
 
-function JointRow({ number, label, jointId, values, onChange }) {
+function JointRow({ number, label, jointId, values, onChange, onCommit }) {
   return (
     <div className="d-flex align-items-center gap-1 mb-1">
       <span className="joint-num text-body-tertiary text-end">{number}</span>
@@ -37,6 +37,8 @@ function JointRow({ number, label, jointId, values, onChange }) {
               onChange(jointId, axis, nextValue);
             }
           }}
+          onBlur={onCommit}
+          onCommit={onCommit}
         />
       ))}
     </div>
@@ -50,6 +52,7 @@ function IndividualSection({
   isOpen,
   onToggle,
   onChange,
+  onCommit,
   onRemove,
   canRemove,
   onColourChange,
@@ -75,12 +78,13 @@ function IndividualSection({
           type="color"
           className="form-control form-control-color"
           id="colorPicker"
-          value={individual.colour} 
+          value={individual.colour}
           title="Choose your color"
           style={{ height: "24px", width: "29px", padding: "5px", margin: "0" }}
           onChange={(e) => onColourChange(individual.id, e.target.value)}
           onClick={(e) => e.stopPropagation()}
-           />
+          onBlur={onCommit}
+        />
         <input
           type="text"
           className="form-control form-control-sm label-input"
@@ -89,6 +93,7 @@ function IndividualSection({
           value={individual.label}
           onChange={(e) => onLabelChange(individual.id, e.target.value)}
           onClick={(e) => e.stopPropagation()}
+          onBlur={onCommit}
         />
         <small className="text-body-tertiary">
           {filledCount}/{JOINTS.length}
@@ -124,6 +129,7 @@ function IndividualSection({
               onChange={(jointId, axis, value) =>
                 onChange(individual.id, jointId, axis, value)
               }
+              onCommit={onCommit}
             />
           ))}
         </div>
@@ -137,6 +143,7 @@ export default function Sidebar({
   individuals,
   openId,
   onChange,
+  onCommit,
   onToggle,
   onAdd,
   onRemove,
@@ -171,6 +178,7 @@ export default function Sidebar({
                 isOpen={individual.id === openId}
                 onToggle={onToggle}
                 onChange={onChange}
+                onCommit={onCommit}
                 onRemove={onRemove}
                 canRemove={individuals.length > 1}
                 onColourChange={onColourChange}
