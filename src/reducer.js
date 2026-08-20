@@ -7,7 +7,7 @@
 // opens a session.
 // Blur closes the session, so the next field's first keystroke starts a fresh history entry.
 
-const HISTORY_LIMIT = 200; // Random number 
+const HISTORY_LIMIT = 200; // Random number
 
 export function makeInitialHistory(individuals) {
   return { past: [], present: individuals, future: [], sessionOpen: false };
@@ -129,7 +129,26 @@ export function historyReducer(state, action) {
 // Returns null when nothing changed, or when the difference is structural
 // (an individual added or removed) — those are visible without help.
 export function diffSnapshots(before, after) {
-  if (before.length !== after.length) return null;
+  // Structural changes get a text notice rather than a flash: adding or
+  // removing a whole section is too large to highlight, and the two cases look
+  // similar enough that the user needs telling which one just happened.
+  if (before.length !== after.length) {
+    if (after.length > before.length) {
+      const added = after.find(
+        (individual) => !before.some((other) => other.id === individual.id),
+      );
+      return { field: "added", individualId: added?.id, label: added?.label };
+    }
+
+    const removed = before.find(
+      (individual) => !after.some((other) => other.id === individual.id),
+    );
+    return {
+      field: "removed",
+      individualId: removed?.id,
+      label: removed?.label,
+    };
+  }
 
   for (let i = 0; i < after.length; i += 1) {
     const a = before[i];
