@@ -7,7 +7,7 @@
 // opens a session.
 // Blur closes the session, so the next field's first keystroke starts a fresh history entry.
 
-const HISTORY_LIMIT = 20; // Random number 
+const HISTORY_LIMIT = 200; // Random number 
 
 export function makeInitialHistory(individuals) {
   return { past: [], present: individuals, future: [], sessionOpen: false };

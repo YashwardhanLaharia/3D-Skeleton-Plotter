@@ -204,3 +204,12 @@
     transition: none;
   }
 }
+
+/* Undo/redo sit next to Add individual in a narrow header, so they need to be
+   compact. The arrows are glyphs rather than an icon library. */
+.btn.history-btn {
+  padding: 0.1rem 0.4rem;
+  font-size: 0.9rem;
+  line-height: 1.2;
+}
+}

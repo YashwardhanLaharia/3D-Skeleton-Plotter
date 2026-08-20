@@ -144,6 +144,10 @@ export default function Sidebar({
   openId,
   onChange,
   onCommit,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
   onToggle,
   onAdd,
   onRemove,
@@ -161,13 +165,35 @@ export default function Sidebar({
         <div className="sidebar-content">
           <header className="sidebar-header bg-body-tertiary border-bottom px-2 py-2 d-flex align-items-center justify-content-between">
             <h2 className="h6 mb-0">Individuals</h2>
-            <button
-              type="button"
-              className="btn btn-sm btn-primary"
-              onClick={onAdd}
-            >
-              Add individual
-            </button>
+            <div className="d-flex align-items-center gap-1">
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary history-btn"
+                onClick={onUndo}
+                disabled={!canUndo}
+                title="Undo (Ctrl+Z)"
+                aria-label="Undo"
+              >
+                <span aria-hidden="true">↶</span>
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary history-btn"
+                onClick={onRedo}
+                disabled={!canRedo}
+                title="Redo (Ctrl+Shift+Z)"
+                aria-label="Redo"
+              >
+                <span aria-hidden="true">↷</span>
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-primary"
+                onClick={onAdd}
+              >
+                Add individual
+              </button>
+            </div>
           </header>
 
           <div className="p-2">

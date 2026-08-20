@@ -112,6 +112,18 @@ export default function App() {
     setIsDirty(true);
   }
 
+  function handleUndo() {
+    if (!canUndo) return;
+    dispatch({ type: "undo" });
+    setIsDirty(true);
+  }
+
+  function handleRedo() {
+    if (!canRedo) return;
+    dispatch({ type: "redo" });
+    setIsDirty(true);
+  }
+
   async function handleOpen() {
     if (isDirty) {
       const choice = await window.electronAPI.confirmDiscard("open");
@@ -228,6 +240,10 @@ export default function App() {
           openId={openId}
           onChange={handleChange}
           onCommit={handleCommit}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          canUndo={canUndo}
+          canRedo={canRedo}
           onToggle={handleToggle}
           onAdd={handleAdd}
           onRemove={handleRemove}
