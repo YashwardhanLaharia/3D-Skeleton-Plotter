@@ -286,3 +286,23 @@ test("label lookup returns null when never labelled", () => {
   const history = makeInitialHistory([individual("ind-1")]);
   assert.equal(findLastKnownLabel(history, "ind-1"), null);
 });
+
+// --- colour changes -------------------------------------------------------
+
+test("colour changes reflect in skeleton", () => {
+  let state = historyReducer(start(), { type: "set-colour", individualId: "ind-1", colour: "#ff0000" });
+  assert.equal(state.present[0].colour, "#ff0000");
+});
+
+test("colour change resets after undo", () => {
+  let state = historyReducer(start(), { type: "set-colour", individualId: "ind-1", colour: "#000000" });
+  state = historyReducer(state, { type: "undo" });
+  assert.equal(state.present[0].colour, "#E69F00");
+});
+
+test("colour change resets after redo", () => {
+  let state = historyReducer(start(), { type: "set-colour", individualId: "ind-1", colour: "#000000" });
+  state = historyReducer(state, { type: "undo" });
+  state = historyReducer(state, { type: "redo" });
+  assert.equal(state.present[0].colour, "#000000");
+});
