@@ -1,0 +1,48 @@
+# Documentation
+
+## Overview
+
+Welcome to `/docs`, which contains the technical documentation of the entire 3D Skelton Plotting system, including the system overview, API definitions, user guides, testing guides and more. These documents are designed to give a general overview of the system to all those involved in development as well as clients who wish to run the program from scratch or better understand the system. The section below outlines the files within this directory and gives a high-level overview of the contents of each listed file. The files can be easily accessed using the table of contents.
+
+## Navigation
+
+The directory structure and a high-level overview of each file within this directory is listed below:
+
+```
+docs/
+├── README.md                 # General overview file
+├── getting-started.md        # Install, run, build, first use
+├── user-guide.md             # Workflows: import coords, multi-skeleton, export
+├── architecture.md           # High-level: main / renderer / preload, data flow
+├── rig-api.md                # SkeletonRig API overview
+├── data-formats/
+│   ├── joint-coordinates.md  # Joint IDs, axes, expected input format
+│   └── project-file.md       # Schema, schemaVersion, individuals structure
+└── development/
+    ├── setup.md              # npm scripts, Electron Forge, Vite configs
+    └── testing.md            # Branching, PRs, code conventions (if needed)
+```
+
+### Operators
+
+We recommend starting with the `user-guide`.
+
+### Developers
+
+We recommend starting with the `getting-started` guide.
+
+More detailed system inforamation can be found in `architecture`, `rig-api`, `development/*` and `data-formats/*`.
+
+## Table of Contents
+
+- [README.md](./README.md)
+- [getting-started.md](./getting-started.md)
+- [user-guide.md](./user-guide.md)
+- [architecture.md](./architecture.md)
+- [rig-api.md](./rig-api.md)
+- data-formats
+  - [joint-coordinates.md](./data-formats/joint-coordinates.md)
+  - [project-file.md](./data-formats/project-file.md)
+- development
+  - [setup.md](./setup.md)
+  - [testing.md](./testing.md)
