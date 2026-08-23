@@ -207,6 +207,51 @@
   }
 }
 
+/* Undo/redo sit next to Add individual in a narrow header, so they need to be
+   compact. The arrows are glyphs rather than an icon library. */
+.btn.history-btn {
+  padding: 0.1rem 0.4rem;
+  font-size: 0.9rem;
+  line-height: 1.2;
+}
+
+
+/* Flash the field an undo changed. The section may have just been expanded, so
+   the user needs pointing at the specific input, not just the individual. */
+@keyframes coord-flash {
+  0%   { background-color: var(--bs-warning-bg-subtle); }
+  100% { background-color: transparent; }
+}
+
+.form-control.coord-input-flash {
+  animation: coord-flash 1.2s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .form-control.coord-input-flash {
+    animation: none;
+    outline: 2px solid var(--bs-warning-border-subtle);
+  }
+}
+
+/* Notice for structural undos. Sits under the header rather than floating, so
+   it can't cover the list it's describing. */
+.history-notice {
+  background-color: var(--bs-warning-bg-subtle);
+  animation: notice-in 0.15s ease-out;
+}
+
+@keyframes notice-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .history-notice {
+    animation: none;
+  }
+}
+
 .delete-confirmation-dialog {
   width: calc(100% - 2rem);
   max-width: 360px;
@@ -276,3 +321,4 @@
   opacity: 0.35 !important;
   backdrop-filter: blur(2px);
 }
+

@@ -1,11 +1,14 @@
 // The root component owns individuals, sidebar state, and rig commands.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import {
   validateProject,
   normaliseIndividual,
   SCHEMA_VERSION,
 } from "./projectFile";
+
+import { historyReducer, makeInitialHistory, diffSnapshots, findLastKnownLabel } from "./reducer";
+
 import { JOINTS } from "./joints";
 import Sidebar from "./components/Sidebar";
 import MainView from "./components/MainView";
@@ -32,14 +35,24 @@ export default function App() {
 
   // The data model is now an array of individuals, not one coordinate object.
   // Each carries its own label, colour, and full coordinate set.
-  const [individuals, setIndividuals] = useState(() => [
-    {
-      id: "ind-1",
-      label: "",
-      colour: "#E69F00",
-      coords: makeBlankCoords(),
-    },
-  ]);
+  const [history, dispatch] = useReducer(historyReducer, undefined, () =>
+    makeInitialHistory([
+      {
+        id: "ind-1",
+        label: "",
+        colour: "#E69F00",
+        coords: makeBlankCoords(),
+      },
+    ]),
+  );
+
+  const individuals = history.present;
+  const canUndo = history.past.length > 0;
+  const canRedo = history.future.length > 0;
+  // Which field to flash after an undo. Cleared after some time
+  const [highlight, setHighlight] = useState(null);
+  // Transient message for changes such as adding individuals, which are inconvenient to highlight in place
+  const [notice, setNotice] = useState(null);
 
   const [openId, setOpenId] = useState("ind-1");
   const [filePath, setFilePath] = useState(null);
@@ -53,41 +66,29 @@ export default function App() {
   }, []);
 
   function handleChange(individualId, jointId, axis, rawValue) {
-    setIndividuals((previous) =>
-      previous.map((individual) =>
-        individual.id !== individualId
-          ? individual
-          : {
-              ...individual,
-              coords: {
-                ...individual.coords,
-                [jointId]: {
-                  ...individual.coords[jointId],
-                  [axis]: rawValue,
-                },
-              },
-            },
-      ),
-    );
-
+    dispatch({
+      type: "set-coord",
+      individualId,
+      jointId,
+      axis,
+      value: rawValue,
+    });
     setIsDirty(true);
   }
 
+  // Called on blur. Ends the current edit run so the next field starts a new
+  // history entry.
+  function handleCommit() {
+    dispatch({ type: "commit" });
+  }
+
   function handleColourChange(individualId, colour) {
-    setIndividuals((previous) =>
-      previous.map((individual) =>
-        individual.id === individualId ? { ...individual, colour } : individual,
-      ),
-    );
+    dispatch({ type: "set-colour", individualId, colour });
     setIsDirty(true);
   }
 
   function handleLabelChange(individualId, label) {
-    setIndividuals((previous) =>
-      previous.map((individual) =>
-        individual.id === individualId ? { ...individual, label } : individual,
-      ),
-    );
+    dispatch({ type: "set-label", individualId, label });
     setIsDirty(true);
   }
 
@@ -100,20 +101,59 @@ export default function App() {
     const colour = PALETTE[(nextId.current - 1) % PALETTE.length];
     nextId.current += 1;
 
-    setIndividuals((previous) => [
-      ...previous,
-      { id, label: "", colour, coords: makeBlankCoords() },
-    ]);
+    dispatch({
+      type: "add",
+      individual: { id, label: "", colour, coords: makeBlankCoords() },
+    });
     setOpenId(id);
 
     setIsDirty(true);
   }
 
   function handleRemove(individualId) {
-    setIndividuals((previous) =>
-      previous.filter((individual) => individual.id !== individualId),
-    );
+    dispatch({ type: "remove", individualId });
     setOpenId((current) => (current === individualId ? null : current));
+    setIsDirty(true);
+  }
+
+  // Reveal the effect: expand the affected individual and flash the field, so
+  // an undo inside a collapsed section isn't silent.
+  function revealChange(before, after) {
+    const change = diffSnapshots(before, after);
+    if (!change) return;
+
+    // Structural changes announce themselves; field changes are shown in place.
+    if (change.field === "added" || change.field === "removed") {
+            const known = change.needsLabelLookup
+        ? findLastKnownLabel(history, change.individualId)
+        : change.label;
+      const name = known?.trim() || "unnamed individual";
+      setNotice(
+        change.field === "added" ? `Restored ${name}` : `Removed ${name}`,
+      );
+      if (change.field === "added") setOpenId(change.individualId);
+      return;
+    }
+
+    setOpenId(change.individualId);
+    setHighlight(change);
+  }
+
+  function handleUndo() {
+    if (!canUndo) return;
+    const before = history.present;
+    const after = history.past[history.past.length - 1];
+    dispatch({ type: "undo" });
+    revealChange(before, after);
+    setIsDirty(true);
+  }
+
+  function handleRedo() {
+    if (!canRedo) return;
+    const before = history.present;
+    const after = history.future[0];
+    dispatch({ type: "redo" });
+    revealChange(before, after);
     setIsDirty(true);
   }
 
@@ -140,7 +180,7 @@ export default function App() {
     }
 
     const loaded = result.data.individuals.map(normaliseIndividual);
-    setIndividuals(loaded);
+    dispatch({ type: "load", individuals: loaded });
 
     const numbers = loaded
       .map((individual) => Number(individual.id.replace("ind-", "")))
@@ -199,7 +239,13 @@ export default function App() {
   // at the latest handlers: registering once with [] would capture the state as
   // it was on first render, so saving would write an empty project forever.
   const actionsRef = useRef(null);
-  actionsRef.current = { handleOpen, handleSave, handleRequestClose };
+  actionsRef.current = {
+    handleOpen,
+    handleSave,
+    handleRequestClose,
+    handleUndo,
+    handleRedo,
+  };
 
   useEffect(() => {
     const unsubscribe = window.electronAPI?.onMenuAction((action) => {
@@ -219,7 +265,47 @@ export default function App() {
     });
     return () => unsubscribe?.();
   }, []);
-  
+
+  // Clear the flash after it plays. The dependency is the highlight object
+  // itself, so re-undoing the same field restarts the animation.
+  useEffect(() => {
+    if (!highlight) return;
+    const timer = setTimeout(() => setHighlight(null), 1200);
+    return () => clearTimeout(timer);
+  }, [highlight]);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(null), 2500);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
+  // Registered once; reads handlers through the ref so it never captures stale
+  // state. preventDefault stops the browser's own input undo from fighting ours
+  // The inputs are React-controlled, so native undo would desync them.
+  useEffect(() => {
+    function onKeyDown(event) {
+      if (!event.ctrlKey && !event.metaKey) return;
+
+      const key = event.key.toLowerCase();
+
+      if (key === "z") {
+        event.preventDefault();
+        if (event.shiftKey) actionsRef.current.handleRedo();
+        else actionsRef.current.handleUndo();
+      }
+
+      // Windows convention for redo.
+      if (key === "y") {
+        event.preventDefault();
+        actionsRef.current.handleRedo();
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   useEffect(() => {
     const name = filePath ? filePath.split(/[\\/]/).pop() : "Untitled";
     document.title = `${isDirty ? "• " : ""}${name} — Skeleton Plotter`;
@@ -232,6 +318,13 @@ export default function App() {
           individuals={individuals}
           openId={openId}
           onChange={handleChange}
+          onCommit={handleCommit}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          highlight={highlight}
+          notice={notice}
           onToggle={handleToggle}
           onAdd={handleAdd}
           onRemove={handleRemove}

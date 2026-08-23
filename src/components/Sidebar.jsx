@@ -1,15 +1,45 @@
 // The individuals panel. One collapsible section per body in the grave, each
 // containing a coordinate table: one row per survey point with number, label,
 // and three inputs for X, Y, Z.
-
-import { useState } from "react";
 import { JOINTS } from "../joints";
+import { useState, useEffect, useRef } from "react";
 
 const DECIMAL_PATTERN = /^\d*\.?\d*$/;
 
-// One row of the table. Purely presentational: displays what it's given, tells the parent when the user types.
+// Data-entry grid navigation with keyboard arrows
+function moveFocus(input, rowDelta, colDelta) {
+  const grid = input.closest(".individual");
+  if (!grid) return;
 
-function JointRow({ number, label, jointId, values, onChange }) {
+  const inputs = Array.from(grid.querySelectorAll(".coord-input"));
+  const index = inputs.indexOf(input);
+  if (index === -1) return;
+
+  const next = index + rowDelta * 3 + colDelta;
+  if (next < 0 || next >= inputs.length) return;
+
+  inputs[next].focus();
+  inputs[next].select();
+}
+
+// One row of the table. Purely presentational: displays what it's given, tells the parent when the user types.
+function JointRow({
+  number,
+  label,
+  jointId,
+  values,
+  onChange,
+  onCommit,
+  highlightAxis,
+}) {
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (highlightAxis) {
+      inputRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+  }, [highlightAxis]);
+
   return (
     <div className="d-flex align-items-center gap-1 mb-1">
       <span className="joint-num text-body-tertiary text-end">{number}</span>
@@ -25,7 +55,9 @@ function JointRow({ number, label, jointId, values, onChange }) {
           type="text"
           inputMode="decimal"
           pattern="[0-9]*[.]?[0-9]*"
-          className="form-control form-control-sm coord-input"
+          className={`form-control form-control-sm coord-input${
+            highlightAxis === axis ? " coord-input-flash" : ""
+          }`}
           placeholder={axis.toUpperCase()}
           aria-label={`${label}, ${axis.toUpperCase()}`}
           value={values[axis]}
@@ -35,6 +67,22 @@ function JointRow({ number, label, jointId, values, onChange }) {
               onChange(jointId, axis, nextValue);
             }
           }}
+          onBlur={onCommit}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              moveFocus(e.target, 1, 0);
+            }
+            if (e.key === "ArrowUp") {
+              e.preventDefault();
+              moveFocus(e.target, -1, 0);
+            }
+            if (e.key === "Enter") {
+              e.preventDefault();
+              moveFocus(e.target, 1, 0);
+            }
+          }}
+          ref={highlightAxis === axis ? inputRef : null}
         />
       ))}
     </div>
@@ -48,10 +96,12 @@ function IndividualSection({
   isOpen,
   onToggle,
   onChange,
+  onCommit,
   onRemove,
   canRemove,
   onColourChange,
   onLabelChange,
+  highlight,
 }) {
   // A point counts as recorded only when all three axes are filled. Partial
   // entries are treated as not yet done.
@@ -71,22 +121,28 @@ function IndividualSection({
       >
         <input
           type="color"
-          className="form-control form-control-color"
+          className={`form-control form-control-color${
+            highlight?.field === "colour" ? " coord-input-flash" : ""
+          }`}
           id="colorPicker"
-          value={individual.colour} 
+          value={individual.colour}
           title="Choose your color"
           style={{ height: "24px", width: "29px", padding: "5px", margin: "0" }}
           onChange={(e) => onColourChange(individual.id, e.target.value)}
           onClick={(e) => e.stopPropagation()}
-           />
+          onBlur={onCommit}
+        />
         <input
           type="text"
-          className="form-control form-control-sm label-input"
+          className={`form-control form-control-sm label-input${
+            highlight?.field === "label" ? " coord-input-flash" : ""
+          }`}
           placeholder="Label"
           aria-label="Label"
           value={individual.label}
           onChange={(e) => onLabelChange(individual.id, e.target.value)}
           onClick={(e) => e.stopPropagation()}
+          onBlur={onCommit}
         />
         <small className="text-body-tertiary">
           {filledCount}/{JOINTS.length}
@@ -121,6 +177,12 @@ function IndividualSection({
               values={individual.coords[joint.id]}
               onChange={(jointId, axis, value) =>
                 onChange(individual.id, jointId, axis, value)
+              }
+              onCommit={onCommit}
+              highlightAxis={
+                highlight?.field === "coord" && highlight.jointId === joint.id
+                  ? highlight.axis
+                  : null
               }
             />
           ))}
@@ -214,12 +276,19 @@ export default function Sidebar({
   individuals,
   openId,
   onChange,
+  onCommit,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
   onToggle,
   onAdd,
   onRemove,
   onColourChange,
   onLabelChange,
   isOpen,
+  highlight,
+  notice,
 }) {
   const [pendingRemoval, setPendingRemoval] = useState(null);
 
@@ -239,14 +308,45 @@ export default function Sidebar({
           <div className="sidebar-content">
             <header className="sidebar-header bg-body-tertiary border-bottom px-2 py-2 d-flex align-items-center justify-content-between">
               <h2 className="h6 mb-0">Individuals</h2>
-              <button
-                type="button"
-                className="btn btn-sm btn-primary"
-                onClick={onAdd}
-              >
-                Add individual
-              </button>
+              <div className="d-flex align-items-center gap-1">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary history-btn"
+                  onClick={onUndo}
+                  disabled={!canUndo}
+                  title="Undo (Ctrl+Z)"
+                  aria-label="Undo"
+                >
+                  <span aria-hidden="true">↶</span>
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary history-btn"
+                  onClick={onRedo}
+                  disabled={!canRedo}
+                  title="Redo (Ctrl+Shift+Z)"
+                  aria-label="Redo"
+                >
+                  <span aria-hidden="true">↷</span>
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-primary"
+                  onClick={onAdd}
+                >
+                  Add individual
+                </button>
+              </div>
             </header>
+
+            {notice && (
+              <div
+                className="history-notice px-2 py-1 small text-body-secondary border-bottom"
+                role="status"
+              >
+                {notice}
+              </div>
+            )}
 
             <div className="p-2">
               {individuals.map((individual) => (
@@ -256,10 +356,14 @@ export default function Sidebar({
                   isOpen={individual.id === openId}
                   onToggle={onToggle}
                   onChange={onChange}
+                  onCommit={onCommit}
                   onRemove={() => setPendingRemoval(individual)}
                   canRemove={individuals.length > 1}
                   onColourChange={onColourChange}
                   onLabelChange={onLabelChange}
+                  highlight={
+                    highlight?.individualId === individual.id ? highlight : null
+                  }
                 />
               ))}
             </div>
