@@ -206,7 +206,6 @@
     transition: none;
   }
 }
-
 /* Undo/redo sit next to Add individual in a narrow header, so they need to be
    compact. The arrows are glyphs rather than an icon library. */
 .btn.history-btn {
@@ -321,7 +320,6 @@
   opacity: 0.35 !important;
   backdrop-filter: blur(2px);
 }
-
 /* Floating over the viewport, top-right. Stays reachable when the sidebar is
    collapsed, which is when you're most likely to be managing what's on screen. */
 .layers-panel {
