@@ -83,7 +83,7 @@ test("accepts decimal coordinates, rejects letters, and updates progress", async
   const zInput = await driver.findElement(By.css('[aria-label="left knee, Z"]'));
 
   await xInput.sendKeys("12.5");
-  await yInput.sendKeys("4");
+  await yInput.sendKeys("10");
   await zInput.sendKeys("8.25");
 
   await driver.wait(async () => {
@@ -94,6 +94,7 @@ test("accepts decimal coordinates, rejects letters, and updates progress", async
   const selectAllKey = process.platform === "darwin" ? Key.COMMAND : Key.CONTROL;
   await xInput.sendKeys(Key.chord(selectAllKey, "a"), "letters");
   assert.equal(await xInput.getAttribute("value"), "12.5");
+  assert.equal(await yInput.getAttribute("value"), "10");
   assert.ok((await driver.getTitle()).startsWith("• "), "editing should mark the project dirty");
 });
 
@@ -106,11 +107,11 @@ test("adds independent individuals with different default colours", async (t) =>
   const individuals = await driver.findElements(By.css(".individual"));
   const firstLabel = await individuals[0].findElement(By.css('.label-input'));
   const secondLabel = await individuals[1].findElement(By.css('.label-input'));
-  await firstLabel.sendKeys("Alice");
-  await secondLabel.sendKeys("Bob");
+  await firstLabel.sendKeys("Anthony");
+  await secondLabel.sendKeys("Ben");
 
-  assert.equal(await firstLabel.getAttribute("value"), "Alice");
-  assert.equal(await secondLabel.getAttribute("value"), "Bob");
+  assert.equal(await firstLabel.getAttribute("value"), "Anthony");
+  assert.equal(await secondLabel.getAttribute("value"), "Ben");
 
   const firstColour = await individuals[0]
     .findElement(By.css('input[type="color"]'))
