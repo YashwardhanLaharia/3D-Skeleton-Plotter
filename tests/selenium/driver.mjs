@@ -100,7 +100,7 @@ export async function launchSkeletonPlotter() {
   await access(chromeDriverBinary);
 
   const profileDirectory = await mkdtemp(
-    path.join(os.tmpdir(), "skeletonplotter-selenium-"),
+    path.join(os.tmpdir(), "skeletonplotter-selenium"),
   );
   const options = new chrome.Options()
     .setChromeBinaryPath(appBinary)
@@ -130,7 +130,21 @@ export async function launchSkeletonPlotter() {
       driver,
       async close() {
         try {
-          // The clean-close test may end the Electron process before teardown.
+          // Test cleanup 
+          await driver
+            .executeScript("void window.electronAPI?.confirmClose()")
+            .catch(() => {});
+
+          await driver
+            .wait(async () => {
+              try {
+                return (await driver.getAllWindowHandles()).length === 0;
+              } catch {
+                return true;
+              }
+            }, 2_000)
+            .catch(() => {});
+
           await driver.quit().catch(() => {});
         } finally {
           await rm(profileDirectory, { recursive: true, force: true });
