@@ -19,6 +19,17 @@ function SkeletonModel({ colour, coords = EMPTY_POSE, visible = true }) {
   const transform = useMemo(() => rig.getDisplayTransform(), [rig]);
 
   useEffect(() => {
+    if (colour) {
+      clonedScene.traverse((child) => {
+        if (child.isMesh) {
+          child.material = child.material.clone();
+          child.material.color.set(colour);
+        }
+      });
+    }
+  }, [colour, clonedScene]);
+
+  useEffect(() => {
     rig.setPose(coords);
   }, [coords, rig]);
 
@@ -67,11 +78,13 @@ export default function MainView({ individuals = [], hidden = [] }) {
         <directionalLight position={[-3, 2, -4]} intensity={1} />
         {individuals.map((individual, index) => (
           <Suspense key={individual.id} fallback={<LoadingModel />}>
-              <SkeletonModel
-                colour={individual.colour}
-                coords={individual.coords}
-                visible={isVisible(hidden, individual.id)}
-              />
+            <group position={[index * 1, 0, 0]}>
+            <SkeletonModel
+              colour={individual.colour}
+              coords={individual.coords}
+              visible={isVisible(hidden, individual.id)}
+            />
+            </group>
           </Suspense>
         ))}
         <gridHelper args={[4, 12, "#adb5bd", "#ced4da"]} />
