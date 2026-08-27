@@ -1,8 +1,9 @@
 # Selenium end-to-end tests
 
 These tests package and drive the real Electron application with Selenium WebDriver.
-They cover launch, coordinate entry, individual management, sidebar behaviour, and
-closing an unchanged project without an unsaved-changes prompt. The installed
+They cover launch, coordinate entry and keyboard navigation, individual management,
+colour changes with undo/redo, deletion confirmation, sidebar behaviour, and closing
+an unchanged project without an unsaved-changes prompt. The installed
 `electron-chromedriver` version must match the major and minor Electron version in
 `package.json`.
 

@@ -3,7 +3,7 @@ import test from "node:test";
 import { By, Key, until } from "selenium-webdriver";
 import { launchSkeletonPlotter } from "./driver.mjs";
 
-const WAIT_TIME = 10_000; 
+const WAIT_TIME = 10_000;
 
 function isClosedSessionError(error) {
   return (
@@ -36,6 +36,25 @@ async function buttonWithText(driver, text) {
   return driver.wait(
     until.elementLocated(By.xpath(`//button[normalize-space(.)=${JSON.stringify(text)}]`)),
     WAIT_TIME,
+  );
+}
+
+async function setColourInput(driver, input, colour) {
+  await driver.executeScript(
+    `
+      const element = arguments[0];
+      const nextColour = arguments[1];
+      const valueSetter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value",
+      ).set;
+
+      valueSetter.call(element, nextColour);
+      element.dispatchEvent(new Event("input", { bubbles: true }));
+      element.dispatchEvent(new Event("change", { bubbles: true }));
+    `,
+    input,
+    colour,
   );
 }
 
@@ -122,7 +141,39 @@ test("adds independent individuals with different default colours", async (t) =>
   assert.notEqual(firstColour, secondColour);
 });
 
-test("deletes an additional individual while keeping the original", async (t) => {
+test("changes an individual's colour and supports undo and redo", async (t) => {
+  const driver = await openApp(t);
+  const colourInput = await driver.findElement(By.css('.individual input[type="color"]'));
+  const undoButton = await driver.findElement(By.css('[aria-label="Undo"]'));
+  const redoButton = await driver.findElement(By.css('[aria-label="Redo"]'));
+  const initialColour = await colourInput.getAttribute("value");
+
+  assert.equal(await undoButton.isEnabled(), false);
+  assert.equal(await redoButton.isEnabled(), false);
+
+  await setColourInput(driver, colourInput, "#ff0000");
+  await driver.wait(
+    async () => (await colourInput.getAttribute("value")) === "#ff0000",
+    WAIT_TIME,
+  );
+  assert.equal(await undoButton.isEnabled(), true);
+
+  await undoButton.click();
+  await driver.wait(
+    async () => (await colourInput.getAttribute("value")) === initialColour,
+    WAIT_TIME,
+  );
+  assert.equal(await redoButton.isEnabled(), true);
+
+  await redoButton.click();
+  await driver.wait(
+    async () => (await colourInput.getAttribute("value")) === "#ff0000",
+    WAIT_TIME,
+  );
+  assert.ok((await driver.getTitle()).startsWith("• "));
+});
+
+test("cancels and confirms deletion of an additional individual", async (t) => {
   const driver = await openApp(t);
 
   await (await buttonWithText(driver, "Add individual")).click();
@@ -131,10 +182,44 @@ test("deletes an additional individual while keeping the original", async (t) =>
   const individuals = await driver.findElements(By.css(".individual"));
   await individuals[1].findElement(By.css(".label-input")).sendKeys("Second burial");
   await driver.findElement(By.css('[aria-label="Remove Second burial"]')).click();
+
+  const dialog = await driver.wait(
+    until.elementLocated(By.css('[role="dialog"]')),
+    WAIT_TIME,
+  );
+  assert.equal(
+    await dialog.findElement(By.id("delete-skeleton-description")).getText(),
+    "Delete Second burial and all of its coordinates?",
+  );
+
+  await (await buttonWithText(driver, "Cancel")).click();
+  await waitForElementCount(driver, '[role="dialog"]', 0);
+  await waitForElementCount(driver, ".individual", 2);
+
+  await driver.findElement(By.css('[aria-label="Remove Second burial"]')).click();
+  await (await buttonWithText(driver, "Delete")).click();
   await waitForElementCount(driver, ".individual", 1);
   assert.equal(
     await driver.findElement(By.css(".individual .label-input")).getAttribute("value"),
     "",
+  );
+});
+
+test("moves between coordinate rows with the keyboard", async (t) => {
+  const driver = await openApp(t);
+  const kneeX = await driver.findElement(By.css('[aria-label="left knee, X"]'));
+
+  await kneeX.click();
+  await kneeX.sendKeys(Key.ARROW_DOWN);
+  assert.equal(
+    await driver.executeScript('return document.activeElement.getAttribute("aria-label")'),
+    "left ankle, X",
+  );
+
+  await (await driver.switchTo().activeElement()).sendKeys(Key.ENTER);
+  assert.equal(
+    await driver.executeScript('return document.activeElement.getAttribute("aria-label")'),
+    "left toes, X",
   );
 });
 
@@ -151,7 +236,7 @@ test("toggles the sidebar and collapses and expands an individual", async (t) =>
     "true",
   );
 
-  await showSidebar.click();
+  await driver.executeScript("arguments[0].click()", showSidebar);
   await waitForElementCount(driver, ".coord-input", 75);
 
   const individualHeader = await driver.findElement(By.css(".individual-header"));
