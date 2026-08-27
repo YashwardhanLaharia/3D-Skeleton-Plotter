@@ -75,6 +75,7 @@ export default function LayersPanel({
 
   const allIds = individuals.map((individual) => individual.id);
   const hiddenCount = hidden.length;
+  const visibleCount = individuals.length - hiddenCount;
 
   return (
     <section className="layers-panel bg-body border rounded shadow-sm">
@@ -96,14 +97,11 @@ export default function LayersPanel({
         </button>
 
         <span className="small fw-semibold">
-          Skeletons <span className="layers-count">({individuals.length})</span>
-        </span>
-
-        {isCollapsed && hiddenCount > 0 && (
-          <span className="badge text-bg-secondary layers-badge">
-            {hiddenCount}
+          Skeletons{" "}
+          <span className="layers-count">
+            ({visibleCount}/{individuals.length})
           </span>
-        )}
+        </span>
 
         {!isCollapsed && hiddenCount > 0 && (
           <button

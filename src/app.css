@@ -456,10 +456,6 @@
 
 .layers-count {
   font-size: 0.78rem;
-  color: var(--bs-body-color);
-}
-
-.layers-badge {
-  font-size: 0.6rem;
-  padding: 0.15rem 0.3rem;
+  color: var(--bs-secondary-color);
+  font-weight: 400;
 }
