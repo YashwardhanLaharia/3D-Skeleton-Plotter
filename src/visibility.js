@@ -9,3 +9,9 @@
 export function isVisible(hidden, id) {
   return !hidden.includes(id);
 }
+
+export function toggleHidden(hidden, id) {
+  return hidden.includes(id)
+    ? hidden.filter((other) => other !== id)
+    : [...hidden, id];
+}
