@@ -18,40 +18,45 @@ function LayerRow({
 }) {
   const name = individual.label.trim() || "Unlabelled";
 
+  // The row is the control. Click hides, double-click isolates — the click
+  // handler fires first on a double-click, so isolate reverses it before
+  // acting. Cleaner than a timer, and the intermediate state is never painted.
+  function handleDoubleClick() {
+    onToggleVisibility(individual.id);
+    onIsolate(individual.id);
+  }
+
   return (
-    <li className="layer-row d-flex align-items-center gap-2">
+    <li>
       <button
         type="button"
-        className={`layer-btn ${visible ? "" : "layer-btn-off"}`}
-        aria-label={`${visible ? "Hide" : "Show"} ${name}`}
-        title={visible ? "Hide" : "Show"}
+        className={`layer-row d-flex align-items-center gap-2 w-100 text-start ${
+          visible ? "" : "layer-row-off"
+        } ${isolated ? "layer-row-isolated" : ""}`}
         onClick={() => onToggleVisibility(individual.id)}
+        onDoubleClick={handleDoubleClick}
+        aria-pressed={visible}
+        aria-label={`${name}, ${visible ? "visible" : "hidden"}${
+          isolated ? ", isolated" : ""
+        }`}
       >
-        <span aria-hidden="true">{visible ? "◉" : "○"}</span>
-      </button>
+        <span className="layer-eye" aria-hidden="true">
+          {visible ? "●" : "○"}
+        </span>
 
-      <span
-        className="layer-swatch"
-        style={{ background: individual.colour }}
-        aria-hidden="true"
-      />
+        <span
+          className="layer-swatch"
+          style={{ background: individual.colour }}
+          aria-hidden="true"
+        />
 
-      <span
-        className={`layer-name text-truncate ${visible ? "" : "layer-name-off"}`}
-        title={name}
-      >
-        {name}
-      </span>
+        <span className="layer-name text-truncate">{name}</span>
 
-      <button
-        type="button"
-        className={`layer-btn ms-auto ${isolated ? "layer-btn-active" : ""}`}
-        aria-label={`${isolated ? "Show all" : "Isolate"} ${name}`}
-        aria-pressed={isolated}
-        title={isolated ? "Show all" : "Isolate"}
-        onClick={() => onIsolate(individual.id)}
-      >
-        <span aria-hidden="true">⦿</span>
+        {isolated && (
+          <span className="layer-tag ms-auto" aria-hidden="true">
+            only
+          </span>
+        )}
       </button>
     </li>
   );
@@ -64,6 +69,7 @@ export default function LayersPanel({
   onIsolate,
   onShowAll,
 }) {
+  const [hoveredId, setHoveredId] = useState(null);
   const [isCollapsed, setIsCollapsed] = useState(true);
   if (individuals.length === 0) return null;
 
@@ -75,7 +81,7 @@ export default function LayersPanel({
       <header className="layers-header d-flex align-items-center gap-1 px-2 py-1 border-bottom">
         <button
           type="button"
-          className="layer-btn layers-collapse"
+          className="layers-collapse"
           onClick={() => setIsCollapsed((current) => !current)}
           aria-expanded={!isCollapsed}
           aria-controls="layers-list"
@@ -89,7 +95,9 @@ export default function LayersPanel({
           </span>
         </button>
 
-        <span className="small fw-semibold">Skeletons</span>
+        <span className="small fw-semibold">
+          Skeletons <span className="layers-count">({individuals.length})</span>
+        </span>
 
         {isCollapsed && hiddenCount > 0 && (
           <span className="badge text-bg-secondary layers-badge">
@@ -109,18 +117,29 @@ export default function LayersPanel({
       </header>
 
       {!isCollapsed && (
-        <ul id="layers-list" className="layers-list list-unstyled mb-0 p-1">
-          {individuals.map((individual) => (
-            <LayerRow
-              key={individual.id}
-              individual={individual}
-              visible={isVisible(hidden, individual.id)}
-              isolated={isIsolated(hidden, individual.id, allIds)}
-              onToggleVisibility={onToggleVisibility}
-              onIsolate={onIsolate}
-            />
-          ))}
-        </ul>
+        <>
+          <ul
+            id="layers-list"
+            className="layers-list list-unstyled mb-0 p-1"
+            onMouseLeave={() => setHoveredId(null)}
+            onMouseOver={() => setHoveredId(true)}
+          >
+            {individuals.map((individual) => (
+              <LayerRow
+                key={individual.id}
+                individual={individual}
+                visible={isVisible(hidden, individual.id)}
+                isolated={isIsolated(hidden, individual.id, allIds)}
+                onToggleVisibility={onToggleVisibility}
+                onIsolate={onIsolate}
+              />
+            ))}
+          </ul>
+
+          <footer className="layers-hint px-2 py-1 border-top">
+            {hoveredId ? "Click to hide · Double-click to isolate" : "\u00A0"}
+          </footer>
+        </>
       )}
     </section>
   );
