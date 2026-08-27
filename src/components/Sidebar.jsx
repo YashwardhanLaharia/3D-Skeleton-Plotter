@@ -3,7 +3,6 @@
 // and three inputs for X, Y, Z.
 import { JOINTS } from "../joints";
 import { useState, useEffect, useRef } from "react";
-import { isVisible, isIsolated } from "../visibility";
 
 const DECIMAL_PATTERN = /^\d*\.?\d*$/;
 
@@ -103,10 +102,6 @@ function IndividualSection({
   onColourChange,
   onLabelChange,
   highlight,
-  visible,
-  isolated,
-  onToggleVisibility,
-  onIsolate,
 }) {
   // A point counts as recorded only when all three axes are filled. Partial
   // entries are treated as not yet done.
@@ -137,45 +132,6 @@ function IndividualSection({
           onClick={(e) => e.stopPropagation()}
           onBlur={onCommit}
         />
-        <span
-          role="button"
-          tabIndex={0}
-          className={`vis-toggle ${visible ? "" : "vis-toggle-off"}`}
-          aria-label={`${visible ? "Hide" : "Show"} ${individual.label || "individual"}`}
-          title={visible ? "Hide" : "Show"}
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleVisibility(individual.id);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.stopPropagation();
-              onToggleVisibility(individual.id);
-            }
-          }}
-        >
-          <span aria-hidden="true">{visible ? "◉" : "○"}</span>
-        </span>
-        <span
-          role="button"
-          tabIndex={0}
-          className={`vis-toggle ${isolated ? "vis-toggle-active" : ""}`}
-          aria-label={`${isolated ? "Show all" : "Isolate"} ${individual.label || "individual"}`}
-          aria-pressed={isolated}
-          title={isolated ? "Show all" : "Isolate"}
-          onClick={(e) => {
-            e.stopPropagation();
-            onIsolate(individual.id);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.stopPropagation();
-              onIsolate(individual.id);
-            }
-          }}
-        >
-          <span aria-hidden="true">⦿</span>
-        </span>
         <input
           type="text"
           className={`form-control form-control-sm label-input${
@@ -329,10 +285,6 @@ export default function Sidebar({
   isOpen,
   highlight,
   notice,
-  hidden,
-  onToggleVisibility,
-  onIsolate,
-  onShowAll,
 }) {
   const [pendingRemoval, setPendingRemoval] = useState(null);
 
@@ -340,9 +292,6 @@ export default function Sidebar({
     onRemove(pendingRemoval.id);
     setPendingRemoval(null);
   }
-
-  const allIds = individuals.map((individual) => individual.id);
-  const anyHidden = hidden.length > 0;
 
   return (
     <>
@@ -395,18 +344,6 @@ export default function Sidebar({
               </div>
             )}
 
-            {anyHidden && (
-              <div className="px-2 pt-2">
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-secondary w-100"
-                  onClick={onShowAll}
-                >
-                  Show all ({hidden.length} hidden)
-                </button>
-              </div>
-            )}
-
             <div className="p-2">
               {individuals.map((individual) => (
                 <IndividualSection
@@ -423,10 +360,6 @@ export default function Sidebar({
                   highlight={
                     highlight?.individualId === individual.id ? highlight : null
                   }
-                  visible={isVisible(hidden, individual.id)}
-                  isolated={isIsolated(hidden, individual.id, allIds)}
-                  onToggleVisibility={onToggleVisibility}
-                  onIsolate={onIsolate}
                 />
               ))}
             </div>
