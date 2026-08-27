@@ -397,3 +397,12 @@
   text-decoration: line-through;
   opacity: 0.6;
 }
+
+.layers-collapse {
+  padding: 0 0.1rem;
+}
+
+.layers-badge {
+  font-size: 0.6rem;
+  padding: 0.15rem 0.3rem;
+}

@@ -6,9 +6,16 @@
 // stays usable when the sidebar is collapsed, which is exactly when you'd want
 // to be focusing on the viewport.
 
+import { useState } from "react";
 import { isVisible, isIsolated } from "../visibility";
 
-function LayerRow({ individual, visible, isolated, onToggleVisibility, onIsolate }) {
+function LayerRow({
+  individual,
+  visible,
+  isolated,
+  onToggleVisibility,
+  onIsolate,
+}) {
   const name = individual.label.trim() || "Unlabelled";
 
   return (
@@ -57,6 +64,7 @@ export default function LayersPanel({
   onIsolate,
   onShowAll,
 }) {
+  const [isCollapsed, setIsCollapsed] = useState(true);
   if (individuals.length === 0) return null;
 
   const allIds = individuals.map((individual) => individual.id);
@@ -64,12 +72,35 @@ export default function LayersPanel({
 
   return (
     <section className="layers-panel bg-body border rounded shadow-sm">
-      <header className="layers-header d-flex align-items-center justify-content-between px-2 py-1 border-bottom">
+      <header className="layers-header d-flex align-items-center gap-1 px-2 py-1 border-bottom">
+        <button
+          type="button"
+          className="layer-btn layers-collapse"
+          onClick={() => setIsCollapsed((current) => !current)}
+          aria-expanded={!isCollapsed}
+          aria-controls="layers-list"
+          title={isCollapsed ? "Expand" : "Collapse"}
+        >
+          <span
+            aria-hidden="true"
+            className={`chevron ${isCollapsed ? "" : "open"}`}
+          >
+            ▸
+          </span>
+        </button>
+
         <span className="small fw-semibold">Skeletons</span>
-        {hiddenCount > 0 && (
+
+        {isCollapsed && hiddenCount > 0 && (
+          <span className="badge text-bg-secondary layers-badge">
+            {hiddenCount}
+          </span>
+        )}
+
+        {!isCollapsed && hiddenCount > 0 && (
           <button
             type="button"
-            className="btn btn-link btn-sm p-0 layers-show-all"
+            className="btn btn-link btn-sm p-0 ms-auto layers-show-all"
             onClick={onShowAll}
           >
             Show all ({hiddenCount})
@@ -77,18 +108,20 @@ export default function LayersPanel({
         )}
       </header>
 
-      <ul className="layers-list list-unstyled mb-0 p-1">
-        {individuals.map((individual) => (
-          <LayerRow
-            key={individual.id}
-            individual={individual}
-            visible={isVisible(hidden, individual.id)}
-            isolated={isIsolated(hidden, individual.id, allIds)}
-            onToggleVisibility={onToggleVisibility}
-            onIsolate={onIsolate}
-          />
-        ))}
-      </ul>
+      {!isCollapsed && (
+        <ul id="layers-list" className="layers-list list-unstyled mb-0 p-1">
+          {individuals.map((individual) => (
+            <LayerRow
+              key={individual.id}
+              individual={individual}
+              visible={isVisible(hidden, individual.id)}
+              isolated={isIsolated(hidden, individual.id, allIds)}
+              onToggleVisibility={onToggleVisibility}
+              onIsolate={onIsolate}
+            />
+          ))}
+        </ul>
+      )}
     </section>
   );
 }
