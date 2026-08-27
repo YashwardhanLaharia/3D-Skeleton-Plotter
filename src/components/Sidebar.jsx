@@ -3,6 +3,7 @@
 // and three inputs for X, Y, Z.
 import { JOINTS } from "../joints";
 import { useState, useEffect, useRef } from "react";
+import { isVisible, isIsolated } from "../visibility";
 
 const DECIMAL_PATTERN = /^\d*\.?\d*$/;
 
@@ -102,6 +103,10 @@ function IndividualSection({
   onColourChange,
   onLabelChange,
   highlight,
+  visible,
+  isolated,
+  onToggleVisibility,
+  onIsolate,
 }) {
   // A point counts as recorded only when all three axes are filled. Partial
   // entries are treated as not yet done.
@@ -132,6 +137,45 @@ function IndividualSection({
           onClick={(e) => e.stopPropagation()}
           onBlur={onCommit}
         />
+        <span
+          role="button"
+          tabIndex={0}
+          className={`vis-toggle ${visible ? "" : "vis-toggle-off"}`}
+          aria-label={`${visible ? "Hide" : "Show"} ${individual.label || "individual"}`}
+          title={visible ? "Hide" : "Show"}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleVisibility(individual.id);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.stopPropagation();
+              onToggleVisibility(individual.id);
+            }
+          }}
+        >
+          <span aria-hidden="true">{visible ? "◉" : "○"}</span>
+        </span>
+        <span
+          role="button"
+          tabIndex={0}
+          className={`vis-toggle ${isolated ? "vis-toggle-active" : ""}`}
+          aria-label={`${isolated ? "Show all" : "Isolate"} ${individual.label || "individual"}`}
+          aria-pressed={isolated}
+          title={isolated ? "Show all" : "Isolate"}
+          onClick={(e) => {
+            e.stopPropagation();
+            onIsolate(individual.id);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.stopPropagation();
+              onIsolate(individual.id);
+            }
+          }}
+        >
+          <span aria-hidden="true">⦿</span>
+        </span>
         <input
           type="text"
           className={`form-control form-control-sm label-input${
@@ -225,11 +269,7 @@ function DeleteConfirmation({ individual, onCancel, onConfirm }) {
                 onClick={onCancel}
               />
               <div className="delete-confirmation-icon" aria-hidden="true">
-                <svg
-                  viewBox="0 0 16 16"
-                  fill="currentColor"
-                  focusable="false"
-                >
+                <svg viewBox="0 0 16 16" fill="currentColor" focusable="false">
                   <path d="M8.982 1.566a1.13 1.13 0 0 0-1.964 0L.165 13.233c-.457.778.091 1.767.982 1.767h13.706c.89 0 1.438-.99.982-1.767zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5m.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2" />
                 </svg>
               </div>
@@ -289,6 +329,10 @@ export default function Sidebar({
   isOpen,
   highlight,
   notice,
+  hidden,
+  onToggleVisibility,
+  onIsolate,
+  onShowAll,
 }) {
   const [pendingRemoval, setPendingRemoval] = useState(null);
 
@@ -296,6 +340,9 @@ export default function Sidebar({
     onRemove(pendingRemoval.id);
     setPendingRemoval(null);
   }
+
+  const allIds = individuals.map((individual) => individual.id);
+  const anyHidden = hidden.length > 0;
 
   return (
     <>
@@ -348,6 +395,18 @@ export default function Sidebar({
               </div>
             )}
 
+            {anyHidden && (
+              <div className="px-2 pt-2">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary w-100"
+                  onClick={onShowAll}
+                >
+                  Show all ({hidden.length} hidden)
+                </button>
+              </div>
+            )}
+
             <div className="p-2">
               {individuals.map((individual) => (
                 <IndividualSection
@@ -364,6 +423,10 @@ export default function Sidebar({
                   highlight={
                     highlight?.individualId === individual.id ? highlight : null
                   }
+                  visible={isVisible(hidden, individual.id)}
+                  isolated={isIsolated(hidden, individual.id, allIds)}
+                  onToggleVisibility={onToggleVisibility}
+                  onIsolate={onIsolate}
                 />
               ))}
             </div>

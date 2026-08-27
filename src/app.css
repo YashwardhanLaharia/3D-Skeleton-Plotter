@@ -322,3 +322,28 @@
   backdrop-filter: blur(2px);
 }
 
+/* Visibility controls sit inside the header button, so they need to read as
+   controls without looking like nested buttons. */
+.vis-toggle {
+  flex-shrink: 0;
+  padding: 0 0.15rem;
+  color: var(--bs-secondary-color);
+  font-size: 0.8rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.55;
+}
+
+.vis-toggle:hover,
+.vis-toggle:focus-visible {
+  opacity: 1;
+}
+
+.vis-toggle-off {
+  opacity: 0.3;
+}
+
+.vis-toggle-active {
+  color: var(--bs-primary);
+  opacity: 1;
+}
