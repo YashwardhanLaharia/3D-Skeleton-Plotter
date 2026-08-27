@@ -5,13 +5,14 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { createSkeletonRig } from "../rig/SkeletonRigApi.js";
 import modelUrl from "../assets/models/skeleton-male.glb";
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
+import { isVisible } from "../visibility";
 
 // Make Three.js orbit controls available as a React Three Fiber element.
 extend({ OrbitControls: ThreeOrbitControls });
 
 const EMPTY_POSE = Object.freeze({});
 
-function SkeletonModel({ colour, coords = EMPTY_POSE }) {
+function SkeletonModel({ colour, coords = EMPTY_POSE, visible = true }) {
   const { scene } = useLoader(GLTFLoader, modelUrl);
   const clonedScene = useMemo(() => SkeletonUtils.clone(scene), [scene]);
   const rig = useMemo(() => createSkeletonRig(clonedScene), [clonedScene]);
@@ -32,7 +33,11 @@ function SkeletonModel({ colour, coords = EMPTY_POSE }) {
   }, [colour, clonedScene]);
 
   return (
-    <group scale={transform.scale} position={transform.position}>
+    <group
+      scale={transform.scale}
+      position={transform.position}
+      visible={visible}
+    >
       <primitive object={clonedScene} />
     </group>
   );
@@ -52,7 +57,7 @@ function CameraControls() {
   return <orbitControls args={[camera, gl.domElement]} />;
 }
 
-export default function MainView({ individuals = [] }) {
+export default function MainView({ individuals = [], hidden = [] }) {
   return (
     <main className="viewport flex-grow-1 bg-body-secondary">
       <Canvas camera={{ position: [0, 1.4, 4], fov: 45 }}>
@@ -60,9 +65,15 @@ export default function MainView({ individuals = [] }) {
         <ambientLight intensity={1.5} />
         <directionalLight position={[3, 4, 5]} intensity={2} />
         <directionalLight position={[-3, 2, -4]} intensity={1} />
-        {individuals.map((individual) => (
-          <Suspense fallback={<LoadingModel />}>
-            <SkeletonModel key={individual.id} colour={individual.colour} coords={individual.coords} />
+        {individuals.map((individual, index) => (
+          <Suspense key={individual.id} fallback={<LoadingModel />}>
+            <group position={[index * 1, 0, 0]}>
+              <SkeletonModel
+                colour={individual.colour}
+                coords={individual.coords}
+                visible={isVisible(hidden, individual.id)}
+              />
+            </group>
           </Suspense>
         ))}
         <gridHelper args={[4, 12, "#adb5bd", "#ced4da"]} />

@@ -394,7 +394,7 @@ export default function App() {
           <span aria-hidden="true">{isSidebarOpen ? "‹" : "›"}</span>
         </button>
 
-        <MainView individuals={individuals} command={rigCommand} />
+        <MainView individuals={individuals} command={rigCommand} hidden={hidden} />
       </div>
     </div>
   );
