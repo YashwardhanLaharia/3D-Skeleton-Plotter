@@ -322,28 +322,78 @@
   backdrop-filter: blur(2px);
 }
 
-/* Visibility controls sit inside the header button, so they need to read as
-   controls without looking like nested buttons. */
-.vis-toggle {
+/* Floating over the viewport, top-right. Stays reachable when the sidebar is
+   collapsed, which is when you're most likely to be managing what's on screen. */
+.layers-panel {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 5;
+  width: 13rem;
+  max-height: calc(100% - 1.5rem);
+  overflow-y: auto;
+}
+
+.layers-header {
+  position: sticky;
+  top: 0;
+  background: var(--bs-body-bg);
+}
+
+.layers-show-all {
+  font-size: 0.7rem;
+  text-decoration: none;
+}
+
+.layer-row {
+  padding: 0.1rem 0.25rem;
+  border-radius: var(--bs-border-radius-sm);
+}
+
+.layer-row:hover {
+  background: var(--bs-secondary-bg);
+}
+
+.layer-btn {
   flex-shrink: 0;
-  padding: 0 0.15rem;
+  padding: 0.1rem 0.2rem;
+  border: 0;
+  background: transparent;
   color: var(--bs-secondary-color);
   font-size: 0.8rem;
   line-height: 1;
-  cursor: pointer;
-  opacity: 0.55;
+  opacity: 0.6;
 }
 
-.vis-toggle:hover,
-.vis-toggle:focus-visible {
+.layer-btn:hover,
+.layer-btn:focus-visible {
   opacity: 1;
 }
 
-.vis-toggle-off {
+.layer-btn-off {
   opacity: 0.3;
 }
 
-.vis-toggle-active {
+.layer-btn-active {
   color: var(--bs-primary);
   opacity: 1;
+}
+
+.layer-swatch {
+  flex-shrink: 0;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 2px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.layer-name {
+  min-width: 0;
+  font-size: 0.75rem;
+}
+
+.layer-name-off {
+  color: var(--bs-secondary-color);
+  text-decoration: line-through;
+  opacity: 0.6;
 }

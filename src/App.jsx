@@ -26,6 +26,7 @@ import {
 import { JOINTS } from "./joints";
 import Sidebar from "./components/Sidebar";
 import MainView from "./components/MainView";
+import LayersPanel from "./components/LayersPanel";
 import "./app.css";
 
 const PALETTE = [
@@ -394,7 +395,21 @@ export default function App() {
           <span aria-hidden="true">{isSidebarOpen ? "‹" : "›"}</span>
         </button>
 
-        <MainView individuals={individuals} command={rigCommand} hidden={hidden} />
+        <div className="viewport-wrap flex-grow-1 position-relative d-flex">
+          <MainView
+            individuals={individuals}
+            command={rigCommand}
+            hidden={hidden}
+          />
+
+          <LayersPanel
+            individuals={individuals}
+            hidden={hidden}
+            onToggleVisibility={handleToggleVisibility}
+            onIsolate={handleIsolate}
+            onShowAll={handleShowAll}
+          />
+        </div>
       </div>
     </div>
   );
