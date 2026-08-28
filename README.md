@@ -19,6 +19,7 @@ import {
   RIG_ROTATION_AXES,
   RIG_SEGMENT_IDS,
   RIG_SEGMENT_GROUP_IDS,
+  RIG_BODY_DIMENSION_IDS,
 } from "./src/rig/SkeletonRigApi.js";
 
 const rig = createSkeletonRig(scene);
@@ -69,6 +70,21 @@ rig.replaceSegmentScales({
 });
 ```
 
+#### Scale body dimensions
+
+Torso and pelvic proportions use the same absolute factor convention as bone segments. These controls redistribute joint positions and deform only the relevant connecting geometry.
+
+```js
+rig.setBodyDimension("torso_length", 0.8);
+rig.setBodyDimension("shoulder_width", 0.85);
+rig.patchBodyDimensions({
+  pelvis_width: 0.8,
+  pelvis_depth: 0.75,
+});
+```
+
+`replaceBodyDimensions(dimensions)` resets omitted dimensions to `1`. Available dimensions are exported through `RIG_BODY_DIMENSION_IDS`.
+
 #### Apply complete or partial poses
 
 Pose values are absolute rotation offsets in degrees.
@@ -99,11 +115,14 @@ rig.resetAll(); // Resets all joint and digit rotations.
 
 rig.resetSegmentScale("thigh_l");
 rig.resetAllSegmentScales();
+
+rig.resetBodyDimension("pelvis_width");
+rig.resetAllBodyDimensions();
 ```
 
 #### Inspect state and results
 
-Every operation returns `{ ok: true, ... }` on success or `{ ok: false, error }` when the request is invalid. `getState()` returns a defensive snapshot containing `jointRotations`, `digitRotations`, and `segmentScales`.
+Every operation returns `{ ok: true, ... }` on success or `{ ok: false, error }` when the request is invalid. `getState()` returns a defensive snapshot containing `jointRotations`, `digitRotations`, `segmentScales`, and `bodyDimensions`.
 
 ```js
 const result = rig.setSegmentScale("forearm_l", 0.85);
@@ -123,6 +142,7 @@ console.log(RIG_JOINT_IDS);
 console.log(RIG_ROTATION_AXES);
 console.log(RIG_SEGMENT_IDS);
 console.log(RIG_SEGMENT_GROUP_IDS);
+console.log(RIG_BODY_DIMENSION_IDS);
 ```
 
 #### Multiple skeletons
