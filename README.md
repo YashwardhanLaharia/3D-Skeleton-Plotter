@@ -8,36 +8,134 @@ A standalone desktop application, built using Electron and React, for private fo
 
 ### Rig API
 
-The model can be controlled through an instance of `SkeletonRigApi` without using model bone names:
+`SkeletonRigApi` controls a loaded skeleton through stable anatomical IDs. Callers do not need to know the bone or mesh names used by the GLB model.
+
+#### Create a rig
 
 ```js
-import { createSkeletonRig } from "./src/rig/SkeletonRigApi.js";
+import {
+  createSkeletonRig,
+  RIG_JOINT_IDS,
+  RIG_ROTATION_AXES,
+  RIG_SEGMENT_IDS,
+  RIG_SEGMENT_GROUP_IDS,
+} from "./src/rig/SkeletonRigApi.js";
 
 const rig = createSkeletonRig(scene);
-rig.rotateJoint("shoulder_l", "z", 10);
-rig.rotateDigit("fingertips_r", "2", "y", 15);
-rig.setSegmentScale("thigh_l", 0.8);
-rig.setSegmentGroupScale("legs", 0.75);
-rig.resetJoint("shoulder_l");
-rig.resetAllSegmentScales();
-rig.resetAll();
 ```
 
-Each skeleton scene should have its own rig instance, so state and transformations remain independent:
+Create one rig for each cloned skeleton scene. Every instance owns its pose, segment scales, and deformable geometry, so changing one skeleton does not affect another.
+
+#### Rotate joints and digits
+
+Joint and digit rotations are incremental and measured in degrees. Values are clamped to the limits configured for the selected joint.
 
 ```js
-const firstRig = createSkeletonRig(firstScene);
-const secondRig = createSkeletonRig(secondScene);
+rig.rotateJoint("shoulder_l", "z", 10);
+rig.rotateDigit("fingertips_r", "2", "y", 15);
 
-firstRig.rotateJoint("knee_l", "x", 20);
-secondRig.rotateJoint("knee_l", "x", -10);
+// Compatibility alias for rotateJoint().
+rig.rotate("knee_l", "x", -5);
 ```
 
-Joint IDs, axes, and rotation limits are defined by the rig configuration. `RIG_JOINT_IDS`, `RIG_ROTATION_AXES`, `RIG_SEGMENT_IDS`, and `RIG_SEGMENT_GROUP_IDS` expose stable identifiers for UI or adapter code. Segment scale factors are absolute values relative to the imported rest length, and are clamped to each segment's configured limits. The API returns `{ ok: true, ... }` for successful operations and `{ ok: false, error }` for invalid commands. `rotate()` remains as a compatibility alias for `rotateJoint()`.
+#### Scale bone segments
 
-Pose updates are explicit: `patchPose(pose)` changes only the supplied joints, while `replacePose(pose)` resets the existing joint and digit state before applying the supplied joints. `setPose(pose)` remains as a compatibility alias for partial updates.
+Segment factors are absolute values relative to the imported skeleton. A factor of `1` is the original length, `0.8` is 80% of that length, and `1.2` is 120%. Scaling changes the bone between its joints while leaving the joint objects and their downstream geometry unscaled.
 
-Segment updates follow the same explicit model: `patchSegmentScales(scales)` changes only supplied segments, while `replaceSegmentScales(scales)` resets omitted segments to their imported lengths. Pose resets and segment resets remain independent.
+```js
+rig.setSegmentScale("thigh_l", 0.8);
+rig.setSegmentGroupScale("legs", 0.75);
+```
+
+The initial segment API covers the left and right upper arms, forearms, thighs, and lower legs. Factors are currently clamped to `0.5` through `1.5`.
+
+Use patch operations to update selected segments without changing the others:
+
+```js
+rig.patchSegmentScales({
+  upper_arm_l: 0.9,
+  upper_arm_r: 0.9,
+});
+```
+
+Use replacement when the supplied object should become the complete segment-scale state. Any omitted segment returns to factor `1`.
+
+```js
+rig.replaceSegmentScales({
+  thigh_l: 0.75,
+  thigh_r: 0.75,
+  lower_leg_l: 0.7,
+  lower_leg_r: 0.7,
+});
+```
+
+#### Apply complete or partial poses
+
+Pose values are absolute rotation offsets in degrees.
+
+```js
+// Changes only the supplied joints.
+rig.patchPose({
+  shoulder_l: { x: 0, y: 0, z: 20 },
+});
+
+// Resets joint and digit rotations before applying this pose.
+rig.replacePose({
+  knee_l: { x: 30, y: 0, z: 0 },
+  knee_r: { x: 30, y: 0, z: 0 },
+});
+```
+
+`setPose(pose)` is retained as a compatibility alias for `patchPose(pose)`.
+
+#### Reset controls
+
+Pose and bone-length resets are intentionally independent.
+
+```js
+rig.resetJoint("shoulder_l");
+rig.resetDigit("fingertips_r", "2");
+rig.resetAll(); // Resets all joint and digit rotations.
+
+rig.resetSegmentScale("thigh_l");
+rig.resetAllSegmentScales();
+```
+
+#### Inspect state and results
+
+Every operation returns `{ ok: true, ... }` on success or `{ ok: false, error }` when the request is invalid. `getState()` returns a defensive snapshot containing `jointRotations`, `digitRotations`, and `segmentScales`.
+
+```js
+const result = rig.setSegmentScale("forearm_l", 0.85);
+
+if (!result.ok) {
+  console.error(result.error);
+}
+
+const state = rig.getState();
+console.log(state.segmentScales.forearm_l);
+```
+
+The exported identifier arrays can be used to build controls without duplicating rig configuration:
+
+```js
+console.log(RIG_JOINT_IDS);
+console.log(RIG_ROTATION_AXES);
+console.log(RIG_SEGMENT_IDS);
+console.log(RIG_SEGMENT_GROUP_IDS);
+```
+
+#### Multiple skeletons
+
+Create a separate rig for every skeleton scene:
+
+```js
+const adultRig = createSkeletonRig(adultScene);
+const juvenileRig = createSkeletonRig(juvenileScene);
+
+adultRig.setSegmentGroupScale("major_long_bones", 1);
+juvenileRig.setSegmentGroupScale("major_long_bones", 0.7);
+```
 
 ### Development
 
