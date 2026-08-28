@@ -16,7 +16,10 @@ import { createSkeletonRig } from "./src/rig/SkeletonRigApi.js";
 const rig = createSkeletonRig(scene);
 rig.rotateJoint("shoulder_l", "z", 10);
 rig.rotateDigit("fingertips_r", "2", "y", 15);
+rig.setSegmentScale("thigh_l", 0.8);
+rig.setSegmentGroupScale("legs", 0.75);
 rig.resetJoint("shoulder_l");
+rig.resetAllSegmentScales();
 rig.resetAll();
 ```
 
@@ -30,9 +33,11 @@ firstRig.rotateJoint("knee_l", "x", 20);
 secondRig.rotateJoint("knee_l", "x", -10);
 ```
 
-Joint IDs, axes, and rotation limits are defined by the rig configuration. `RIG_JOINT_IDS` and `RIG_ROTATION_AXES` expose the stable identifiers for UI or adapter code. The API returns `{ ok: true, ... }` for successful operations and `{ ok: false, error }` for invalid commands. `rotate()` remains as a compatibility alias for `rotateJoint()`.
+Joint IDs, axes, and rotation limits are defined by the rig configuration. `RIG_JOINT_IDS`, `RIG_ROTATION_AXES`, `RIG_SEGMENT_IDS`, and `RIG_SEGMENT_GROUP_IDS` expose stable identifiers for UI or adapter code. Segment scale factors are absolute values relative to the imported rest length, and are clamped to each segment's configured limits. The API returns `{ ok: true, ... }` for successful operations and `{ ok: false, error }` for invalid commands. `rotate()` remains as a compatibility alias for `rotateJoint()`.
 
 Pose updates are explicit: `patchPose(pose)` changes only the supplied joints, while `replacePose(pose)` resets the existing joint and digit state before applying the supplied joints. `setPose(pose)` remains as a compatibility alias for partial updates.
+
+Segment updates follow the same explicit model: `patchSegmentScales(scales)` changes only supplied segments, while `replaceSegmentScales(scales)` resets omitted segments to their imported lengths. Pose resets and segment resets remain independent.
 
 ### Development
 
