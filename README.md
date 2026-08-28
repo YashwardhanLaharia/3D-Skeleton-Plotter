@@ -8,31 +8,18 @@ A standalone desktop application, built using Electron and React, for private fo
 
 ### Rig API
 
-The model can be controlled through an instance of `SkeletonRigApi` without using model bone names:
+Create one rig per cloned skeleton scene and control it through stable anatomical IDs:
 
 ```js
 import { createSkeletonRig } from "./src/rig/SkeletonRigApi.js";
 
 const rig = createSkeletonRig(scene);
 rig.rotateJoint("shoulder_l", "z", 10);
-rig.rotateDigit("fingertips_r", "2", "y", 15);
-rig.resetJoint("shoulder_l");
-rig.resetAll();
+rig.setSegmentScale("thigh_l", 0.8);
+rig.setSkeletonScale(0.7);
 ```
 
-Each skeleton scene should have its own rig instance, so state and transformations remain independent:
-
-```js
-const firstRig = createSkeletonRig(firstScene);
-const secondRig = createSkeletonRig(secondScene);
-
-firstRig.rotateJoint("knee_l", "x", 20);
-secondRig.rotateJoint("knee_l", "x", -10);
-```
-
-Joint IDs, axes, and rotation limits are defined by the rig configuration. `RIG_JOINT_IDS` and `RIG_ROTATION_AXES` expose the stable identifiers for UI or adapter code. The API returns `{ ok: true, ... }` for successful operations and `{ ok: false, error }` for invalid commands. `rotate()` remains as a compatibility alias for `rotateJoint()`.
-
-Pose updates are explicit: `patchPose(pose)` changes only the supplied joints, while `replacePose(pose)` resets the existing joint and digit state before applying the supplied joints. `setPose(pose)` remains as a compatibility alias for partial updates.
+See the [Rig API reference](src/rig/README.md) for all controls, identifiers, state, and reset behavior.
 
 ### Development
 

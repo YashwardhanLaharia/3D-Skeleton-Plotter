@@ -8,6 +8,16 @@ test("command validator accepts supported command shapes", () => {
     { type: "reset-joint", jointId: "knee_l" },
     { type: "rotate-digit", jointId: "toes_r", digit: "2", axis: "z", amount: -5 },
     { type: "reset-digit", jointId: "toes_r", digit: "2" },
+    { type: "set-segment-scale", segmentId: "thigh_l", factor: 0.75 },
+    { type: "set-segment-group-scale", groupId: "legs", factor: "0.8" },
+    { type: "reset-segment-scale", segmentId: "thigh_l" },
+    { type: "reset-all-segment-scales" },
+    { type: "set-body-dimension", dimensionId: "torso_length", factor: 0.8 },
+    { type: "reset-body-dimension", dimensionId: "torso_length" },
+    { type: "reset-all-body-dimensions" },
+    { type: "set-skeleton-scale", factor: 0.7 },
+    { type: "set-uniform-scale", factor: "0.7" },
+    { type: "reset-uniform-scale" },
     { type: "reset-all" },
   ];
 
@@ -27,6 +37,18 @@ test("command validator rejects malformed commands before model lookup", () => {
     { type: "rotate-joint", jointId: "knee_l", axis: "x", amount: "" },
     { type: "rotate-joint", jointId: "knee_l", axis: "x", amount: Number.NaN },
     { type: "rotate-digit", jointId: "toes_r", digit: "2", axis: "x", amount: "nope" },
+    { type: "set-segment-scale", segmentId: "", factor: 0.8 },
+    { type: "set-segment-scale", segmentId: "thigh_l", factor: 0 },
+    { type: "set-segment-scale", segmentId: "thigh_l", factor: true },
+    { type: "set-segment-group-scale", groupId: "legs", factor: "" },
+    { type: "reset-segment-scale", segmentId: 2 },
+    { type: "set-body-dimension", dimensionId: "", factor: 0.8 },
+    { type: "set-body-dimension", dimensionId: "pelvis_width", factor: 0 },
+    { type: "reset-body-dimension", dimensionId: null },
+    { type: "set-skeleton-scale", factor: 0 },
+    { type: "set-skeleton-scale", factor: false },
+    { type: "set-uniform-scale", factor: "" },
+    { type: "set-uniform-scale", factor: -1 },
   ];
 
   invalidCommands.forEach((command) => {

@@ -13,6 +13,60 @@ export function validateRigCommand(command) {
     return { ok: true, command };
   }
 
+  if (command.type === "reset-all-segment-scales") {
+    return { ok: true, command };
+  }
+
+  if (command.type === "reset-all-body-dimensions") {
+    return { ok: true, command };
+  }
+
+  if (command.type === "set-skeleton-scale") {
+    return isPositiveAmount(command.factor)
+      ? { ok: true, command }
+      : { ok: false, error: "Invalid skeleton scale command" };
+  }
+
+  if (command.type === "set-uniform-scale") {
+    return isPositiveAmount(command.factor)
+      ? { ok: true, command }
+      : { ok: false, error: "Invalid uniform scale command" };
+  }
+
+  if (command.type === "reset-uniform-scale") {
+    return { ok: true, command };
+  }
+
+  if (command.type === "reset-body-dimension") {
+    return isIdentifier(command.dimensionId)
+      ? { ok: true, command }
+      : { ok: false, error: "Invalid body dimension reset command" };
+  }
+
+  if (command.type === "set-body-dimension") {
+    return isIdentifier(command.dimensionId) && isPositiveAmount(command.factor)
+      ? { ok: true, command }
+      : { ok: false, error: "Invalid body dimension command" };
+  }
+
+  if (command.type === "reset-segment-scale") {
+    return isIdentifier(command.segmentId)
+      ? { ok: true, command }
+      : { ok: false, error: "Invalid segment scale reset command" };
+  }
+
+  if (command.type === "set-segment-scale") {
+    return isIdentifier(command.segmentId) && isPositiveAmount(command.factor)
+      ? { ok: true, command }
+      : { ok: false, error: "Invalid segment scale command" };
+  }
+
+  if (command.type === "set-segment-group-scale") {
+    return isIdentifier(command.groupId) && isPositiveAmount(command.factor)
+      ? { ok: true, command }
+      : { ok: false, error: "Invalid segment group scale command" };
+  }
+
   if (command.type === "reset-joint") {
     return isIdentifier(command.jointId)
       ? { ok: true, command }
@@ -69,4 +123,8 @@ function isAmount(value) {
     value.trim().length > 0 &&
     Number.isFinite(Number(value))
   );
+}
+
+function isPositiveAmount(value) {
+  return isAmount(value) && Number(value) > 0;
 }

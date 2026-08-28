@@ -5,6 +5,10 @@ import { GLTFLoader } from "../../node_modules/three/examples/jsm/loaders/GLTFLo
 import { SkeletonRigController } from "../../src/rig/SkeletonRigController.js";
 import { DIGITS } from "../../src/rig/digits/digitsConfig.js";
 import { BODY_REGIONS, JOINT_ROTATIONS } from "../../src/rig/rigConfig.js";
+import { SEGMENT_SCALES } from "../../src/rig/scaling/segmentConfig.js";
+import { Vector3 } from "three";
+import * as SkeletonUtils from "../../node_modules/three/examples/jsm/utils/SkeletonUtils.js";
+import { TORSO_LENGTH_BONE_NAMES } from "../../src/rig/scaling/dimensionConfig.js";
 
 const modelPath = new URL(
   "../../src/assets/models/skeleton-male.glb",
@@ -48,6 +52,22 @@ function distance(before, after) {
   return Math.hypot(...before.map((value, index) => value - after[index]));
 }
 
+function positionIn(object, frame) {
+  const position = object.getWorldPosition(new Vector3());
+  return frame.worldToLocal(position);
+}
+
+function matrixElements(object) {
+  object.updateWorldMatrix(true, false);
+  return object.matrixWorld.elements.slice();
+}
+
+function assertMatrixClose(actual, expected, message) {
+  actual.forEach((value, index) => {
+    assert.ok(Math.abs(value - expected[index]) < 1e-5, `${message}: ${index}`);
+  });
+}
+
 test("all configured landmarks resolve and region chains are attached", async () => {
   const scene = await loadScene();
   const rig = new SkeletonRigController(scene);
@@ -69,6 +89,339 @@ test("all configured landmarks resolve and region chains are attached", async ()
   for (const chain of Object.values(diagnostics.regionChains)) {
     assert.equal(chain.attached, true);
   }
+});
+
+test("all major long-bone segments resolve with finite rest lengths", async () => {
+  const rig = new SkeletonRigController(await loadScene());
+  const diagnostics = rig.getDiagnostics();
+
+  assert.deepEqual(Object.keys(diagnostics.segments), Object.keys(SEGMENT_SCALES));
+  for (const [segmentId, segment] of Object.entries(diagnostics.segments)) {
+    assert.equal(segment.found, true, segmentId);
+    assert.ok(segment.restLength > 0, segmentId);
+  }
+});
+
+test("segment scaling changes endpoint distance without scaling either joint", async () => {
+  const scene = await loadScene();
+  const rig = new SkeletonRigController(scene);
+
+  for (const [segmentId, config] of Object.entries(SEGMENT_SCALES)) {
+    rig.resetAllSegmentScales();
+    const driver = scene.getObjectByName(config.driverBoneName);
+    const distal = scene.getObjectByName(config.distalBoneName);
+    const proximalBefore = driver.getWorldPosition(new Vector3());
+    const distalBefore = distal.getWorldPosition(new Vector3());
+    const driverScaleBefore = driver.getWorldScale(new Vector3());
+    const distalScaleBefore = distal.getWorldScale(new Vector3());
+    const restDistance = proximalBefore.distanceTo(distalBefore);
+
+    assert.equal(rig.setSegmentScale(segmentId, 0.75).ok, true, segmentId);
+    const proximalAfter = driver.getWorldPosition(new Vector3());
+    const distalAfter = distal.getWorldPosition(new Vector3());
+    const scaledDistance = proximalAfter.distanceTo(distalAfter);
+
+    assert.ok(proximalAfter.distanceTo(proximalBefore) < 1e-6, segmentId);
+    assert.ok(Math.abs(scaledDistance - restDistance * 0.75) < 1e-5, segmentId);
+    assert.ok(driver.getWorldScale(new Vector3()).distanceTo(driverScaleBefore) < 1e-5, segmentId);
+    assert.ok(distal.getWorldScale(new Vector3()).distanceTo(distalScaleBefore) < 1e-5, segmentId);
+  }
+});
+
+test("segment scaling deforms its shaft and reset restores baseline vertices", async () => {
+  const scene = await loadScene();
+  const rig = new SkeletonRigController(scene);
+  const mesh = scene.getObjectByName("FemurL");
+  const baseline = mesh.geometry.getAttribute("position").array.slice();
+
+  rig.setSegmentScale("thigh_l", 0.7);
+  const scaled = mesh.geometry.getAttribute("position").array;
+  assert.equal(scaled.some((value, index) => Math.abs(value - baseline[index]) > 1e-6), true);
+
+  rig.resetSegmentScale("thigh_l");
+  const reset = mesh.geometry.getAttribute("position").array;
+  reset.forEach((value, index) => assert.equal(value, baseline[index]));
+});
+
+test("scaling and rotation produce the same result regardless of API order", async () => {
+  const sceneA = await loadScene();
+  const sceneB = await loadScene();
+  const rigA = new SkeletonRigController(sceneA);
+  const rigB = new SkeletonRigController(sceneB);
+
+  rigA.rotateJoint("shoulder_l", "z", 25);
+  rigA.setSegmentGroupScale("arms", 0.8);
+  rigB.setSegmentGroupScale("arms", 0.8);
+  rigB.rotateJoint("shoulder_l", "z", 25);
+
+  const wristA = sceneA.getObjectByName("MECH-WristL").getWorldPosition(new Vector3());
+  const wristB = sceneB.getObjectByName("MECH-WristL").getWorldPosition(new Vector3());
+  assert.ok(wristA.distanceTo(wristB) < 1e-5);
+});
+
+test("rigs created from scene clones deform independent geometry", async () => {
+  const source = await loadScene();
+  const sceneA = SkeletonUtils.clone(source);
+  const sceneB = SkeletonUtils.clone(source);
+  const sharedGeometry = sceneA.getObjectByName("FemurL").geometry;
+
+  assert.equal(sceneB.getObjectByName("FemurL").geometry, sharedGeometry);
+  const rigA = new SkeletonRigController(sceneA);
+  new SkeletonRigController(sceneB);
+  const meshA = sceneA.getObjectByName("FemurL");
+  const meshB = sceneB.getObjectByName("FemurL");
+  const baselineB = meshB.geometry.getAttribute("position").array.slice();
+
+  assert.notEqual(meshA.geometry, meshB.geometry);
+  rigA.setSegmentScale("thigh_l", 0.7);
+  assert.deepEqual(meshB.geometry.getAttribute("position").array, baselineB);
+});
+
+test("body dimension bindings resolve all configured torso objects", async () => {
+  const rig = new SkeletonRigController(await loadScene());
+  const diagnostics = rig.getDiagnostics();
+
+  assert.equal(diagnostics.bodyDimensions.found, true);
+  assert.deepEqual(Object.keys(diagnostics.bodyDimensions.dimensions), [
+    "torso_length",
+    "shoulder_width",
+    "pelvis_width",
+    "pelvis_depth",
+  ]);
+  assert.equal(rig.binding.bodyDimensions.spine.length, TORSO_LENGTH_BONE_NAMES.length);
+});
+
+test("torso length redistributes the spine without moving the pelvis or legs", async () => {
+  const scene = await loadScene();
+  const rig = new SkeletonRigController(scene);
+  const pelvis = scene.getObjectByName("DEF-Pelvis");
+  const upperTorso = scene.getObjectByName("DEF-SpineThoracic010");
+  const cervical = scene.getObjectByName("DEF-SpineCervical6");
+  const femur = scene.getObjectByName("DEF-FemurL");
+  const sternum = scene.getObjectByName("DEF-Sternum");
+  const before = {
+    pelvis: pelvis.getWorldPosition(new Vector3()),
+    torsoVector: upperTorso.getWorldPosition(new Vector3()).sub(pelvis.getWorldPosition(new Vector3())),
+    cervicalLocal: cervical.position.clone(),
+    femur: femur.getWorldPosition(new Vector3()),
+    sternum: sternum.getWorldPosition(new Vector3()),
+  };
+
+  assert.equal(rig.setBodyDimension("torso_length", 0.75).ok, true);
+  const torsoVector = upperTorso.getWorldPosition(new Vector3()).sub(pelvis.getWorldPosition(new Vector3()));
+  assert.ok(pelvis.getWorldPosition(new Vector3()).distanceTo(before.pelvis) < 1e-6);
+  assert.ok(torsoVector.distanceTo(before.torsoVector.multiplyScalar(0.75)) < 1e-5);
+  assert.ok(cervical.position.distanceTo(before.cervicalLocal) < 1e-6);
+  assert.ok(femur.getWorldPosition(new Vector3()).distanceTo(before.femur) < 1e-6);
+  assert.ok(sternum.getWorldPosition(new Vector3()).distanceTo(before.sternum) > 1e-4);
+});
+
+test("shoulder width moves arm and scapula roots while keeping medial joints fixed", async () => {
+  const scene = await loadScene();
+  const rig = new SkeletonRigController(scene);
+  const sternum = scene.getObjectByName("DEF-Sternum");
+  const clavicleL = scene.getObjectByName("DEF-ClavicleL");
+  const clavicleR = scene.getObjectByName("DEF-ClavicleR");
+  const humerusL = scene.getObjectByName("DEF-HumerusL");
+  const humerusR = scene.getObjectByName("DEF-HumerusR");
+  const scapulaL = scene.getObjectByName("DEF-ScapulaL");
+  const before = {
+    clavicleL: matrixElements(clavicleL),
+    clavicleR: matrixElements(clavicleR),
+    left: positionIn(humerusL, sternum),
+    right: positionIn(humerusR, sternum),
+    scapulaOffset: scapulaL.getWorldPosition(new Vector3()).sub(humerusL.getWorldPosition(new Vector3())),
+  };
+
+  rig.setBodyDimension("shoulder_width", 0.75);
+  const left = positionIn(humerusL, sternum);
+  const right = positionIn(humerusR, sternum);
+  assert.ok(Math.abs((left.x - right.x) - (before.left.x - before.right.x) * 0.75) < 1e-5);
+  assertMatrixClose(matrixElements(clavicleL), before.clavicleL, "left clavicle");
+  assertMatrixClose(matrixElements(clavicleR), before.clavicleR, "right clavicle");
+  const scapulaOffset = scapulaL.getWorldPosition(new Vector3()).sub(humerusL.getWorldPosition(new Vector3()));
+  assert.ok(scapulaOffset.distanceTo(before.scapulaOffset) < 1e-5);
+});
+
+test("pelvis width translates complete leg roots without moving the spine", async () => {
+  const scene = await loadScene();
+  const rig = new SkeletonRigController(scene);
+  const pelvis = scene.getObjectByName("DEF-Pelvis");
+  const femurL = scene.getObjectByName("DEF-FemurL");
+  const femurR = scene.getObjectByName("DEF-FemurR");
+  const lumbar = scene.getObjectByName("DEF-SpineLumbar5");
+  const footL = scene.getObjectByName("DEF-FootL");
+  const before = {
+    left: positionIn(femurL, pelvis),
+    right: positionIn(femurR, pelvis),
+    lumbar: matrixElements(lumbar),
+    footOffset: footL.getWorldPosition(new Vector3()).sub(femurL.getWorldPosition(new Vector3())),
+  };
+
+  rig.setBodyDimension("pelvis_width", 1.25);
+  const left = positionIn(femurL, pelvis);
+  const right = positionIn(femurR, pelvis);
+  assert.ok(Math.abs((left.x - right.x) - (before.left.x - before.right.x) * 1.25) < 1e-5);
+  assert.ok(Math.abs(left.y - before.left.y) < 1e-6);
+  assert.ok(Math.abs(left.z - before.left.z) < 1e-6);
+  assertMatrixClose(matrixElements(lumbar), before.lumbar, "lumbar spine");
+  const footOffset = footL.getWorldPosition(new Vector3()).sub(femurL.getWorldPosition(new Vector3()));
+  assert.ok(footOffset.distanceTo(before.footOffset) < 1e-5);
+});
+
+test("pelvis depth deforms only private pelvis geometry", async () => {
+  const source = await loadScene();
+  const sceneA = SkeletonUtils.clone(source);
+  const sceneB = SkeletonUtils.clone(source);
+  const rigA = new SkeletonRigController(sceneA);
+  new SkeletonRigController(sceneB);
+  const pelvisA = sceneA.getObjectByName("Pelvis");
+  const pelvisB = sceneB.getObjectByName("Pelvis");
+  const beforeA = pelvisA.geometry.getAttribute("position").array.slice();
+  const beforeB = pelvisB.geometry.getAttribute("position").array.slice();
+  const femurBefore = matrixElements(sceneA.getObjectByName("DEF-FemurL"));
+
+  rigA.setBodyDimension("pelvis_depth", 0.7);
+  assert.equal(
+    pelvisA.geometry.getAttribute("position").array.some((value, index) =>
+      Math.abs(value - beforeA[index]) > 1e-6
+    ),
+    true
+  );
+  assert.deepEqual(pelvisB.geometry.getAttribute("position").array, beforeB);
+  assertMatrixClose(matrixElements(sceneA.getObjectByName("DEF-FemurL")), femurBefore, "femur");
+});
+
+test("all body dimension geometries reset exactly and remain isolated", async () => {
+  const source = await loadScene();
+  const sceneA = SkeletonUtils.clone(source);
+  const sceneB = SkeletonUtils.clone(source);
+  const rigA = new SkeletonRigController(sceneA);
+  new SkeletonRigController(sceneB);
+  const meshNames = ["Pelvis", "Sternum", "ClavicleL", "ClavicleR"];
+  const baselineA = Object.fromEntries(meshNames.map((name) => [
+    name,
+    sceneA.getObjectByName(name).geometry.getAttribute("position").array.slice(),
+  ]));
+  const baselineB = Object.fromEntries(meshNames.map((name) => [
+    name,
+    sceneB.getObjectByName(name).geometry.getAttribute("position").array.slice(),
+  ]));
+
+  rigA.replaceBodyDimensions({
+    torso_length: 0.75,
+    shoulder_width: 0.8,
+    pelvis_width: 0.85,
+    pelvis_depth: 0.7,
+  });
+  rigA.resetAllBodyDimensions();
+
+  for (const name of meshNames) {
+    assert.notEqual(
+      sceneA.getObjectByName(name).geometry,
+      sceneB.getObjectByName(name).geometry,
+      name
+    );
+    assert.deepEqual(
+      sceneA.getObjectByName(name).geometry.getAttribute("position").array,
+      baselineA[name],
+      `${name} reset`
+    );
+    assert.deepEqual(
+      sceneB.getObjectByName(name).geometry.getAttribute("position").array,
+      baselineB[name],
+      `${name} isolation`
+    );
+  }
+});
+
+test("neck rotation never leaks into the chest during later morphology changes", async () => {
+  const scene = await loadScene();
+  const rig = new SkeletonRigController(scene);
+  const sternum = scene.getObjectByName("DEF-Sternum");
+  const before = matrixElements(sternum);
+
+  rig.rotateJoint("neck", "y", 20);
+  assertMatrixClose(matrixElements(sternum), before, "neck rotation");
+  rig.setBodyDimension("pelvis_width", 0.8);
+  assertMatrixClose(matrixElements(sternum), before, "later morphology update");
+});
+
+test("body dimensions and long-bone scales compose independently of API order", async () => {
+  const sceneA = await loadScene();
+  const sceneB = await loadScene();
+  const rigA = new SkeletonRigController(sceneA);
+  const rigB = new SkeletonRigController(sceneB);
+
+  rigA.setBodyDimension("shoulder_width", 0.8);
+  rigA.setSegmentGroupScale("arms", 0.75);
+  rigA.setBodyDimension("pelvis_width", 0.85);
+  rigA.setSegmentGroupScale("legs", 0.7);
+
+  rigB.setSegmentGroupScale("legs", 0.7);
+  rigB.setBodyDimension("pelvis_width", 0.85);
+  rigB.setSegmentGroupScale("arms", 0.75);
+  rigB.setBodyDimension("shoulder_width", 0.8);
+
+  for (const name of ["MECH-WristL", "MECH-WristR", "DEF-FootL", "DEF-FootR"]) {
+    const positionA = sceneA.getObjectByName(name).getWorldPosition(new Vector3());
+    const positionB = sceneB.getObjectByName(name).getWorldPosition(new Vector3());
+    assert.ok(positionA.distanceTo(positionB) < 1e-5, name);
+  }
+});
+
+test("whole-skeleton scaling preserves joint object scales", async () => {
+  const scene = await loadScene();
+  const rig = new SkeletonRigController(scene);
+  const joints = [
+    "DEF-HumerusL",
+    "DEF-UlnaL",
+    "MECH-WristL",
+    "DEF-FemurL",
+    "DEF-TibiaL",
+    "DEF-FootL",
+  ].map((name) => scene.getObjectByName(name));
+  const restScales = joints.map((joint) => joint.getWorldScale(new Vector3()));
+
+  assert.equal(rig.setSkeletonScale(0.7).ok, true);
+  joints.forEach((joint, index) => {
+    assert.ok(
+      joint.getWorldScale(new Vector3()).distanceTo(restScales[index]) < 1e-5,
+      joint.name
+    );
+  });
+});
+
+test("uniform resize scales every world transform without changing local joint scales", async () => {
+  const scene = await loadScene();
+  const rig = new SkeletonRigController(scene);
+  const joint = scene.getObjectByName("DEF-HumerusL");
+  const restSceneScale = scene.scale.clone();
+  const restLocalScale = joint.scale.clone();
+  const restWorldScale = joint.getWorldScale(new Vector3());
+
+  assert.equal(rig.setUniformScale(0.7).ok, true);
+  assert.ok(scene.scale.distanceTo(restSceneScale.multiplyScalar(0.7)) < 1e-6);
+  assert.ok(joint.scale.distanceTo(restLocalScale) < 1e-6);
+  assert.ok(
+    joint.getWorldScale(new Vector3()).distanceTo(restWorldScale.multiplyScalar(0.7)) < 1e-5
+  );
+  assert.ok(Object.values(rig.getState().segmentScales).every((factor) => factor === 1));
+  assert.ok(Object.values(rig.getState().bodyDimensions).every((factor) => factor === 1));
+});
+
+test("uniform resize composes with later pose and morphology changes", async () => {
+  const scene = await loadScene();
+  const rig = new SkeletonRigController(scene);
+
+  rig.setUniformScale(0.8);
+  rig.rotateJoint("shoulder_l", "z", 20);
+  rig.setSkeletonScale(0.7);
+
+  assert.equal(rig.getState().uniformScale, 0.8);
+  assert.ok(Math.abs(scene.scale.x - 0.8) < 1e-6);
+  assert.equal(rig.getState().jointRotations.shoulder_l.z, 20);
+  assert.ok(Object.values(rig.getState().segmentScales).every((factor) => factor === 0.7));
 });
 
 test("each adjacent joint moves its descendant without breaking attachment", async () => {
