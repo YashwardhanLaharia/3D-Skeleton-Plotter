@@ -45,6 +45,7 @@ export const TORSO_REGION_JOINT_IDS = [
 
 // The attachment policy follows the thoracic driver and sternum root.
 export const TORSO_ATTACHMENTS = {
-  driverBoneName: "DEF-SpineThoracic010",
+  // This pre-cervical driver prevents neck rotation leaking into the chest.
+  driverBoneName: "DEF-SpineThoracic007",
   attachedRootBoneName: "DEF-Sternum",
 };

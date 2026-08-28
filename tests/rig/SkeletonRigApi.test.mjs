@@ -6,6 +6,9 @@ import {
   createSkeletonRig,
   RIG_JOINT_IDS,
   RIG_ROTATION_AXES,
+  RIG_SEGMENT_GROUP_IDS,
+  RIG_SEGMENT_IDS,
+  RIG_BODY_DIMENSION_IDS,
 } from "../../src/rig/SkeletonRigApi.js";
 import { JOINT_ROTATIONS } from "../../src/rig/rigConfig.js";
 import { DIGITS } from "../../src/rig/digits/digitsConfig.js";
@@ -157,4 +160,145 @@ test("separate rig instances maintain independent state and scenes", async () =>
   assert.equal(rigB.getState().jointRotations.knee_l.x, -15);
   assert.equal(sceneA.getObjectByName("DEF-TibiaL").rotation.x > 0, true);
   assert.equal(sceneB.getObjectByName("DEF-TibiaL").rotation.x < 0, true);
+});
+
+test("public API exposes and updates absolute segment scale factors", async () => {
+  assert.equal(RIG_SEGMENT_IDS.includes("thigh_l"), true);
+  assert.equal(RIG_SEGMENT_GROUP_IDS.includes("legs"), true);
+  const rig = createSkeletonRig(await loadScene());
+
+  const setResult = rig.setSegmentScale("thigh_l", 0.75);
+  assert.deepEqual(setResult, {
+    ok: true,
+    type: "set-segment-scale",
+    segmentId: "thigh_l",
+    value: 0.75,
+  });
+  assert.equal(rig.getState().segmentScales.thigh_l, 0.75);
+  assert.equal(rig.setSegmentScale("thigh_l", 0.1).value, 0.5);
+  assert.equal(rig.setSegmentScale("unknown", 1).ok, false);
+  assert.equal(rig.setSegmentScale("thigh_l", 0).ok, false);
+});
+
+test("segment patch, replace, group, and reset operations have explicit semantics", async () => {
+  const rig = createSkeletonRig(await loadScene());
+
+  assert.equal(rig.patchSegmentScales({ thigh_l: 0.8, lower_leg_l: "0.7" }).ok, true);
+  assert.equal(rig.getState().segmentScales.thigh_l, 0.8);
+  assert.equal(rig.getState().segmentScales.lower_leg_l, 0.7);
+
+  assert.equal(rig.replaceSegmentScales({ thigh_r: 0.9 }).ok, true);
+  assert.equal(rig.getState().segmentScales.thigh_l, 1);
+  assert.equal(rig.getState().segmentScales.thigh_r, 0.9);
+
+  assert.equal(rig.setSegmentGroupScale("legs", 0.75).ok, true);
+  for (const segmentId of ["thigh_l", "thigh_r", "lower_leg_l", "lower_leg_r"]) {
+    assert.equal(rig.getState().segmentScales[segmentId], 0.75);
+  }
+  assert.equal(rig.resetSegmentScale("thigh_l").ok, true);
+  assert.equal(rig.getState().segmentScales.thigh_l, 1);
+  assert.equal(rig.resetAllSegmentScales().ok, true);
+  assert.ok(Object.values(rig.getState().segmentScales).every((factor) => factor === 1));
+});
+
+test("pose resets and segment scale resets remain independent", async () => {
+  const rig = createSkeletonRig(await loadScene());
+
+  rig.rotateJoint("knee_l", "x", 20);
+  rig.setSegmentScale("thigh_l", 0.8);
+  rig.resetAll();
+  assert.equal(rig.getState().jointRotations.knee_l.x, 0);
+  assert.equal(rig.getState().segmentScales.thigh_l, 0.8);
+
+  rig.rotateJoint("knee_l", "x", 20);
+  rig.resetAllSegmentScales();
+  assert.equal(rig.getState().jointRotations.knee_l.x, 20);
+  assert.equal(rig.getState().segmentScales.thigh_l, 1);
+});
+
+test("public API supports absolute body dimensions with patch and replace semantics", async () => {
+  assert.deepEqual(RIG_BODY_DIMENSION_IDS, [
+    "torso_length",
+    "shoulder_width",
+    "pelvis_width",
+    "pelvis_depth",
+  ]);
+  const rig = createSkeletonRig(await loadScene());
+
+  assert.equal(rig.setBodyDimension("torso_length", 0.8).value, 0.8);
+  assert.equal(rig.setBodyDimension("pelvis_width", 2).value, 1.5);
+  assert.equal(rig.patchBodyDimensions({ shoulder_width: "0.9" }).ok, true);
+  assert.equal(rig.getState().bodyDimensions.torso_length, 0.8);
+  assert.equal(rig.getState().bodyDimensions.shoulder_width, 0.9);
+
+  assert.equal(
+    rig.replaceBodyDimensions({ pelvis_depth: 0.75 }).type,
+    "replace-body-dimensions"
+  );
+  assert.equal(rig.getState().bodyDimensions.torso_length, 1);
+  assert.equal(rig.getState().bodyDimensions.pelvis_depth, 0.75);
+  assert.equal(rig.resetBodyDimension("pelvis_depth").ok, true);
+  assert.equal(rig.resetAllBodyDimensions().ok, true);
+  assert.equal(rig.setBodyDimension("unknown", 1).ok, false);
+  assert.equal(rig.patchBodyDimensions({ unknown: 1 }).ok, false);
+  for (const inheritedId of ["constructor", "toString", "__proto__"]) {
+    assert.equal(rig.setBodyDimension(inheritedId, 1).ok, false);
+    assert.equal(rig.resetBodyDimension(inheritedId).ok, false);
+    assert.equal(rig.patchBodyDimensions({ [inheritedId]: 1 }).ok, false);
+  }
+  assert.equal(rig.setSegmentGroupScale("constructor", 1).ok, false);
+});
+
+test("pose, segment, and body dimension resets are independent", async () => {
+  const rig = createSkeletonRig(await loadScene());
+  rig.rotateJoint("shoulder_l", "z", 15);
+  rig.setSegmentScale("upper_arm_l", 0.8);
+  rig.setBodyDimension("shoulder_width", 0.75);
+
+  rig.resetAllBodyDimensions();
+  assert.equal(rig.getState().jointRotations.shoulder_l.z, 15);
+  assert.equal(rig.getState().segmentScales.upper_arm_l, 0.8);
+  assert.equal(rig.getState().bodyDimensions.shoulder_width, 1);
+});
+
+test("whole-skeleton scaling applies one factor to every morphology control", async () => {
+  const rig = createSkeletonRig(await loadScene());
+  rig.rotateJoint("shoulder_l", "z", 15);
+
+  const result = rig.setSkeletonScale(0.7);
+  assert.equal(result.ok, true);
+  assert.equal(result.type, "set-skeleton-scale");
+  assert.equal(result.value, 0.7);
+  assert.ok(Object.values(result.segmentScales).every((factor) => factor === 0.7));
+  assert.ok(Object.values(result.bodyDimensions).every((factor) => factor === 0.7));
+  assert.equal(rig.getState().jointRotations.shoulder_l.z, 15);
+
+  assert.equal(rig.setSkeletonScale(2).value, 1.5);
+  assert.ok(
+    Object.values(rig.getState().segmentScales).every((factor) => factor === 1.5)
+  );
+  assert.ok(
+    Object.values(rig.getState().bodyDimensions).every((factor) => factor === 1.5)
+  );
+  assert.equal(rig.setSkeletonScale(0).ok, false);
+});
+
+test("uniform resize scales the scene independently from morphology and pose", async () => {
+  const scene = await loadScene();
+  const rig = createSkeletonRig(scene);
+  const restScale = scene.scale.clone();
+  rig.rotateJoint("shoulder_l", "z", 15);
+  rig.setSegmentScale("upper_arm_l", 0.8);
+
+  const result = rig.setUniformScale(0.7);
+  assert.deepEqual(result, { ok: true, type: "set-uniform-scale", value: 0.7 });
+  assert.ok(scene.scale.distanceTo(restScale.clone().multiplyScalar(0.7)) < 1e-6);
+  assert.equal(rig.getState().uniformScale, 0.7);
+  assert.equal(rig.getState().jointRotations.shoulder_l.z, 15);
+  assert.equal(rig.getState().segmentScales.upper_arm_l, 0.8);
+
+  assert.equal(rig.resize(2).value, 1.5);
+  assert.equal(rig.resetUniformScale().ok, true);
+  assert.ok(scene.scale.distanceTo(restScale) < 1e-6);
+  assert.equal(rig.setUniformScale(0).ok, false);
 });

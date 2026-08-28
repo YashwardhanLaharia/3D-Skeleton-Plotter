@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo } from "react";
+import { Suspense, useEffect, useMemo, useRef } from "react";
 import { Canvas, extend, useLoader, useThree } from "@react-three/fiber";
 import { OrbitControls as ThreeOrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
@@ -12,7 +12,13 @@ extend({ OrbitControls: ThreeOrbitControls });
 
 const EMPTY_POSE = Object.freeze({});
 
-function SkeletonModel({ colour, coords = EMPTY_POSE, visible = true }) {
+function SkeletonModel({
+  colour,
+  coords = EMPTY_POSE,
+  command,
+  isTarget,
+  visible = true,
+}) {
   const { scene } = useLoader(GLTFLoader, modelUrl);
   const clonedScene = useMemo(() => SkeletonUtils.clone(scene), [scene]);
   const rig = useMemo(() => createSkeletonRig(clonedScene), [clonedScene]);
@@ -33,15 +39,18 @@ function SkeletonModel({ colour, coords = EMPTY_POSE, visible = true }) {
     rig.setPose(coords);
   }, [coords, rig]);
 
+  // Commands arrive one at a time from the Rig Controls window and are only
+  // meaningful to the model they were aimed at. The ref is seeded with any
+  // command present at mount so a model that loads late never replays a stale
+  // rotation, and the command id guards against re-running when isTarget flips.
+  const lastCommandRef = useRef(command ?? null);
+
   useEffect(() => {
-    if (colour) {
-      clonedScene.traverse((child) => {
-        if (child.isMesh) {
-          child.material.color.set(colour);
-        }
-      });
-    }
-  }, [colour, clonedScene]);
+    if (!command || !isTarget) return;
+    if (command.id != null && lastCommandRef.current?.id === command.id) return;
+    lastCommandRef.current = command;
+    rig.execute(command);
+  }, [command, isTarget, rig]);
 
   return (
     <group
@@ -68,7 +77,12 @@ function CameraControls() {
   return <orbitControls args={[camera, gl.domElement]} />;
 }
 
-export default function MainView({ individuals = [], hidden = [] }) {
+export default function MainView({
+  individuals = [],
+  command,
+  targetId,
+  hidden = [],
+}) {
   return (
     <main className="viewport flex-grow-1 bg-body-secondary">
       <Canvas camera={{ position: [0, 1.4, 4], fov: 45 }}>
@@ -76,15 +90,15 @@ export default function MainView({ individuals = [], hidden = [] }) {
         <ambientLight intensity={1.5} />
         <directionalLight position={[3, 4, 5]} intensity={2} />
         <directionalLight position={[-3, 2, -4]} intensity={1} />
-        {individuals.map((individual, index) => (
+        {individuals.map((individual) => (
           <Suspense key={individual.id} fallback={<LoadingModel />}>
-            <group position={[index * 1, 0, 0]}>
             <SkeletonModel
               colour={individual.colour}
               coords={individual.coords}
+              command={command}
+              isTarget={individual.id === targetId}
               visible={isVisible(hidden, individual.id)}
             />
-            </group>
           </Suspense>
         ))}
         <gridHelper args={[4, 12, "#adb5bd", "#ced4da"]} />

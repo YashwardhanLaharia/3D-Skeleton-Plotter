@@ -1,8 +1,13 @@
 import { JOINT_ROTATIONS } from "./rigConfig.js";
 import { SkeletonRigController } from "./SkeletonRigController.js";
+import { SEGMENT_GROUPS, SEGMENT_SCALES } from "./scaling/segmentConfig.js";
+import { BODY_DIMENSIONS } from "./scaling/dimensionConfig.js";
 
 export const RIG_JOINT_IDS = Object.freeze(Object.keys(JOINT_ROTATIONS));
 export const RIG_ROTATION_AXES = Object.freeze(["x", "y", "z"]);
+export const RIG_SEGMENT_IDS = Object.freeze(Object.keys(SEGMENT_SCALES));
+export const RIG_SEGMENT_GROUP_IDS = Object.freeze(Object.keys(SEGMENT_GROUPS));
+export const RIG_BODY_DIMENSION_IDS = Object.freeze(Object.keys(BODY_DIMENSIONS));
 
 /**
  * Public model-control facade. Callers use rig joint IDs and never GLB bone names.
@@ -68,6 +73,81 @@ export class SkeletonRigApi {
     return this.execute({ type: "reset-all" });
   }
 
+  /** Sets one bone segment's length relative to its imported rest length. */
+  setSegmentScale(segmentId, factor) {
+    return this.execute({ type: "set-segment-scale", segmentId, factor });
+  }
+
+  /** Applies one relative length to every segment in a configured group. */
+  setSegmentGroupScale(groupId, factor) {
+    return this.execute({ type: "set-segment-group-scale", groupId, factor });
+  }
+
+  /** Resets one segment to its imported rest length. */
+  resetSegmentScale(segmentId) {
+    return this.execute({ type: "reset-segment-scale", segmentId });
+  }
+
+  /** Resets every segment without changing joint or digit rotations. */
+  resetAllSegmentScales() {
+    return this.execute({ type: "reset-all-segment-scales" });
+  }
+
+  /** Updates only the supplied absolute segment scale factors. */
+  patchSegmentScales(scales) {
+    return this.#controller.patchSegmentScales(scales);
+  }
+
+  /** Resets all segment lengths, then applies the supplied factors. */
+  replaceSegmentScales(scales) {
+    return this.#controller.replaceSegmentScales(scales);
+  }
+
+  /** Sets one torso or pelvic dimension relative to the imported model. */
+  setBodyDimension(dimensionId, factor) {
+    return this.execute({ type: "set-body-dimension", dimensionId, factor });
+  }
+
+  /** Resets one body dimension to its imported value. */
+  resetBodyDimension(dimensionId) {
+    return this.execute({ type: "reset-body-dimension", dimensionId });
+  }
+
+  /** Resets all body dimensions without changing pose or limb lengths. */
+  resetAllBodyDimensions() {
+    return this.execute({ type: "reset-all-body-dimensions" });
+  }
+
+  /** Updates only the supplied absolute body-dimension factors. */
+  patchBodyDimensions(dimensions) {
+    return this.#controller.patchBodyDimensions(dimensions);
+  }
+
+  /** Resets body dimensions, then applies the supplied factors. */
+  replaceBodyDimensions(dimensions) {
+    return this.#controller.replaceBodyDimensions(dimensions);
+  }
+
+  /** Applies one factor to every configured segment and body dimension. */
+  setSkeletonScale(factor) {
+    return this.execute({ type: "set-skeleton-scale", factor });
+  }
+
+  /** Uniformly resizes the complete skeleton scene, including all geometry. */
+  setUniformScale(factor) {
+    return this.execute({ type: "set-uniform-scale", factor });
+  }
+
+  /** Compatibility shorthand for setUniformScale(). */
+  resize(factor) {
+    return this.setUniformScale(factor);
+  }
+
+  /** Restores the complete skeleton scene to its imported size. */
+  resetUniformScale() {
+    return this.execute({ type: "reset-uniform-scale" });
+  }
+
   /**
    * Applies a partial pose while preserving the existing setPose contract.
    */
@@ -89,7 +169,7 @@ export class SkeletonRigApi {
     return this.#controller.replacePose(pose);
   }
 
-  /** Returns a defensive snapshot of the current joint and digit rotations. */
+  /** Returns a defensive snapshot of pose and morphology state. */
   getState() {
     return this.#controller.getState();
   }

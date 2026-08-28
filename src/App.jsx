@@ -400,6 +400,9 @@ export default function App() {
             individuals={individuals}
             command={rigCommand}
             hidden={hidden}
+            // Rig commands aim at the expanded individual, or the first one when
+            // everything is collapsed, so the controls window always has a target.
+            targetId={openId ?? individuals[0]?.id}
           />
 
           <LayersPanel
