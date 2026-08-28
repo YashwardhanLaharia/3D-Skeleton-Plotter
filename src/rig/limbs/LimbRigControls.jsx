@@ -104,6 +104,8 @@ export default function LimbRigControls() {
       sendCommand({ type: "set-body-dimension", dimensionId: targetId, factor });
     } else if (targetType === "whole") {
       sendCommand({ type: "set-skeleton-scale", factor });
+    } else if (targetType === "uniform") {
+      sendCommand({ type: "set-uniform-scale", factor });
     } else {
       sendCommand({ type: "set-segment-scale", segmentId: targetId, factor });
     }
@@ -133,7 +135,7 @@ export default function LimbRigControls() {
         for (const [groupId, group] of Object.entries(SEGMENT_GROUPS)) {
           if (group.segmentIds.includes(targetId)) delete next[`group:${groupId}`];
         }
-      } else {
+      } else if (targetType === "dimension") {
         delete next["whole:all"];
       }
       return next;
@@ -159,6 +161,8 @@ export default function LimbRigControls() {
       sendCommand({ type: "reset-body-dimension", dimensionId: targetId });
     } else if (targetType === "whole") {
       sendScale(1);
+    } else if (targetType === "uniform") {
+      sendCommand({ type: "reset-uniform-scale" });
     } else {
       sendCommand({ type: "reset-segment-scale", segmentId: targetId });
     }
@@ -303,6 +307,7 @@ export default function LimbRigControls() {
       >
         <optgroup label="Entire skeleton">
           <option value="whole:all">All morphology controls</option>
+          <option value="uniform:all">Uniform resize (everything)</option>
         </optgroup>
         <optgroup label="Individual segments">
           {Object.entries(SEGMENT_SCALES).map(([segmentId, config]) => (
@@ -328,7 +333,7 @@ export default function LimbRigControls() {
       </select>
 
       <label className="form-label small mt-3 mb-1" htmlFor="scale-factor-input">
-        Rest-length factor (0.50 to 1.50)
+        Scale factor (0.50 to 1.50)
       </label>
       <div className="input-group input-group-sm">
         <input
@@ -381,7 +386,9 @@ export default function LimbRigControls() {
           className="btn btn-sm btn-outline-danger"
           onClick={() => {
             setScaleFactors((current) => Object.fromEntries(
-              Object.entries(current).filter(([key]) => key.startsWith("dimension:"))
+              Object.entries(current).filter(([key]) =>
+                key.startsWith("dimension:") || key.startsWith("uniform:")
+              )
             ));
             sendCommand({ type: "reset-all-segment-scales" });
           }}
@@ -394,7 +401,9 @@ export default function LimbRigControls() {
           onClick={() => {
             setScaleFactors((current) => Object.fromEntries(
               Object.entries(current).filter(([key]) =>
-                key.startsWith("segment:") || key.startsWith("group:")
+                key.startsWith("segment:") ||
+                key.startsWith("group:") ||
+                key.startsWith("uniform:")
               )
             ));
             sendCommand({ type: "reset-all-body-dimensions" });
