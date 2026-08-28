@@ -282,3 +282,23 @@ test("whole-skeleton scaling applies one factor to every morphology control", as
   );
   assert.equal(rig.setSkeletonScale(0).ok, false);
 });
+
+test("uniform resize scales the scene independently from morphology and pose", async () => {
+  const scene = await loadScene();
+  const rig = createSkeletonRig(scene);
+  const restScale = scene.scale.clone();
+  rig.rotateJoint("shoulder_l", "z", 15);
+  rig.setSegmentScale("upper_arm_l", 0.8);
+
+  const result = rig.setUniformScale(0.7);
+  assert.deepEqual(result, { ok: true, type: "set-uniform-scale", value: 0.7 });
+  assert.ok(scene.scale.distanceTo(restScale.clone().multiplyScalar(0.7)) < 1e-6);
+  assert.equal(rig.getState().uniformScale, 0.7);
+  assert.equal(rig.getState().jointRotations.shoulder_l.z, 15);
+  assert.equal(rig.getState().segmentScales.upper_arm_l, 0.8);
+
+  assert.equal(rig.resize(2).value, 1.5);
+  assert.equal(rig.resetUniformScale().ok, true);
+  assert.ok(scene.scale.distanceTo(restScale) < 1e-6);
+  assert.equal(rig.setUniformScale(0).ok, false);
+});

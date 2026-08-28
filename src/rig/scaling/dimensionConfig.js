@@ -30,6 +30,8 @@ export const BODY_DIMENSIONS = {
   },
 };
 
+export const UNIFORM_SCALE_LIMITS = Object.freeze([0.5, 1.5]);
+
 export const BODY_DIMENSION_OBJECTS = {
   sternumBoneName: "DEF-Sternum",
   sternumMeshName: "Sternum",

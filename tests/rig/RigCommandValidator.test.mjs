@@ -16,6 +16,8 @@ test("command validator accepts supported command shapes", () => {
     { type: "reset-body-dimension", dimensionId: "torso_length" },
     { type: "reset-all-body-dimensions" },
     { type: "set-skeleton-scale", factor: 0.7 },
+    { type: "set-uniform-scale", factor: "0.7" },
+    { type: "reset-uniform-scale" },
     { type: "reset-all" },
   ];
 
@@ -45,6 +47,8 @@ test("command validator rejects malformed commands before model lookup", () => {
     { type: "reset-body-dimension", dimensionId: null },
     { type: "set-skeleton-scale", factor: 0 },
     { type: "set-skeleton-scale", factor: false },
+    { type: "set-uniform-scale", factor: "" },
+    { type: "set-uniform-scale", factor: -1 },
   ];
 
   invalidCommands.forEach((command) => {

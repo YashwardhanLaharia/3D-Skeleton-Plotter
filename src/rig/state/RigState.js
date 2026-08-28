@@ -19,6 +19,7 @@ export class RigState {
     this.digitRotations = createRotationState(digitKeys);
     this.segmentScales = createScaleState(segmentIds);
     this.bodyDimensions = createScaleState(dimensionIds);
+    this.uniformScale = 1;
   }
 
   // State owns clamping so every caller follows the same limit rules.
@@ -62,6 +63,11 @@ export class RigState {
     return this.bodyDimensions[dimensionId];
   }
 
+  setUniformScale(factor, [min, max]) {
+    this.uniformScale = Math.min(Math.max(factor, min), max);
+    return this.uniformScale;
+  }
+
   resetJoint(jointId) {
     this.jointRotations[jointId] = { x: 0, y: 0, z: 0 };
   }
@@ -84,6 +90,10 @@ export class RigState {
 
   resetAllBodyDimensions() {
     this.bodyDimensions = createScaleState(Object.keys(this.bodyDimensions));
+  }
+
+  resetUniformScale() {
+    this.uniformScale = 1;
   }
 
   // Rebuild maps to remove accumulated values while preserving configured keys.
@@ -109,6 +119,7 @@ export class RigState {
       ),
       segmentScales: { ...this.segmentScales },
       bodyDimensions: { ...this.bodyDimensions },
+      uniformScale: this.uniformScale,
     };
   }
 }

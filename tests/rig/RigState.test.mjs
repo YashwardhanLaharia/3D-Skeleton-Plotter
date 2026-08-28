@@ -60,3 +60,14 @@ test("rig state keeps body dimensions independent from segment scales", () => {
   });
   assert.equal(state.getState().segmentScales.thigh_l, 0.8);
 });
+
+test("rig state stores and resets an independent uniform scale", () => {
+  const state = new RigState([], []);
+
+  assert.equal(state.getState().uniformScale, 1);
+  assert.equal(state.setUniformScale(0.2, [0.5, 1.5]), 0.5);
+  state.resetAll();
+  assert.equal(state.getState().uniformScale, 0.5);
+  state.resetUniformScale();
+  assert.equal(state.getState().uniformScale, 1);
+});

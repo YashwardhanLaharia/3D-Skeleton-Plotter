@@ -133,6 +133,21 @@ export class SkeletonRigApi {
     return this.execute({ type: "set-skeleton-scale", factor });
   }
 
+  /** Uniformly resizes the complete skeleton scene, including all geometry. */
+  setUniformScale(factor) {
+    return this.execute({ type: "set-uniform-scale", factor });
+  }
+
+  /** Compatibility shorthand for setUniformScale(). */
+  resize(factor) {
+    return this.setUniformScale(factor);
+  }
+
+  /** Restores the complete skeleton scene to its imported size. */
+  resetUniformScale() {
+    return this.execute({ type: "reset-uniform-scale" });
+  }
+
   /**
    * Applies a partial pose while preserving the existing setPose contract.
    */

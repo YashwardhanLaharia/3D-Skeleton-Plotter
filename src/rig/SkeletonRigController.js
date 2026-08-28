@@ -8,7 +8,10 @@ import { RigSceneBinding } from "./binding/RigSceneBinding.js";
 import { validateRigCommand } from "./commands/RigCommandValidator.js";
 import { RigState } from "./state/RigState.js";
 import { SEGMENT_GROUPS, SEGMENT_SCALES } from "./scaling/segmentConfig.js";
-import { BODY_DIMENSIONS } from "./scaling/dimensionConfig.js";
+import {
+  BODY_DIMENSIONS,
+  UNIFORM_SCALE_LIMITS,
+} from "./scaling/dimensionConfig.js";
 import {
   applyBodyDimensions,
   captureBodyDimensionRest,
@@ -36,6 +39,7 @@ function ownConfig(registry, id) {
 export class SkeletonRigController {
   constructor(scene) {
     this.scene = scene;
+    this.restSceneScale = scene.scale.clone();
     this.scene.updateMatrixWorld(true);
 
     // Bind the model once. Every controller owns its own binding and rotation state.
@@ -121,6 +125,10 @@ export class SkeletonRigController {
         return this.resetAllBodyDimensions();
       case "set-skeleton-scale":
         return this.setSkeletonScale(command.factor);
+      case "set-uniform-scale":
+        return this.setUniformScale(command.factor);
+      case "reset-uniform-scale":
+        return this.resetUniformScale();
       default:
         return this.resetAll();
     }
@@ -378,6 +386,26 @@ export class SkeletonRigController {
     };
   }
 
+  setUniformScale(factor) {
+    const numericFactor = Number(factor);
+    if (!Number.isFinite(numericFactor) || numericFactor <= 0) {
+      return { ok: false, error: "Invalid uniform scale command" };
+    }
+
+    const value = this.state.setUniformScale(
+      numericFactor,
+      UNIFORM_SCALE_LIMITS
+    );
+    this.applyAllTransforms();
+    return { ok: true, type: "set-uniform-scale", value };
+  }
+
+  resetUniformScale() {
+    this.state.resetUniformScale();
+    this.applyAllTransforms();
+    return { ok: true, type: "reset-uniform-scale" };
+  }
+
   patchBodyDimensions(dimensions = {}) {
     const validation = this.validateBodyDimensions(dimensions);
     if (!validation.ok) return validation;
@@ -512,6 +540,9 @@ export class SkeletonRigController {
   }
 
   applyAllTransforms(syncTorso = true) {
+    this.scene.scale
+      .copy(this.restSceneScale)
+      .multiplyScalar(this.state.uniformScale);
     const rotations = new Map();
 
     for (const [jointId, config] of Object.entries(JOINT_ROTATIONS)) {

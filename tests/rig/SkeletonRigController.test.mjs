@@ -392,6 +392,38 @@ test("whole-skeleton scaling preserves joint object scales", async () => {
   });
 });
 
+test("uniform resize scales every world transform without changing local joint scales", async () => {
+  const scene = await loadScene();
+  const rig = new SkeletonRigController(scene);
+  const joint = scene.getObjectByName("DEF-HumerusL");
+  const restSceneScale = scene.scale.clone();
+  const restLocalScale = joint.scale.clone();
+  const restWorldScale = joint.getWorldScale(new Vector3());
+
+  assert.equal(rig.setUniformScale(0.7).ok, true);
+  assert.ok(scene.scale.distanceTo(restSceneScale.multiplyScalar(0.7)) < 1e-6);
+  assert.ok(joint.scale.distanceTo(restLocalScale) < 1e-6);
+  assert.ok(
+    joint.getWorldScale(new Vector3()).distanceTo(restWorldScale.multiplyScalar(0.7)) < 1e-5
+  );
+  assert.ok(Object.values(rig.getState().segmentScales).every((factor) => factor === 1));
+  assert.ok(Object.values(rig.getState().bodyDimensions).every((factor) => factor === 1));
+});
+
+test("uniform resize composes with later pose and morphology changes", async () => {
+  const scene = await loadScene();
+  const rig = new SkeletonRigController(scene);
+
+  rig.setUniformScale(0.8);
+  rig.rotateJoint("shoulder_l", "z", 20);
+  rig.setSkeletonScale(0.7);
+
+  assert.equal(rig.getState().uniformScale, 0.8);
+  assert.ok(Math.abs(scene.scale.x - 0.8) < 1e-6);
+  assert.equal(rig.getState().jointRotations.shoulder_l.z, 20);
+  assert.ok(Object.values(rig.getState().segmentScales).every((factor) => factor === 0.7));
+});
+
 test("each adjacent joint moves its descendant without breaking attachment", async () => {
   const scene = await loadScene();
   const rig = new SkeletonRigController(scene);
