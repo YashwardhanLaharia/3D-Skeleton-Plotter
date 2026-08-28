@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { BODY_REGIONS, JOINT_ROTATIONS } from "../rigConfig.js";
 import { DIGITS, DIGIT_JOINT_TYPES } from "../digits/digitsConfig.js";
+import { SEGMENT_GROUPS, SEGMENT_SCALES } from "../scaling/segmentConfig.js";
 
 // UI controls use small repeated degree steps rather than exposing raw model transforms.
 const ROTATION_AXES = ["x", "y", "z"];
 const ROTATION_STEP = 5;
 const REPEAT_INTERVAL = 100;
+const SCALE_STEP = 0.05;
 
 /** Repeats a rotation command while the pointer remains pressed. */
 function HoldButton({ children, onRepeat, className = "btn btn-outline-secondary" }) {
@@ -50,6 +52,8 @@ export default function LimbRigControls() {
   const [selectedJoint, setSelectedJoint] = useState("neck");
   const [selectedDigit, setSelectedDigit] = useState("1");
   const [selectedAxis, setSelectedAxis] = useState("x");
+  const [scaleTarget, setScaleTarget] = useState("segment:upper_arm_l");
+  const [scaleFactor, setScaleFactor] = useState(1);
   const commandId = useRef(0);
 
   const jointType = DIGIT_JOINT_TYPES[selectedJoint];
@@ -88,6 +92,35 @@ export default function LimbRigControls() {
       axis: selectedAxis,
       amount: direction * ROTATION_STEP,
     });
+  }
+
+  function sendScale(factor) {
+    const [targetType, targetId] = scaleTarget.split(":");
+    sendCommand(
+      targetType === "group"
+        ? { type: "set-segment-group-scale", groupId: targetId, factor }
+        : { type: "set-segment-scale", segmentId: targetId, factor }
+    );
+  }
+
+  function adjustScale(direction) {
+    const currentFactor = Number.isFinite(scaleFactor) ? scaleFactor : 1;
+    const nextFactor = Math.min(
+      Math.max(Number((currentFactor + direction * SCALE_STEP).toFixed(2)), 0.5),
+      1.5
+    );
+    setScaleFactor(nextFactor);
+    sendScale(nextFactor);
+  }
+
+  function resetScale() {
+    const [targetType, targetId] = scaleTarget.split(":");
+    setScaleFactor(1);
+    if (targetType === "group") {
+      sendScale(1);
+    } else {
+      sendCommand({ type: "reset-segment-scale", segmentId: targetId });
+    }
   }
 
   const joint = JOINT_ROTATIONS[selectedJoint];
@@ -210,6 +243,98 @@ export default function LimbRigControls() {
           onClick={() => sendCommand({ type: "reset-all" })}
         >
           Reset all
+        </button>
+      </div>
+
+      <hr className="my-4" />
+      <h2 className="h6 mb-3">Bone length scaling</h2>
+
+      <label className="form-label small mb-1" htmlFor="scale-target-select">
+        Segment or group
+      </label>
+      <select
+        id="scale-target-select"
+        className="form-select form-select-sm"
+        value={scaleTarget}
+        onChange={(event) => {
+          setScaleTarget(event.target.value);
+          setScaleFactor(1);
+        }}
+      >
+        <optgroup label="Individual segments">
+          {Object.entries(SEGMENT_SCALES).map(([segmentId, config]) => (
+            <option key={segmentId} value={`segment:${segmentId}`}>
+              {config.label}
+            </option>
+          ))}
+        </optgroup>
+        <optgroup label="Segment groups">
+          {Object.entries(SEGMENT_GROUPS).map(([groupId, config]) => (
+            <option key={groupId} value={`group:${groupId}`}>
+              {config.label}
+            </option>
+          ))}
+        </optgroup>
+      </select>
+
+      <label className="form-label small mt-3 mb-1" htmlFor="scale-factor-input">
+        Rest-length factor (0.50 to 1.50)
+      </label>
+      <div className="input-group input-group-sm">
+        <input
+          id="scale-factor-input"
+          className="form-control"
+          type="number"
+          min="0.5"
+          max="1.5"
+          step={SCALE_STEP}
+          value={scaleFactor}
+          onChange={(event) => setScaleFactor(Number(event.target.value))}
+        />
+        <button
+          type="button"
+          className="btn btn-outline-primary"
+          disabled={!Number.isFinite(scaleFactor) || scaleFactor <= 0}
+          onClick={() => sendScale(scaleFactor)}
+        >
+          Apply
+        </button>
+      </div>
+
+      <div className="d-flex gap-2 mt-2">
+        <button
+          type="button"
+          className="btn btn-sm btn-outline-secondary"
+          onClick={() => adjustScale(-1)}
+        >
+          Shorten {SCALE_STEP}
+        </button>
+        <button
+          type="button"
+          className="btn btn-sm btn-outline-secondary"
+          onClick={() => adjustScale(1)}
+        >
+          Lengthen {SCALE_STEP}
+        </button>
+      </div>
+
+      <div className="d-flex gap-2 mt-3">
+        <button
+          type="button"
+          className="btn btn-sm btn-outline-secondary"
+          onClick={resetScale}
+        >
+          Reset selection
+        </button>
+        <button
+          type="button"
+          className="btn btn-sm btn-outline-danger"
+          onClick={() => {
+            setScaleFactor(1);
+            sendCommand({ type: "reset-all-segment-scales" });
+          }}
+        >
+          Reset all lengths
         </button>
       </div>
     </main>
