@@ -345,7 +345,13 @@ export default function App() {
           <span aria-hidden="true">{isSidebarOpen ? "‹" : "›"}</span>
         </button>
 
-        <MainView individuals={individuals} command={rigCommand} />
+        <MainView
+          individuals={individuals}
+          command={rigCommand}
+          // Rig commands aim at the expanded individual, or the first one when
+          // everything is collapsed, so the controls window always has a target.
+          targetId={openId ?? individuals[0]?.id}
+        />
       </div>
     </div>
   );
