@@ -89,6 +89,18 @@ rig.setSkeletonScale(0.7);
 
 This is an anatomical morphology operation, not a uniform Three.js root scale. It preserves joint-node scale and does not resize geometry without a morphology control, such as the skull, hands, or feet.
 
+## Uniform Resize
+
+Uniform resize scales the complete skeleton scene, including the skull, hands, feet, joint surfaces, and all other geometry. It is independent from pose and morphology controls.
+
+```js
+rig.setUniformScale(0.7);
+rig.resize(0.7); // Compatibility shorthand.
+rig.resetUniformScale();
+```
+
+Use `setSkeletonScale()` when changing anatomical proportions without scaling joint geometry. Use `setUniformScale()` when the entire model should simply become larger or smaller.
+
 ## Resets
 
 Pose, segment, and body-dimension resets are independent.
@@ -185,7 +197,7 @@ When inspecting `tools/models/skeleton-male/skeleton-male.blend`, remember to ve
 
 ## State and Results
 
-Operations return `{ ok: true, ... }` on success or `{ ok: false, error }` for invalid requests. `getState()` returns defensive copies of `jointRotations`, `digitRotations`, `segmentScales`, and `bodyDimensions`.
+Operations return `{ ok: true, ... }` on success or `{ ok: false, error }` for invalid requests. `getState()` returns defensive copies of `jointRotations`, `digitRotations`, `segmentScales`, `bodyDimensions`, and `uniformScale`.
 
 ```js
 const result = rig.setSegmentScale("forearm_l", 0.85);
