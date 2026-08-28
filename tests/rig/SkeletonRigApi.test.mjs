@@ -260,3 +260,25 @@ test("pose, segment, and body dimension resets are independent", async () => {
   assert.equal(rig.getState().segmentScales.upper_arm_l, 0.8);
   assert.equal(rig.getState().bodyDimensions.shoulder_width, 1);
 });
+
+test("whole-skeleton scaling applies one factor to every morphology control", async () => {
+  const rig = createSkeletonRig(await loadScene());
+  rig.rotateJoint("shoulder_l", "z", 15);
+
+  const result = rig.setSkeletonScale(0.7);
+  assert.equal(result.ok, true);
+  assert.equal(result.type, "set-skeleton-scale");
+  assert.equal(result.value, 0.7);
+  assert.ok(Object.values(result.segmentScales).every((factor) => factor === 0.7));
+  assert.ok(Object.values(result.bodyDimensions).every((factor) => factor === 0.7));
+  assert.equal(rig.getState().jointRotations.shoulder_l.z, 15);
+
+  assert.equal(rig.setSkeletonScale(2).value, 1.5);
+  assert.ok(
+    Object.values(rig.getState().segmentScales).every((factor) => factor === 1.5)
+  );
+  assert.ok(
+    Object.values(rig.getState().bodyDimensions).every((factor) => factor === 1.5)
+  );
+  assert.equal(rig.setSkeletonScale(0).ok, false);
+});

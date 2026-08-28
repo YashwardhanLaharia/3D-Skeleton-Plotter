@@ -128,6 +128,11 @@ export class SkeletonRigApi {
     return this.#controller.replaceBodyDimensions(dimensions);
   }
 
+  /** Applies one factor to every configured segment and body dimension. */
+  setSkeletonScale(factor) {
+    return this.execute({ type: "set-skeleton-scale", factor });
+  }
+
   /**
    * Applies a partial pose while preserving the existing setPose contract.
    */

@@ -21,6 +21,12 @@ export function validateRigCommand(command) {
     return { ok: true, command };
   }
 
+  if (command.type === "set-skeleton-scale") {
+    return isPositiveAmount(command.factor)
+      ? { ok: true, command }
+      : { ok: false, error: "Invalid skeleton scale command" };
+  }
+
   if (command.type === "reset-body-dimension") {
     return isIdentifier(command.dimensionId)
       ? { ok: true, command }

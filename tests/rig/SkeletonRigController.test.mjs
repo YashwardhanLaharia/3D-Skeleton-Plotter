@@ -370,6 +370,28 @@ test("body dimensions and long-bone scales compose independently of API order", 
   }
 });
 
+test("whole-skeleton scaling preserves joint object scales", async () => {
+  const scene = await loadScene();
+  const rig = new SkeletonRigController(scene);
+  const joints = [
+    "DEF-HumerusL",
+    "DEF-UlnaL",
+    "MECH-WristL",
+    "DEF-FemurL",
+    "DEF-TibiaL",
+    "DEF-FootL",
+  ].map((name) => scene.getObjectByName(name));
+  const restScales = joints.map((joint) => joint.getWorldScale(new Vector3()));
+
+  assert.equal(rig.setSkeletonScale(0.7).ok, true);
+  joints.forEach((joint, index) => {
+    assert.ok(
+      joint.getWorldScale(new Vector3()).distanceTo(restScales[index]) < 1e-5,
+      joint.name
+    );
+  });
+});
+
 test("each adjacent joint moves its descendant without breaking attachment", async () => {
   const scene = await loadScene();
   const rig = new SkeletonRigController(scene);

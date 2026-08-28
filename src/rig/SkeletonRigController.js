@@ -119,6 +119,8 @@ export class SkeletonRigController {
         return this.resetBodyDimension(command.dimensionId);
       case "reset-all-body-dimensions":
         return this.resetAllBodyDimensions();
+      case "set-skeleton-scale":
+        return this.setSkeletonScale(command.factor);
       default:
         return this.resetAll();
     }
@@ -335,6 +337,45 @@ export class SkeletonRigController {
     this.state.resetAllBodyDimensions();
     this.applyAllTransforms();
     return { ok: true, type: "reset-all-body-dimensions" };
+  }
+
+  setSkeletonScale(factor) {
+    const numericFactor = Number(factor);
+    const configs = [
+      ...Object.values(SEGMENT_SCALES),
+      ...Object.values(BODY_DIMENSIONS),
+    ];
+    const limits = [
+      Math.max(...configs.map((config) => config.limits[0])),
+      Math.min(...configs.map((config) => config.limits[1])),
+    ];
+    if (
+      !Number.isFinite(numericFactor) ||
+      numericFactor <= 0 ||
+      !this.bodyDimensionRest ||
+      Object.keys(SEGMENT_SCALES).some(
+        (segmentId) => !this.isSegmentBound(segmentId)
+      )
+    ) {
+      return { ok: false, error: "Invalid skeleton scale command" };
+    }
+
+    const value = Math.min(Math.max(numericFactor, limits[0]), limits[1]);
+
+    for (const [segmentId, config] of Object.entries(SEGMENT_SCALES)) {
+      this.state.setSegmentScale(segmentId, value, config.limits);
+    }
+    for (const [dimensionId, config] of Object.entries(BODY_DIMENSIONS)) {
+      this.state.setBodyDimension(dimensionId, value, config.limits);
+    }
+    this.applyAllTransforms();
+    return {
+      ok: true,
+      type: "set-skeleton-scale",
+      value,
+      segmentScales: this.getState().segmentScales,
+      bodyDimensions: this.getState().bodyDimensions,
+    };
   }
 
   patchBodyDimensions(dimensions = {}) {
