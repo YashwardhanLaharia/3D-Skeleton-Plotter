@@ -107,6 +107,82 @@ rig.resetAllBodyDimensions();
 
 `resetAll()` resets joint and digit rotations only.
 
+## Model Bone Names
+
+Public callers should use rig IDs rather than GLB object names. Model names belong in the configuration and binding layers so the API can remain stable if the model changes:
+
+- Joint bindings: `rigConfig.js`, `head/headConfig.js`, and `torso/torsoConfig.js`
+- Finger and toe chains: `digits/digitsConfig.js`
+- Scalable segments: `scaling/segmentConfig.js`
+- Body dimensions: `scaling/dimensionConfig.js`
+- Scene-object lookup: `binding/RigSceneBinding.js`
+
+The main prefixes are:
+
+| Prefix | Purpose | Example |
+| --- | --- | --- |
+| `DEF-` | Deformation bone used by visible anatomy | `DEF-HumerusL` |
+| `MECH-` | Internal mechanism or attachment bone | `MECH-WristL` |
+| `CTRL-` | Control-rig bone exported from Blender | `CTRL-ScapulaL` |
+
+Side suffixes are `L` and `R`. Blender source names commonly contain a dot before the side, such as `DEF-Humerus.L`; the exported GLB name is `DEF-HumerusL`.
+
+### Joint Bindings
+
+| Rig ID | Primary GLB bone |
+| --- | --- |
+| `head_centre` | `DEF-Skull` |
+| `neck` | `DEF-SpineCervical1` through `DEF-SpineCervical6`, plus `DEF-SpineThoracic010` |
+| `chin` | `DEF-Mandible` |
+| `manubrium` | `DEF-Sternum` with rotation distributed through the configured spine chain |
+| `sacral_promontory` | `DEF-SpineLumbar5` |
+| `shoulder_l`, `shoulder_r` | `DEF-HumerusL`, `DEF-HumerusR` |
+| `elbow_l`, `elbow_r` | `DEF-UlnaL`, `DEF-UlnaR` |
+| `wrist_l`, `wrist_r` | `DEF-CarpalsL`, `DEF-CarpalsR` |
+| `fingertips_l`, `fingertips_r` | `DEF-Distal_Phalanges_3L`, `DEF-Distal_Phalanges_3R` |
+| `acetabulum_l`, `acetabulum_r` | `DEF-FemurL`, `DEF-FemurR` |
+| `knee_l`, `knee_r` | `DEF-TibiaL`, `DEF-TibiaR` |
+| `ankle_l`, `ankle_r` | `DEF-FootL`, `DEF-FootR` |
+| `toes_l`, `toes_r` | `DEF-MetatarsalL3`, `DEF-MetatarsalR3` |
+
+Finger and toe operations resolve complete chains rather than only the representative fingertip or toe bone. Consult `digits/digitsConfig.js` before adding or changing a digit binding.
+
+### Segment Bindings
+
+Each scalable segment has a driver bone, a distal boundary, and one or more visible meshes. The driver and distal objects define the joint-to-joint distance; only the listed meshes are deformed.
+
+| Segment ID | Driver | Distal boundary | Deformed meshes |
+| --- | --- | --- | --- |
+| `upper_arm_l` | `DEF-HumerusL` | `DEF-UlnaL` | `HumerusL` |
+| `upper_arm_r` | `DEF-HumerusR` | `DEF-UlnaR` | `HumerusR` |
+| `forearm_l` | `DEF-UlnaL` | `MECH-WristL` | `UlnaL`, `RadiusL` |
+| `forearm_r` | `DEF-UlnaR` | `MECH-WristR` | `UlnaR`, `RadiusR` |
+| `thigh_l` | `DEF-FemurL` | `DEF-TibiaL` | `FemurL` |
+| `thigh_r` | `DEF-FemurR` | `DEF-TibiaR` | `FemurR` |
+| `lower_leg_l` | `DEF-TibiaL` | `DEF-FootL` | `TibiaL`, `FibulaL` |
+| `lower_leg_r` | `DEF-TibiaR` | `DEF-FootR` | `TibiaR`, `FibulaR` |
+
+Body-dimension controls additionally bind the `DEF-Pelvis`, `DEF-Sternum`, `DEF-ClavicleL`, and `DEF-ClavicleR` bones and the `Pelvis`, `Sternum`, `ClavicleL`, and `ClavicleR` meshes. Torso length uses the chain from `DEF-SpineLumbar5` through `DEF-SpineThoracic010`. The sternum attachment follows `DEF-SpineThoracic007`, which is deliberately below the cervical rotation chain.
+
+### Inspecting the Model
+
+Use Three.js to check the exported GLB name and hierarchy:
+
+```js
+scene.traverse((object) => {
+  if (object.isBone) {
+    console.log(object.name, "parent:", object.parent?.name);
+  }
+});
+
+const bone = scene.getObjectByName("DEF-HumerusL");
+console.log(bone?.position, bone?.children.map((child) => child.name));
+```
+
+Use `rig.getDiagnostics()` to check whether configured joints, segments, dimensions, digits, and attachments resolved successfully. Tests in `tests/rig/SkeletonRigController.test.mjs` also load the real GLB and fail when required bindings are missing.
+
+When inspecting `tools/models/skeleton-male/skeleton-male.blend`, remember to verify the exported GLB name before adding it to JavaScript configuration. Avoid depending on generated names such as `Cube.001` when a stable anatomical name is available.
+
 ## State and Results
 
 Operations return `{ ok: true, ... }` on success or `{ ok: false, error }` for invalid requests. `getState()` returns defensive copies of `jointRotations`, `digitRotations`, `segmentScales`, and `bodyDimensions`.
