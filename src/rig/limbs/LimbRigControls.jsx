@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { BODY_REGIONS, JOINT_ROTATIONS } from "../rigConfig.js";
 import { DIGITS, DIGIT_JOINT_TYPES } from "../digits/digitsConfig.js";
 import { SEGMENT_GROUPS, SEGMENT_SCALES } from "../scaling/segmentConfig.js";
+import { BODY_DIMENSIONS } from "../scaling/dimensionConfig.js";
 
 // UI controls use small repeated degree steps rather than exposing raw model transforms.
 const ROTATION_AXES = ["x", "y", "z"];
@@ -53,8 +54,9 @@ export default function LimbRigControls() {
   const [selectedDigit, setSelectedDigit] = useState("1");
   const [selectedAxis, setSelectedAxis] = useState("x");
   const [scaleTarget, setScaleTarget] = useState("segment:upper_arm_l");
-  const [scaleFactor, setScaleFactor] = useState(1);
+  const [scaleFactors, setScaleFactors] = useState({});
   const commandId = useRef(0);
+  const scaleFactor = scaleFactors[scaleTarget] ?? 1;
 
   const jointType = DIGIT_JOINT_TYPES[selectedJoint];
   const digitConfig = jointType ? DIGITS[jointType] : null;
@@ -96,11 +98,30 @@ export default function LimbRigControls() {
 
   function sendScale(factor) {
     const [targetType, targetId] = scaleTarget.split(":");
-    sendCommand(
-      targetType === "group"
-        ? { type: "set-segment-group-scale", groupId: targetId, factor }
-        : { type: "set-segment-scale", segmentId: targetId, factor }
-    );
+    if (targetType === "group") {
+      sendCommand({ type: "set-segment-group-scale", groupId: targetId, factor });
+    } else if (targetType === "dimension") {
+      sendCommand({ type: "set-body-dimension", dimensionId: targetId, factor });
+    } else {
+      sendCommand({ type: "set-segment-scale", segmentId: targetId, factor });
+    }
+  }
+
+  function rememberScale(target, factor) {
+    setScaleFactors((current) => {
+      const next = { ...current, [target]: factor };
+      const [targetType, targetId] = target.split(":");
+      if (targetType === "group") {
+        for (const segmentId of SEGMENT_GROUPS[targetId].segmentIds) {
+          next[`segment:${segmentId}`] = factor;
+        }
+      } else if (targetType === "segment") {
+        for (const [groupId, group] of Object.entries(SEGMENT_GROUPS)) {
+          if (group.segmentIds.includes(targetId)) delete next[`group:${groupId}`];
+        }
+      }
+      return next;
+    });
   }
 
   function adjustScale(direction) {
@@ -109,15 +130,17 @@ export default function LimbRigControls() {
       Math.max(Number((currentFactor + direction * SCALE_STEP).toFixed(2)), 0.5),
       1.5
     );
-    setScaleFactor(nextFactor);
+    rememberScale(scaleTarget, nextFactor);
     sendScale(nextFactor);
   }
 
   function resetScale() {
     const [targetType, targetId] = scaleTarget.split(":");
-    setScaleFactor(1);
+    rememberScale(scaleTarget, 1);
     if (targetType === "group") {
       sendScale(1);
+    } else if (targetType === "dimension") {
+      sendCommand({ type: "reset-body-dimension", dimensionId: targetId });
     } else {
       sendCommand({ type: "reset-segment-scale", segmentId: targetId });
     }
@@ -247,7 +270,7 @@ export default function LimbRigControls() {
       </div>
 
       <hr className="my-4" />
-      <h2 className="h6 mb-3">Bone length scaling</h2>
+      <h2 className="h6 mb-3">Bone and body scaling</h2>
 
       <label className="form-label small mb-1" htmlFor="scale-target-select">
         Segment or group
@@ -258,7 +281,6 @@ export default function LimbRigControls() {
         value={scaleTarget}
         onChange={(event) => {
           setScaleTarget(event.target.value);
-          setScaleFactor(1);
         }}
       >
         <optgroup label="Individual segments">
@@ -271,6 +293,13 @@ export default function LimbRigControls() {
         <optgroup label="Segment groups">
           {Object.entries(SEGMENT_GROUPS).map(([groupId, config]) => (
             <option key={groupId} value={`group:${groupId}`}>
+              {config.label}
+            </option>
+          ))}
+        </optgroup>
+        <optgroup label="Body dimensions">
+          {Object.entries(BODY_DIMENSIONS).map(([dimensionId, config]) => (
+            <option key={dimensionId} value={`dimension:${dimensionId}`}>
               {config.label}
             </option>
           ))}
@@ -289,7 +318,7 @@ export default function LimbRigControls() {
           max="1.5"
           step={SCALE_STEP}
           value={scaleFactor}
-          onChange={(event) => setScaleFactor(Number(event.target.value))}
+          onChange={(event) => rememberScale(scaleTarget, Number(event.target.value))}
         />
         <button
           type="button"
@@ -330,11 +359,25 @@ export default function LimbRigControls() {
           type="button"
           className="btn btn-sm btn-outline-danger"
           onClick={() => {
-            setScaleFactor(1);
+            setScaleFactors((current) => Object.fromEntries(
+              Object.entries(current).filter(([key]) => key.startsWith("dimension:"))
+            ));
             sendCommand({ type: "reset-all-segment-scales" });
           }}
         >
           Reset all lengths
+        </button>
+        <button
+          type="button"
+          className="btn btn-sm btn-outline-danger"
+          onClick={() => {
+            setScaleFactors((current) => Object.fromEntries(
+              Object.entries(current).filter(([key]) => !key.startsWith("dimension:"))
+            ));
+            sendCommand({ type: "reset-all-body-dimensions" });
+          }}
+        >
+          Reset body dimensions
         </button>
       </div>
     </main>
