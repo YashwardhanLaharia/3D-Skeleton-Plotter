@@ -8,6 +8,11 @@ import { RigSceneBinding } from "./binding/RigSceneBinding.js";
 import { validateRigCommand } from "./commands/RigCommandValidator.js";
 import { RigState } from "./state/RigState.js";
 import { SEGMENT_GROUPS, SEGMENT_SCALES } from "./scaling/segmentConfig.js";
+import { BODY_DIMENSIONS } from "./scaling/dimensionConfig.js";
+import {
+  applyBodyDimensions,
+  captureBodyDimensionRest,
+} from "./scaling/bodyDimensionTransforms.js";
 import {
   applyRotation,
   applySegmentScale,
@@ -17,6 +22,12 @@ import {
 } from "./rigTransforms.js";
 
 export { BODY_REGIONS, JOINT_ROTATIONS, RIGHT_ARM_JOINTS } from "./rigConfig.js";
+
+function ownConfig(registry, id) {
+  return typeof id === "string" && Object.hasOwn(registry, id)
+    ? registry[id]
+    : null;
+}
 
 /**
  * Coordinates rig state and scene mutation for one loaded skeleton instance.
@@ -44,10 +55,14 @@ export class SkeletonRigController {
         captureSegmentRest(binding),
       ])
     );
+    this.bodyDimensionRest = captureBodyDimensionRest(
+      this.binding.bodyDimensions
+    );
     this.state = new RigState(
       Object.keys(JOINT_ROTATIONS),
       Object.keys(this.digitBones),
-      Object.keys(SEGMENT_SCALES)
+      Object.keys(SEGMENT_SCALES),
+      Object.keys(BODY_DIMENSIONS)
     );
   }
 
@@ -98,6 +113,12 @@ export class SkeletonRigController {
         return this.resetSegmentScale(command.segmentId);
       case "reset-all-segment-scales":
         return this.resetAllSegmentScales();
+      case "set-body-dimension":
+        return this.setBodyDimension(command.dimensionId, command.factor);
+      case "reset-body-dimension":
+        return this.resetBodyDimension(command.dimensionId);
+      case "reset-all-body-dimensions":
+        return this.resetAllBodyDimensions();
       default:
         return this.resetAll();
     }
@@ -180,7 +201,7 @@ export class SkeletonRigController {
   }
 
   setSegmentScale(segmentId, factor) {
-    const config = SEGMENT_SCALES[segmentId];
+    const config = ownConfig(SEGMENT_SCALES, segmentId);
     const binding = this.binding.segments[segmentId];
     const numericFactor = Number(factor);
     if (
@@ -204,7 +225,7 @@ export class SkeletonRigController {
   }
 
   setSegmentGroupScale(groupId, factor) {
-    const group = SEGMENT_GROUPS[groupId];
+    const group = ownConfig(SEGMENT_GROUPS, groupId);
     const numericFactor = Number(factor);
     if (!group || !Number.isFinite(numericFactor) || numericFactor <= 0) {
       return { ok: false, error: "Invalid segment group scale command" };
@@ -226,7 +247,7 @@ export class SkeletonRigController {
   }
 
   resetSegmentScale(segmentId) {
-    if (!SEGMENT_SCALES[segmentId]) {
+    if (!ownConfig(SEGMENT_SCALES, segmentId)) {
       return { ok: false, error: `Unknown segment: ${segmentId}` };
     }
     this.state.resetSegmentScale(segmentId);
@@ -247,7 +268,7 @@ export class SkeletonRigController {
       this.state.setSegmentScale(
         segmentId,
         Number(factor),
-        SEGMENT_SCALES[segmentId].limits
+        ownConfig(SEGMENT_SCALES, segmentId).limits
       );
     }
     this.applyAllTransforms();
@@ -268,7 +289,7 @@ export class SkeletonRigController {
     for (const [segmentId, factor] of Object.entries(scales)) {
       const numericFactor = Number(factor);
       if (
-        !SEGMENT_SCALES[segmentId] ||
+        !ownConfig(SEGMENT_SCALES, segmentId) ||
         (typeof factor !== "number" && typeof factor !== "string") ||
         (typeof factor === "string" && factor.trim() === "") ||
         !Number.isFinite(numericFactor) ||
@@ -280,8 +301,92 @@ export class SkeletonRigController {
     return { ok: true };
   }
 
+  setBodyDimension(dimensionId, factor) {
+    const config = ownConfig(BODY_DIMENSIONS, dimensionId);
+    const numericFactor = Number(factor);
+    if (
+      !config ||
+      !this.bodyDimensionRest ||
+      !Number.isFinite(numericFactor) ||
+      numericFactor <= 0
+    ) {
+      return { ok: false, error: "Invalid body dimension command" };
+    }
+
+    const value = this.state.setBodyDimension(
+      dimensionId,
+      numericFactor,
+      config.limits
+    );
+    this.applyAllTransforms();
+    return { ok: true, type: "set-body-dimension", dimensionId, value };
+  }
+
+  resetBodyDimension(dimensionId) {
+    if (!ownConfig(BODY_DIMENSIONS, dimensionId)) {
+      return { ok: false, error: `Unknown body dimension: ${dimensionId}` };
+    }
+    this.state.resetBodyDimension(dimensionId);
+    this.applyAllTransforms();
+    return { ok: true, type: "reset-body-dimension", dimensionId };
+  }
+
+  resetAllBodyDimensions() {
+    this.state.resetAllBodyDimensions();
+    this.applyAllTransforms();
+    return { ok: true, type: "reset-all-body-dimensions" };
+  }
+
+  patchBodyDimensions(dimensions = {}) {
+    const validation = this.validateBodyDimensions(dimensions);
+    if (!validation.ok) return validation;
+    for (const [dimensionId, factor] of Object.entries(dimensions)) {
+      this.state.setBodyDimension(
+        dimensionId,
+        Number(factor),
+        ownConfig(BODY_DIMENSIONS, dimensionId).limits
+      );
+    }
+    this.applyAllTransforms();
+    return {
+      ok: true,
+      type: "patch-body-dimensions",
+      bodyDimensions: this.getState().bodyDimensions,
+    };
+  }
+
+  replaceBodyDimensions(dimensions = {}) {
+    const validation = this.validateBodyDimensions(dimensions);
+    if (!validation.ok) return validation;
+    this.state.resetAllBodyDimensions();
+    const result = this.patchBodyDimensions(dimensions);
+    return result.ok ? { ...result, type: "replace-body-dimensions" } : result;
+  }
+
+  validateBodyDimensions(dimensions) {
+    if (!dimensions || typeof dimensions !== "object" || Array.isArray(dimensions)) {
+      return { ok: false, error: "A body dimensions object is required" };
+    }
+    if (!this.bodyDimensionRest) {
+      return { ok: false, error: "Body dimensions are not bound to this model" };
+    }
+    for (const [dimensionId, factor] of Object.entries(dimensions)) {
+      const numericFactor = Number(factor);
+      if (
+        !ownConfig(BODY_DIMENSIONS, dimensionId) ||
+        (typeof factor !== "number" && typeof factor !== "string") ||
+        (typeof factor === "string" && factor.trim() === "") ||
+        !Number.isFinite(numericFactor) ||
+        numericFactor <= 0
+      ) {
+        return { ok: false, error: `Invalid body dimension: ${dimensionId}` };
+      }
+    }
+    return { ok: true };
+  }
+
   isSegmentBound(segmentId) {
-    const config = SEGMENT_SCALES[segmentId];
+    const config = ownConfig(SEGMENT_SCALES, segmentId);
     const binding = this.binding.segments[segmentId];
     return Boolean(
       config &&
@@ -395,6 +500,12 @@ export class SkeletonRigController {
     }
 
     this.scene.updateMatrixWorld(true);
+    applyBodyDimensions(
+      this.binding.bodyDimensions,
+      this.bodyDimensionRest,
+      this.state.bodyDimensions
+    );
+    this.scene.updateMatrixWorld(true);
     for (const [segmentId, config] of Object.entries(SEGMENT_SCALES)) {
       applySegmentScale({
         binding: this.binding.segments[segmentId],
@@ -500,6 +611,15 @@ export class SkeletonRigController {
           }];
         })
       ),
+      bodyDimensions: {
+        found: this.binding.bodyDimensions.found,
+        dimensions: Object.fromEntries(
+          Object.entries(BODY_DIMENSIONS).map(([dimensionId, config]) => [
+            dimensionId,
+            { label: config.label, limits: config.limits },
+          ])
+        ),
+      },
       regions: Object.fromEntries(
         Object.entries(BODY_REGIONS).map(([region, config]) => [
           region,

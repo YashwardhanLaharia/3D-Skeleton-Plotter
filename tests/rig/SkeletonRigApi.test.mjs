@@ -8,6 +8,7 @@ import {
   RIG_ROTATION_AXES,
   RIG_SEGMENT_GROUP_IDS,
   RIG_SEGMENT_IDS,
+  RIG_BODY_DIMENSION_IDS,
 } from "../../src/rig/SkeletonRigApi.js";
 import { JOINT_ROTATIONS } from "../../src/rig/rigConfig.js";
 import { DIGITS } from "../../src/rig/digits/digitsConfig.js";
@@ -213,4 +214,49 @@ test("pose resets and segment scale resets remain independent", async () => {
   rig.resetAllSegmentScales();
   assert.equal(rig.getState().jointRotations.knee_l.x, 20);
   assert.equal(rig.getState().segmentScales.thigh_l, 1);
+});
+
+test("public API supports absolute body dimensions with patch and replace semantics", async () => {
+  assert.deepEqual(RIG_BODY_DIMENSION_IDS, [
+    "torso_length",
+    "shoulder_width",
+    "pelvis_width",
+    "pelvis_depth",
+  ]);
+  const rig = createSkeletonRig(await loadScene());
+
+  assert.equal(rig.setBodyDimension("torso_length", 0.8).value, 0.8);
+  assert.equal(rig.setBodyDimension("pelvis_width", 2).value, 1.5);
+  assert.equal(rig.patchBodyDimensions({ shoulder_width: "0.9" }).ok, true);
+  assert.equal(rig.getState().bodyDimensions.torso_length, 0.8);
+  assert.equal(rig.getState().bodyDimensions.shoulder_width, 0.9);
+
+  assert.equal(
+    rig.replaceBodyDimensions({ pelvis_depth: 0.75 }).type,
+    "replace-body-dimensions"
+  );
+  assert.equal(rig.getState().bodyDimensions.torso_length, 1);
+  assert.equal(rig.getState().bodyDimensions.pelvis_depth, 0.75);
+  assert.equal(rig.resetBodyDimension("pelvis_depth").ok, true);
+  assert.equal(rig.resetAllBodyDimensions().ok, true);
+  assert.equal(rig.setBodyDimension("unknown", 1).ok, false);
+  assert.equal(rig.patchBodyDimensions({ unknown: 1 }).ok, false);
+  for (const inheritedId of ["constructor", "toString", "__proto__"]) {
+    assert.equal(rig.setBodyDimension(inheritedId, 1).ok, false);
+    assert.equal(rig.resetBodyDimension(inheritedId).ok, false);
+    assert.equal(rig.patchBodyDimensions({ [inheritedId]: 1 }).ok, false);
+  }
+  assert.equal(rig.setSegmentGroupScale("constructor", 1).ok, false);
+});
+
+test("pose, segment, and body dimension resets are independent", async () => {
+  const rig = createSkeletonRig(await loadScene());
+  rig.rotateJoint("shoulder_l", "z", 15);
+  rig.setSegmentScale("upper_arm_l", 0.8);
+  rig.setBodyDimension("shoulder_width", 0.75);
+
+  rig.resetAllBodyDimensions();
+  assert.equal(rig.getState().jointRotations.shoulder_l.z, 15);
+  assert.equal(rig.getState().segmentScales.upper_arm_l, 0.8);
+  assert.equal(rig.getState().bodyDimensions.shoulder_width, 1);
 });

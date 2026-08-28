@@ -2,6 +2,10 @@ import { BODY_REGIONS, JOINT_ROTATIONS } from "../rigConfig.js";
 import { DIGITS, DIGIT_JOINT_TYPES, digitSide } from "../digits/digitsConfig.js";
 import { TORSO_ATTACHMENTS } from "../torso/torsoConfig.js";
 import { SEGMENT_SCALES } from "../scaling/segmentConfig.js";
+import {
+  BODY_DIMENSION_OBJECTS,
+  TORSO_LENGTH_BONE_NAMES,
+} from "../scaling/dimensionConfig.js";
 
 /**
  * Resolves the model-specific bone names into scene objects once per skeleton.
@@ -20,6 +24,7 @@ export class RigSceneBinding {
     this.regionBones = this.resolveRegions();
     this.digitBones = this.resolveDigitBones();
     this.segments = this.resolveSegments();
+    this.bodyDimensions = this.resolveBodyDimensions();
     this.attachments = {
       driver: this.scene.getObjectByName(TORSO_ATTACHMENTS.driverBoneName),
       attachment: this.scene.getObjectByName(
@@ -102,5 +107,43 @@ export class RigSceneBinding {
         },
       ])
     );
+  }
+
+  resolveBodyDimensions() {
+    const spine = TORSO_LENGTH_BONE_NAMES.map((name) =>
+      this.scene.getObjectByName(name)
+    ).filter(Boolean);
+    const sternum = {
+      bone: this.scene.getObjectByName(BODY_DIMENSION_OBJECTS.sternumBoneName),
+      mesh: this.scene.getObjectByName(BODY_DIMENSION_OBJECTS.sternumMeshName),
+    };
+    const shoulders = BODY_DIMENSION_OBJECTS.shoulders.map((config) => ({
+      clavicle: this.scene.getObjectByName(config.clavicleBoneName),
+      mesh: this.scene.getObjectByName(config.clavicleMeshName),
+      arm: this.scene.getObjectByName(config.armRootName),
+      scapula: this.scene.getObjectByName(config.scapulaRootName),
+    }));
+    const pelvis = {
+      bone: this.scene.getObjectByName(BODY_DIMENSION_OBJECTS.pelvisBoneName),
+      mesh: this.scene.getObjectByName(BODY_DIMENSION_OBJECTS.pelvisMeshName),
+      femurs: BODY_DIMENSION_OBJECTS.femurRootNames.map((name) =>
+        this.scene.getObjectByName(name)
+      ).filter(Boolean),
+    };
+
+    return {
+      spine,
+      sternum,
+      shoulders,
+      pelvis,
+      found:
+        spine.length === TORSO_LENGTH_BONE_NAMES.length &&
+        Boolean(sternum.bone && sternum.mesh) &&
+        shoulders.every((side) =>
+          side.clavicle && side.mesh && side.arm && side.scapula
+        ) &&
+        Boolean(pelvis.bone && pelvis.mesh) &&
+        pelvis.femurs.length === BODY_DIMENSION_OBJECTS.femurRootNames.length,
+    };
   }
 }

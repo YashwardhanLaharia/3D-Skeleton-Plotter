@@ -14,10 +14,11 @@ function createScaleState(keys) {
  * A controller owns one state instance for each skeleton object.
  */
 export class RigState {
-  constructor(jointIds, digitKeys, segmentIds = []) {
+  constructor(jointIds, digitKeys, segmentIds = [], dimensionIds = []) {
     this.jointRotations = createRotationState(jointIds);
     this.digitRotations = createRotationState(digitKeys);
     this.segmentScales = createScaleState(segmentIds);
+    this.bodyDimensions = createScaleState(dimensionIds);
   }
 
   // State owns clamping so every caller follows the same limit rules.
@@ -56,6 +57,11 @@ export class RigState {
     return this.segmentScales[segmentId];
   }
 
+  setBodyDimension(dimensionId, factor, [min, max]) {
+    this.bodyDimensions[dimensionId] = Math.min(Math.max(factor, min), max);
+    return this.bodyDimensions[dimensionId];
+  }
+
   resetJoint(jointId) {
     this.jointRotations[jointId] = { x: 0, y: 0, z: 0 };
   }
@@ -70,6 +76,14 @@ export class RigState {
 
   resetAllSegmentScales() {
     this.segmentScales = createScaleState(Object.keys(this.segmentScales));
+  }
+
+  resetBodyDimension(dimensionId) {
+    this.bodyDimensions[dimensionId] = 1;
+  }
+
+  resetAllBodyDimensions() {
+    this.bodyDimensions = createScaleState(Object.keys(this.bodyDimensions));
   }
 
   // Rebuild maps to remove accumulated values while preserving configured keys.
@@ -94,6 +108,7 @@ export class RigState {
         ])
       ),
       segmentScales: { ...this.segmentScales },
+      bodyDimensions: { ...this.bodyDimensions },
     };
   }
 }

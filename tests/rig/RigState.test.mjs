@@ -45,3 +45,18 @@ test("rig state stores, clamps, snapshots, and resets segment scales", () => {
   state.resetAllSegmentScales();
   assert.deepEqual(state.getState().segmentScales, { thigh_l: 1, thigh_r: 1 });
 });
+
+test("rig state keeps body dimensions independent from segment scales", () => {
+  const state = new RigState([], [], ["thigh_l"], ["torso_length", "pelvis_width"]);
+
+  assert.equal(state.setBodyDimension("torso_length", 0.4, [0.5, 1.5]), 0.5);
+  assert.equal(state.setBodyDimension("pelvis_width", 1.2, [0.5, 1.5]), 1.2);
+  state.setSegmentScale("thigh_l", 0.8, [0.5, 1.5]);
+  state.resetAllBodyDimensions();
+
+  assert.deepEqual(state.getState().bodyDimensions, {
+    torso_length: 1,
+    pelvis_width: 1,
+  });
+  assert.equal(state.getState().segmentScales.thigh_l, 0.8);
+});

@@ -17,6 +17,22 @@ export function validateRigCommand(command) {
     return { ok: true, command };
   }
 
+  if (command.type === "reset-all-body-dimensions") {
+    return { ok: true, command };
+  }
+
+  if (command.type === "reset-body-dimension") {
+    return isIdentifier(command.dimensionId)
+      ? { ok: true, command }
+      : { ok: false, error: "Invalid body dimension reset command" };
+  }
+
+  if (command.type === "set-body-dimension") {
+    return isIdentifier(command.dimensionId) && isPositiveAmount(command.factor)
+      ? { ok: true, command }
+      : { ok: false, error: "Invalid body dimension command" };
+  }
+
   if (command.type === "reset-segment-scale") {
     return isIdentifier(command.segmentId)
       ? { ok: true, command }

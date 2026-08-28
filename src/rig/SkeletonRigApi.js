@@ -1,11 +1,13 @@
 import { JOINT_ROTATIONS } from "./rigConfig.js";
 import { SkeletonRigController } from "./SkeletonRigController.js";
 import { SEGMENT_GROUPS, SEGMENT_SCALES } from "./scaling/segmentConfig.js";
+import { BODY_DIMENSIONS } from "./scaling/dimensionConfig.js";
 
 export const RIG_JOINT_IDS = Object.freeze(Object.keys(JOINT_ROTATIONS));
 export const RIG_ROTATION_AXES = Object.freeze(["x", "y", "z"]);
 export const RIG_SEGMENT_IDS = Object.freeze(Object.keys(SEGMENT_SCALES));
 export const RIG_SEGMENT_GROUP_IDS = Object.freeze(Object.keys(SEGMENT_GROUPS));
+export const RIG_BODY_DIMENSION_IDS = Object.freeze(Object.keys(BODY_DIMENSIONS));
 
 /**
  * Public model-control facade. Callers use rig joint IDs and never GLB bone names.
@@ -101,6 +103,31 @@ export class SkeletonRigApi {
     return this.#controller.replaceSegmentScales(scales);
   }
 
+  /** Sets one torso or pelvic dimension relative to the imported model. */
+  setBodyDimension(dimensionId, factor) {
+    return this.execute({ type: "set-body-dimension", dimensionId, factor });
+  }
+
+  /** Resets one body dimension to its imported value. */
+  resetBodyDimension(dimensionId) {
+    return this.execute({ type: "reset-body-dimension", dimensionId });
+  }
+
+  /** Resets all body dimensions without changing pose or limb lengths. */
+  resetAllBodyDimensions() {
+    return this.execute({ type: "reset-all-body-dimensions" });
+  }
+
+  /** Updates only the supplied absolute body-dimension factors. */
+  patchBodyDimensions(dimensions) {
+    return this.#controller.patchBodyDimensions(dimensions);
+  }
+
+  /** Resets body dimensions, then applies the supplied factors. */
+  replaceBodyDimensions(dimensions) {
+    return this.#controller.replaceBodyDimensions(dimensions);
+  }
+
   /**
    * Applies a partial pose while preserving the existing setPose contract.
    */
@@ -122,7 +149,7 @@ export class SkeletonRigApi {
     return this.#controller.replacePose(pose);
   }
 
-  /** Returns a defensive snapshot of rotations and segment scales. */
+  /** Returns a defensive snapshot of pose and morphology state. */
   getState() {
     return this.#controller.getState();
   }

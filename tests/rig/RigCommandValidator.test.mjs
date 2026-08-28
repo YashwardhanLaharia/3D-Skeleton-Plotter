@@ -12,6 +12,9 @@ test("command validator accepts supported command shapes", () => {
     { type: "set-segment-group-scale", groupId: "legs", factor: "0.8" },
     { type: "reset-segment-scale", segmentId: "thigh_l" },
     { type: "reset-all-segment-scales" },
+    { type: "set-body-dimension", dimensionId: "torso_length", factor: 0.8 },
+    { type: "reset-body-dimension", dimensionId: "torso_length" },
+    { type: "reset-all-body-dimensions" },
     { type: "reset-all" },
   ];
 
@@ -36,6 +39,9 @@ test("command validator rejects malformed commands before model lookup", () => {
     { type: "set-segment-scale", segmentId: "thigh_l", factor: true },
     { type: "set-segment-group-scale", groupId: "legs", factor: "" },
     { type: "reset-segment-scale", segmentId: 2 },
+    { type: "set-body-dimension", dimensionId: "", factor: 0.8 },
+    { type: "set-body-dimension", dimensionId: "pelvis_width", factor: 0 },
+    { type: "reset-body-dimension", dimensionId: null },
   ];
 
   invalidCommands.forEach((command) => {
