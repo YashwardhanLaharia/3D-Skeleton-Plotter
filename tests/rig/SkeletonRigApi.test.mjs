@@ -6,6 +6,8 @@ import {
   createSkeletonRig,
   RIG_JOINT_IDS,
   RIG_ROTATION_AXES,
+  RIG_SEGMENT_GROUP_IDS,
+  RIG_SEGMENT_IDS,
 } from "../../src/rig/SkeletonRigApi.js";
 import { JOINT_ROTATIONS } from "../../src/rig/rigConfig.js";
 import { DIGITS } from "../../src/rig/digits/digitsConfig.js";
@@ -157,4 +159,58 @@ test("separate rig instances maintain independent state and scenes", async () =>
   assert.equal(rigB.getState().jointRotations.knee_l.x, -15);
   assert.equal(sceneA.getObjectByName("DEF-TibiaL").rotation.x > 0, true);
   assert.equal(sceneB.getObjectByName("DEF-TibiaL").rotation.x < 0, true);
+});
+
+test("public API exposes and updates absolute segment scale factors", async () => {
+  assert.equal(RIG_SEGMENT_IDS.includes("thigh_l"), true);
+  assert.equal(RIG_SEGMENT_GROUP_IDS.includes("legs"), true);
+  const rig = createSkeletonRig(await loadScene());
+
+  const setResult = rig.setSegmentScale("thigh_l", 0.75);
+  assert.deepEqual(setResult, {
+    ok: true,
+    type: "set-segment-scale",
+    segmentId: "thigh_l",
+    value: 0.75,
+  });
+  assert.equal(rig.getState().segmentScales.thigh_l, 0.75);
+  assert.equal(rig.setSegmentScale("thigh_l", 0.1).value, 0.5);
+  assert.equal(rig.setSegmentScale("unknown", 1).ok, false);
+  assert.equal(rig.setSegmentScale("thigh_l", 0).ok, false);
+});
+
+test("segment patch, replace, group, and reset operations have explicit semantics", async () => {
+  const rig = createSkeletonRig(await loadScene());
+
+  assert.equal(rig.patchSegmentScales({ thigh_l: 0.8, lower_leg_l: "0.7" }).ok, true);
+  assert.equal(rig.getState().segmentScales.thigh_l, 0.8);
+  assert.equal(rig.getState().segmentScales.lower_leg_l, 0.7);
+
+  assert.equal(rig.replaceSegmentScales({ thigh_r: 0.9 }).ok, true);
+  assert.equal(rig.getState().segmentScales.thigh_l, 1);
+  assert.equal(rig.getState().segmentScales.thigh_r, 0.9);
+
+  assert.equal(rig.setSegmentGroupScale("legs", 0.75).ok, true);
+  for (const segmentId of ["thigh_l", "thigh_r", "lower_leg_l", "lower_leg_r"]) {
+    assert.equal(rig.getState().segmentScales[segmentId], 0.75);
+  }
+  assert.equal(rig.resetSegmentScale("thigh_l").ok, true);
+  assert.equal(rig.getState().segmentScales.thigh_l, 1);
+  assert.equal(rig.resetAllSegmentScales().ok, true);
+  assert.ok(Object.values(rig.getState().segmentScales).every((factor) => factor === 1));
+});
+
+test("pose resets and segment scale resets remain independent", async () => {
+  const rig = createSkeletonRig(await loadScene());
+
+  rig.rotateJoint("knee_l", "x", 20);
+  rig.setSegmentScale("thigh_l", 0.8);
+  rig.resetAll();
+  assert.equal(rig.getState().jointRotations.knee_l.x, 0);
+  assert.equal(rig.getState().segmentScales.thigh_l, 0.8);
+
+  rig.rotateJoint("knee_l", "x", 20);
+  rig.resetAllSegmentScales();
+  assert.equal(rig.getState().jointRotations.knee_l.x, 20);
+  assert.equal(rig.getState().segmentScales.thigh_l, 1);
 });

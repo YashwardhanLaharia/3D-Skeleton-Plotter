@@ -5,14 +5,19 @@ function createRotationState(keys) {
   );
 }
 
+function createScaleState(keys) {
+  return Object.fromEntries(keys.map((key) => [key, 1]));
+}
+
 /**
  * Stores pose values independently from the Three.js scene.
  * A controller owns one state instance for each skeleton object.
  */
 export class RigState {
-  constructor(jointIds, digitKeys) {
+  constructor(jointIds, digitKeys, segmentIds = []) {
     this.jointRotations = createRotationState(jointIds);
     this.digitRotations = createRotationState(digitKeys);
+    this.segmentScales = createScaleState(segmentIds);
   }
 
   // State owns clamping so every caller follows the same limit rules.
@@ -46,12 +51,25 @@ export class RigState {
     };
   }
 
+  setSegmentScale(segmentId, factor, [min, max]) {
+    this.segmentScales[segmentId] = Math.min(Math.max(factor, min), max);
+    return this.segmentScales[segmentId];
+  }
+
   resetJoint(jointId) {
     this.jointRotations[jointId] = { x: 0, y: 0, z: 0 };
   }
 
   resetDigit(digitKey) {
     this.digitRotations[digitKey] = { x: 0, y: 0, z: 0 };
+  }
+
+  resetSegmentScale(segmentId) {
+    this.segmentScales[segmentId] = 1;
+  }
+
+  resetAllSegmentScales() {
+    this.segmentScales = createScaleState(Object.keys(this.segmentScales));
   }
 
   // Rebuild maps to remove accumulated values while preserving configured keys.
@@ -75,6 +93,7 @@ export class RigState {
           { ...rotation },
         ])
       ),
+      segmentScales: { ...this.segmentScales },
     };
   }
 }

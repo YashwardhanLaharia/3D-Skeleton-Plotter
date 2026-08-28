@@ -28,3 +28,20 @@ test("rig state resets targets and returns defensive snapshots", () => {
   assert.deepEqual(state.getState().jointRotations.shoulder_l, { x: 0, y: 0, z: 0 });
   assert.deepEqual(state.getState().digitRotations.fingertips_l__1, { x: 0, y: 0, z: 0 });
 });
+
+test("rig state stores, clamps, snapshots, and resets segment scales", () => {
+  const state = new RigState([], [], ["thigh_l", "thigh_r"]);
+
+  assert.deepEqual(state.getState().segmentScales, { thigh_l: 1, thigh_r: 1 });
+  assert.equal(state.setSegmentScale("thigh_l", 0.2, [0.5, 1.5]), 0.5);
+  assert.equal(state.setSegmentScale("thigh_r", 2, [0.5, 1.5]), 1.5);
+
+  const snapshot = state.getState();
+  snapshot.segmentScales.thigh_l = 1.2;
+  assert.equal(state.getState().segmentScales.thigh_l, 0.5);
+
+  state.resetSegmentScale("thigh_l");
+  assert.equal(state.getState().segmentScales.thigh_l, 1);
+  state.resetAllSegmentScales();
+  assert.deepEqual(state.getState().segmentScales, { thigh_l: 1, thigh_r: 1 });
+});

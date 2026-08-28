@@ -8,6 +8,10 @@ test("command validator accepts supported command shapes", () => {
     { type: "reset-joint", jointId: "knee_l" },
     { type: "rotate-digit", jointId: "toes_r", digit: "2", axis: "z", amount: -5 },
     { type: "reset-digit", jointId: "toes_r", digit: "2" },
+    { type: "set-segment-scale", segmentId: "thigh_l", factor: 0.75 },
+    { type: "set-segment-group-scale", groupId: "legs", factor: "0.8" },
+    { type: "reset-segment-scale", segmentId: "thigh_l" },
+    { type: "reset-all-segment-scales" },
     { type: "reset-all" },
   ];
 
@@ -27,6 +31,11 @@ test("command validator rejects malformed commands before model lookup", () => {
     { type: "rotate-joint", jointId: "knee_l", axis: "x", amount: "" },
     { type: "rotate-joint", jointId: "knee_l", axis: "x", amount: Number.NaN },
     { type: "rotate-digit", jointId: "toes_r", digit: "2", axis: "x", amount: "nope" },
+    { type: "set-segment-scale", segmentId: "", factor: 0.8 },
+    { type: "set-segment-scale", segmentId: "thigh_l", factor: 0 },
+    { type: "set-segment-scale", segmentId: "thigh_l", factor: true },
+    { type: "set-segment-group-scale", groupId: "legs", factor: "" },
+    { type: "reset-segment-scale", segmentId: 2 },
   ];
 
   invalidCommands.forEach((command) => {

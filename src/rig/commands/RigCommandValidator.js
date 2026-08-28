@@ -13,6 +13,28 @@ export function validateRigCommand(command) {
     return { ok: true, command };
   }
 
+  if (command.type === "reset-all-segment-scales") {
+    return { ok: true, command };
+  }
+
+  if (command.type === "reset-segment-scale") {
+    return isIdentifier(command.segmentId)
+      ? { ok: true, command }
+      : { ok: false, error: "Invalid segment scale reset command" };
+  }
+
+  if (command.type === "set-segment-scale") {
+    return isIdentifier(command.segmentId) && isPositiveAmount(command.factor)
+      ? { ok: true, command }
+      : { ok: false, error: "Invalid segment scale command" };
+  }
+
+  if (command.type === "set-segment-group-scale") {
+    return isIdentifier(command.groupId) && isPositiveAmount(command.factor)
+      ? { ok: true, command }
+      : { ok: false, error: "Invalid segment group scale command" };
+  }
+
   if (command.type === "reset-joint") {
     return isIdentifier(command.jointId)
       ? { ok: true, command }
@@ -69,4 +91,8 @@ function isAmount(value) {
     value.trim().length > 0 &&
     Number.isFinite(Number(value))
   );
+}
+
+function isPositiveAmount(value) {
+  return isAmount(value) && Number(value) > 0;
 }

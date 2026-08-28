@@ -7,8 +7,11 @@ import { DIGITS, DIGIT_JOINT_TYPES } from "./digits/digitsConfig.js";
 import { RigSceneBinding } from "./binding/RigSceneBinding.js";
 import { validateRigCommand } from "./commands/RigCommandValidator.js";
 import { RigState } from "./state/RigState.js";
+import { SEGMENT_GROUPS, SEGMENT_SCALES } from "./scaling/segmentConfig.js";
 import {
   applyRotation,
+  applySegmentScale,
+  captureSegmentRest,
   getDisplayTransform,
   syncAttachment,
 } from "./rigTransforms.js";
@@ -35,9 +38,16 @@ export class SkeletonRigController {
       ...this.digitBones,
     });
     this.restTorsoAttachment = this.captureTorsoAttachment();
+    this.segmentRest = Object.fromEntries(
+      Object.entries(this.binding.segments).map(([segmentId, binding]) => [
+        segmentId,
+        captureSegmentRest(binding),
+      ])
+    );
     this.state = new RigState(
       Object.keys(JOINT_ROTATIONS),
-      Object.keys(this.digitBones)
+      Object.keys(this.digitBones),
+      Object.keys(SEGMENT_SCALES)
     );
   }
 
@@ -71,19 +81,26 @@ export class SkeletonRigController {
       return validation;
     }
 
-    if (command.type === "rotate-joint") {
-      return this.rotateJoint(command.jointId, command.axis, command.amount);
+    switch (command.type) {
+      case "rotate-joint":
+        return this.rotateJoint(command.jointId, command.axis, command.amount);
+      case "reset-joint":
+        return this.resetJoint(command.jointId);
+      case "rotate-digit":
+        return this.rotateDigit(command.jointId, command.digit, command.axis, command.amount);
+      case "reset-digit":
+        return this.resetDigit(command.jointId, command.digit);
+      case "set-segment-scale":
+        return this.setSegmentScale(command.segmentId, command.factor);
+      case "set-segment-group-scale":
+        return this.setSegmentGroupScale(command.groupId, command.factor);
+      case "reset-segment-scale":
+        return this.resetSegmentScale(command.segmentId);
+      case "reset-all-segment-scales":
+        return this.resetAllSegmentScales();
+      default:
+        return this.resetAll();
     }
-    if (command.type === "reset-joint") {
-      return this.resetJoint(command.jointId);
-    }
-    if (command.type === "rotate-digit") {
-      return this.rotateDigit(command.jointId, command.digit, command.axis, command.amount);
-    }
-    if (command.type === "reset-digit") {
-      return this.resetDigit(command.jointId, command.digit);
-    }
-    return this.resetAll();
   }
 
   // A joint command stores accumulated degrees; applyAllRotations converts them to bone rotations.
@@ -162,6 +179,119 @@ export class SkeletonRigController {
     return { ok: true, type: "reset-all" };
   }
 
+  setSegmentScale(segmentId, factor) {
+    const config = SEGMENT_SCALES[segmentId];
+    const binding = this.binding.segments[segmentId];
+    const numericFactor = Number(factor);
+    if (
+      !config ||
+      !binding?.driver ||
+      !binding?.distal ||
+      binding.meshes.length !== config.meshNames.length ||
+      !Number.isFinite(numericFactor) ||
+      numericFactor <= 0
+    ) {
+      return { ok: false, error: "Invalid segment scale command" };
+    }
+
+    const value = this.state.setSegmentScale(
+      segmentId,
+      numericFactor,
+      config.limits
+    );
+    this.applyAllTransforms();
+    return { ok: true, type: "set-segment-scale", segmentId, value };
+  }
+
+  setSegmentGroupScale(groupId, factor) {
+    const group = SEGMENT_GROUPS[groupId];
+    const numericFactor = Number(factor);
+    if (!group || !Number.isFinite(numericFactor) || numericFactor <= 0) {
+      return { ok: false, error: "Invalid segment group scale command" };
+    }
+    if (group.segmentIds.some((segmentId) => !this.isSegmentBound(segmentId))) {
+      return { ok: false, error: "Segment group is not bound to this model" };
+    }
+
+    const values = {};
+    for (const segmentId of group.segmentIds) {
+      values[segmentId] = this.state.setSegmentScale(
+        segmentId,
+        numericFactor,
+        SEGMENT_SCALES[segmentId].limits
+      );
+    }
+    this.applyAllTransforms();
+    return { ok: true, type: "set-segment-group-scale", groupId, values };
+  }
+
+  resetSegmentScale(segmentId) {
+    if (!SEGMENT_SCALES[segmentId]) {
+      return { ok: false, error: `Unknown segment: ${segmentId}` };
+    }
+    this.state.resetSegmentScale(segmentId);
+    this.applyAllTransforms();
+    return { ok: true, type: "reset-segment-scale", segmentId };
+  }
+
+  resetAllSegmentScales() {
+    this.state.resetAllSegmentScales();
+    this.applyAllTransforms();
+    return { ok: true, type: "reset-all-segment-scales" };
+  }
+
+  patchSegmentScales(scales = {}) {
+    const validation = this.validateSegmentScales(scales);
+    if (!validation.ok) return validation;
+    for (const [segmentId, factor] of Object.entries(scales)) {
+      this.state.setSegmentScale(
+        segmentId,
+        Number(factor),
+        SEGMENT_SCALES[segmentId].limits
+      );
+    }
+    this.applyAllTransforms();
+    return { ok: true, type: "patch-segment-scales", segmentScales: this.getState().segmentScales };
+  }
+
+  replaceSegmentScales(scales = {}) {
+    const validation = this.validateSegmentScales(scales);
+    if (!validation.ok) return validation;
+    this.state.resetAllSegmentScales();
+    return this.patchSegmentScales(scales);
+  }
+
+  validateSegmentScales(scales) {
+    if (!scales || typeof scales !== "object" || Array.isArray(scales)) {
+      return { ok: false, error: "A segment scales object is required" };
+    }
+    for (const [segmentId, factor] of Object.entries(scales)) {
+      const numericFactor = Number(factor);
+      if (
+        !SEGMENT_SCALES[segmentId] ||
+        (typeof factor !== "number" && typeof factor !== "string") ||
+        (typeof factor === "string" && factor.trim() === "") ||
+        !Number.isFinite(numericFactor) ||
+        numericFactor <= 0
+      ) {
+        return { ok: false, error: `Invalid segment scale: ${segmentId}` };
+      }
+    }
+    return { ok: true };
+  }
+
+  isSegmentBound(segmentId) {
+    const config = SEGMENT_SCALES[segmentId];
+    const binding = this.binding.segments[segmentId];
+    return Boolean(
+      config &&
+      binding?.driver &&
+      binding?.distal &&
+      binding.meshes.length === config.meshNames.length &&
+      this.segmentRest[segmentId]
+    );
+  }
+
   // Retain the original partial-pose behavior for existing callers.
   setPose(pose = {}) {
     const result = this.patchPose(pose);
@@ -227,11 +357,15 @@ export class SkeletonRigController {
     const syncTorso =
       !neckRotation ||
       Object.values(neckRotation).every((value) => value === 0);
-    this.applyAllRotations(syncTorso);
+    this.applyAllTransforms(syncTorso);
   }
 
   // Rebuild every affected bone from rest rotations so repeated commands do not compound rounding errors.
   applyAllRotations(syncTorso = true) {
+    this.applyAllTransforms(syncTorso);
+  }
+
+  applyAllTransforms(syncTorso = true) {
     const rotations = new Map();
 
     for (const [jointId, config] of Object.entries(JOINT_ROTATIONS)) {
@@ -261,6 +395,15 @@ export class SkeletonRigController {
     }
 
     this.scene.updateMatrixWorld(true);
+    for (const [segmentId, config] of Object.entries(SEGMENT_SCALES)) {
+      applySegmentScale({
+        binding: this.binding.segments[segmentId],
+        rest: this.segmentRest[segmentId],
+        factor: this.state.segmentScales[segmentId],
+        endcapFraction: config.endcapFraction,
+      });
+      this.scene.updateMatrixWorld(true);
+    }
     this.syncTorsoAttachment(syncTorso);
   }
 
@@ -342,6 +485,21 @@ export class SkeletonRigController {
           boneName: this.binding.attachments.attachment?.name,
         },
       },
+      segments: Object.fromEntries(
+        Object.entries(SEGMENT_SCALES).map(([segmentId, config]) => {
+          const binding = this.binding.segments[segmentId];
+          const rest = this.segmentRest[segmentId];
+          return [segmentId, {
+            label: config.label,
+            found:
+              Boolean(binding.driver) &&
+              Boolean(binding.distal) &&
+              binding.meshes.length === config.meshNames.length,
+            restLength: rest?.length ?? null,
+            limits: config.limits,
+          }];
+        })
+      ),
       regions: Object.fromEntries(
         Object.entries(BODY_REGIONS).map(([region, config]) => [
           region,

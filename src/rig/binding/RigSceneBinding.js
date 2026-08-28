@@ -1,6 +1,7 @@
 import { BODY_REGIONS, JOINT_ROTATIONS } from "../rigConfig.js";
 import { DIGITS, DIGIT_JOINT_TYPES, digitSide } from "../digits/digitsConfig.js";
 import { TORSO_ATTACHMENTS } from "../torso/torsoConfig.js";
+import { SEGMENT_SCALES } from "../scaling/segmentConfig.js";
 
 /**
  * Resolves the model-specific bone names into scene objects once per skeleton.
@@ -18,6 +19,7 @@ export class RigSceneBinding {
     );
     this.regionBones = this.resolveRegions();
     this.digitBones = this.resolveDigitBones();
+    this.segments = this.resolveSegments();
     this.attachments = {
       driver: this.scene.getObjectByName(TORSO_ATTACHMENTS.driverBoneName),
       attachment: this.scene.getObjectByName(
@@ -85,5 +87,20 @@ export class RigSceneBinding {
     }
 
     return digits;
+  }
+
+  resolveSegments() {
+    return Object.fromEntries(
+      Object.entries(SEGMENT_SCALES).map(([segmentId, config]) => [
+        segmentId,
+        {
+          driver: this.scene.getObjectByName(config.driverBoneName),
+          distal: this.scene.getObjectByName(config.distalBoneName),
+          meshes: config.meshNames
+            .map((meshName) => this.scene.getObjectByName(meshName))
+            .filter(Boolean),
+        },
+      ])
+    );
   }
 }
