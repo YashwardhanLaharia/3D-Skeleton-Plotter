@@ -5,14 +5,14 @@ import { solveSkeleton } from "../../src/solver/solveSkeleton.js";
 // A stand-in for Harjaap's #17. Returns something identifiable rather than
 // real geometry, so these tests exercise traversal and edge cases only.
 function stubSolveBone(proximal, distal) {
-  return { x: distal[0] - proximal[0], y: 0, z: 0 };
+  return { x: distal.x - proximal.x, y: 0, z: 0 };
 }
 
 const OPTIONS = { solveBone: stubSolveBone };
 
 test("a bone with both joints recorded produces a rotation", () => {
   const result = solveSkeleton(
-    { shoulder_l: [0, 0, 0], elbow_l: [3, 0, 0] },
+    { shoulder_l: { x: 0, y: 0, z: 0 }, elbow_l: { x: 3, y: 0, z: 0 } },
     OPTIONS,
   );
 
@@ -20,7 +20,7 @@ test("a bone with both joints recorded produces a rotation", () => {
 });
 
 test("a bone missing either joint is not solved", () => {
-  const result = solveSkeleton({ shoulder_l: [0, 0, 0] }, OPTIONS);
+  const result = solveSkeleton({ shoulder_l: { x: 0, y: 0, z: 0 } }, OPTIONS);
 
   assert.equal(result.pose.shoulder_l, undefined);
   assert.ok(result.unsolved.includes("upper_arm_l"));
@@ -39,10 +39,9 @@ test("an empty joint set solves nothing and does not throw", () => {
 test("a gap in a chain does not block bones further down", () => {
   const result = solveSkeleton(
     {
-      acetabulum_l: [0, 0, 0],
-      // knee_l missing — thigh and lower leg both unsolvable
-      ankle_l: [0, 1, 0],
-      toes_l: [0, 1, 1],
+      acetabulum_l: { x: 0, y: 0, z: 0 },
+      ankle_l: { x: 0, y: 1, z: 0 },
+      toes_l: { x: 0, y: 1, z: 1 },
     },
     OPTIONS,
   );
@@ -54,7 +53,7 @@ test("a gap in a chain does not block bones further down", () => {
 
 test("solved and unsolved are reported separately", () => {
   const result = solveSkeleton(
-    { shoulder_l: [0, 0, 0], elbow_l: [1, 0, 0] },
+    { shoulder_l: { x: 0, y: 0, z: 0 }, elbow_l: { x: 1, y: 0, z: 0 } },
     OPTIONS,
   );
 
@@ -64,7 +63,7 @@ test("solved and unsolved are reported separately", () => {
 
 test("joints that drive no bone are ignored rather than reported as errors", () => {
   const result = solveSkeleton(
-    { ilium_superior_l: [0, 0, 0], ischium_l: [1, 0, 0] },
+    { ilium_superior_l: { x: 0, y: 0, z: 0 }, ischium_l: { x: 1, y: 0, z: 0 } },
     OPTIONS,
   );
 
@@ -73,14 +72,14 @@ test("joints that drive no bone are ignored rather than reported as errors", () 
 });
 
 test("unrecognised joint ids are reported, not silently dropped", () => {
-  const result = solveSkeleton({ not_a_joint: [0, 0, 0] }, OPTIONS);
+  const result = solveSkeleton({ not_a_joint: { x: 0, y: 0, z: 0 } }, OPTIONS);
 
   assert.ok(result.unknown.includes("not_a_joint"));
 });
 
 test("a malformed position is treated as missing and reported", () => {
   const result = solveSkeleton(
-    { shoulder_l: [0, 0, 0], elbow_l: [1, "x", 0] },
+    { shoulder_l: { x: 0, y: 0, z: 0 }, elbow_l: { x: 1, y: "x", z: 0 } },
     OPTIONS,
   );
 
@@ -91,10 +90,10 @@ test("a malformed position is treated as missing and reported", () => {
 test("both limbs solve independently", () => {
   const result = solveSkeleton(
     {
-      shoulder_l: [0, 0, 0],
-      elbow_l: [1, 0, 0],
-      shoulder_r: [0, 0, 0],
-      elbow_r: [2, 0, 0],
+      shoulder_l: { x: 0, y: 0, z: 0 },
+      elbow_l: { x: 1, y: 0, z: 0 },
+      shoulder_r: { x: 0, y: 0, z: 0 },
+      elbow_r: { x: 2, y: 0, z: 0 },
     },
     OPTIONS,
   );
@@ -113,10 +112,10 @@ test("a bone whose solve throws is reported, not propagated", () => {
 
   const result = solveSkeleton(
     {
-      acetabulum_l: [0, 0, 0],
-      knee_l: [0, 1, 0],
-      shoulder_l: [0, 0, 0],
-      elbow_l: [1, 0, 0],
+      acetabulum_l: { x: 0, y: 0, z: 0 },
+      knee_l: { x: 0, y: 1, z: 0 },
+      shoulder_l: { x: 0, y: 0, z: 0 },
+      elbow_l: { x: 1, y: 0, z: 0 },
     },
     { solveBone: throwingSolve },
   );
@@ -129,7 +128,7 @@ test("a bone whose solve throws is reported, not propagated", () => {
 
 test("failed is empty when nothing throws", () => {
   const result = solveSkeleton(
-    { shoulder_l: [0, 0, 0], elbow_l: [1, 0, 0] },
+    { shoulder_l: { x: 0, y: 0, z: 0 }, elbow_l: { x: 1, y: 0, z: 0 } },
     OPTIONS,
   );
 

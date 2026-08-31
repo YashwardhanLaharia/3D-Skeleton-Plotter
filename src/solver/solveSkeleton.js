@@ -19,16 +19,21 @@ import { JOINTS } from "../joints.js";
 const KNOWN_JOINTS = new Set(JOINTS.map((joint) => joint.id));
 const UNUSED = new Set(UNUSED_JOINTS);
 
+// Matches the shape the rig uses for rotations and that computeBoneRotation
+// takes for positions, so no reshaping is needed at the integration boundary.
 function isPosition(value) {
   return (
-    Array.isArray(value) &&
-    value.length === 3 &&
-    value.every((n) => typeof n === "number" && Number.isFinite(n))
+    value !== null &&
+    typeof value === "object" &&
+    Number.isFinite(value.x) &&
+    Number.isFinite(value.y) &&
+    Number.isFinite(value.z)
   );
 }
 
 /**
- * @param {Record<string, number[]>} joints  positions in scene space
+/**
+ * @param {Record<string, {x:number,y:number,z:number}>} joints  positions in scene space
  * @param {object} options
  * @param {Function} options.solveBone  (proximalPos, distalPos, bone) => {x,y,z}
  * @returns {{
