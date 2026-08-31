@@ -182,21 +182,26 @@ function FocusCamera({ focusedId, controlsRef }) {
 // positions each skeleton lives inside SkeletonModel.
 function FocusGrid({ focusedId }) {
   const { scene } = useThree();
+  const gridRef = useRef(null);
 
-  const position = useMemo(() => {
+  // Tracked per frame rather than memoised. The focused specimen's position
+  // changes whenever the set of loaded skeletons changes, because each model
+  // is centred on itself by its display transform — so deleting an unrelated
+  // individual moves the one you're looking at. Cheap: one bounding box a frame.
+  useFrame(() => {
+    const grid = gridRef.current;
     const target = scene.getObjectByName(`skeleton-${focusedId}`);
-    if (!target) return [0, 0, 0];
+    if (!grid || !target) return;
 
     const box = new Box3().setFromObject(target);
-    if (box.isEmpty()) return [0, 0, 0];
+    if (box.isEmpty()) return;
 
     const centre = box.getCenter(new Vector3());
-    // Sit at the feet, not the centre of mass.
-    return [centre.x, box.min.y, centre.z];
-  }, [focusedId, scene]);
+    grid.position.set(centre.x, box.min.y, centre.z);
+  });
 
   return (
-    <gridHelper args={[1.2, 6, "#3a4149", "#2b3238"]} position={position} />
+    <gridHelper ref={gridRef} args={[1.2, 6, "#3a4149", "#2b3238"]} />
   );
 }
 
@@ -239,7 +244,10 @@ export default function MainView({
           </Suspense>
         ))}
         {focusedId ? (
-          <FocusGrid focusedId={focusedId} />
+          <FocusGrid
+            focusedId={focusedId}
+            individualCount={individuals.length}
+          />
         ) : (
           <gridHelper args={[4, 12, "#adb5bd", "#ced4da"]} />
         )}
