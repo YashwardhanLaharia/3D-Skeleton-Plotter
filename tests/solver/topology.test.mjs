@@ -65,3 +65,23 @@ test("bonesForJoint finds every bone a joint participates in", () => {
 test("an unknown bone id returns undefined rather than throwing", () => {
   assert.equal(getBone("not_a_bone"), undefined);
 });
+
+// The rig applies rotations in each bone's LOCAL space, so a child's frame
+// depends on where its parent ended up. Verified by spike: rotating the femur
+// changed the tibia's world direction while leaving its local rotation
+// untouched. BONES must therefore be traversed proximal-to-distal, and this
+// ordering is actually important.
+test("BONES is ordered so every parent precedes its children", () => {
+  const seen = new Set();
+
+  for (const bone of BONES) {
+    const parent = BONES.find((other) => other.distal === bone.proximal);
+    if (parent) {
+      assert.ok(
+        seen.has(parent.id),
+        `${bone.id} appears before its parent ${parent.id}`,
+      );
+    }
+    seen.add(bone.id);
+  }
+});

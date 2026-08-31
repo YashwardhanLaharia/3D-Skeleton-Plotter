@@ -5,15 +5,13 @@
 // (#17). Its real job is the edge cases: incomplete, disarticulated, and
 // commingled remains are the normal condition in a mass grave, not exceptions.
 //
-// Every bone is solved independently from its own two joints. There is no
-// accumulation down the chain, so a gap partway down a limb doesn't block the
-// bones below it — the ankle can still be solved when the knee was never
-// recorded. The rig's own parent-child hierarchy handles the fact that the
-// resulting segments still hang together.
+// Every bone is solved from its own two joints, so a gap partway down a limb
+// doesn't block the bones below it — the ankle still solves when the knee was
+// never recorded.
 //
-// Nothing here throws. A researcher entering coordinates by hand will produce
-// partial and occasionally malformed input constantly; every one of those cases
-// is reported rather than raised.
+// Bones are nonetheless visited in BONES order, which is proximal-to-distal.
+// The rig applies rotations in local space, so a child's frame depends on where
+// its parent was placed. Do not reorder or parallelise this loop.
 
 import { BONES, UNUSED_JOINTS } from "./topology.js";
 import { JOINTS } from "../joints.js";
@@ -40,6 +38,7 @@ function isPosition(value) {
  *   ignored: string[],
  *   unknown: string[],
  *   invalid: string[],
+ *   failed: {boneId: string, reason: string}[],
  * }}
  */
 export function solveSkeleton(joints = {}, { solveBone } = {}) {
@@ -49,7 +48,7 @@ export function solveSkeleton(joints = {}, { solveBone } = {}) {
   const ignored = [];
   const unknown = [];
   const invalid = [];
-    const failed = [];
+  const failed = [];
 
   // Classify the input before solving anything, so the report distinguishes
   // "you gave us a landmark we don't rotate" from "you gave us a typo".
@@ -91,7 +90,7 @@ export function solveSkeleton(joints = {}, { solveBone } = {}) {
 
     pose[bone.jointId] = rotation;
     solved.push(bone.id);
-}
+  }
 
-  return { pose, solved, unsolved, ignored, unknown, invalid };
+  return { pose, solved, unsolved, ignored, unknown, invalid, failed };
 }
