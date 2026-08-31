@@ -28,6 +28,7 @@ import Sidebar from "./components/Sidebar";
 import MainView from "./components/MainView";
 import LayersPanel from "./components/LayersPanel";
 import FocusBar from "./components/FocusBar";
+import InspectionPanel from "./components/InspectionPanel";
 import "./app.css";
 
 const PALETTE = [
@@ -169,15 +170,13 @@ export default function App() {
   }
 
   function handleFocus(individualId) {
-    setFocusedId((current) => {
-      const next = current === individualId ? null : individualId;
-      // Focusing must not leave the individual hidden underneath — otherwise
-      // exiting reveals a stale hide and the skeleton vanishes.
-      if (next) {
-        setHidden((hiddenIds) => hiddenIds.filter((id) => id !== next));
-      }
-      return next;
-    });
+    const next = focusedId === individualId ? null : individualId;
+    setFocusedId(next);
+    // Focusing must not leave the individual hidden underneath — otherwise
+    // exiting reveals a stale hide and the skeleton vanishes.
+    if (next) {
+      setHidden((hiddenIds) => hiddenIds.filter((id) => id !== next));
+    }
   }
 
   function handleExitFocus() {
@@ -388,6 +387,11 @@ export default function App() {
     document.title = `${isDirty ? "• " : ""}${name} — Skeleton Plotter`;
   }, [filePath, isDirty]);
 
+  const focusedIndividual =
+    individuals.find((individual) => individual.id === focusedId) ?? null;
+
+  console.log("focusedId:", focusedId, "individual:", focusedIndividual?.id);
+
   return (
     <div className="app-shell d-flex flex-column vh-100 overflow-hidden">
       <div className="app-workspace d-flex flex-grow-1 overflow-hidden">
@@ -436,19 +440,21 @@ export default function App() {
             targetId={openId ?? individuals[0]?.id}
             focusedId={focusedId}
           />
-          <FocusBar
-            individual={individuals.find((i) => i.id === focusedId) ?? null}
-            onExit={handleExitFocus}
-          />
-          <LayersPanel
-            individuals={individuals}
-            hidden={hidden}
-            onToggleVisibility={handleToggleVisibility}
-            onIsolate={handleIsolate}
-            onShowAll={handleShowAll}
-            focusedId={focusedId}
-            onFocus={handleFocus}
-          />
+          <FocusBar individual={focusedIndividual} onExit={handleExitFocus} />
+
+          {focusedId ? (
+            <InspectionPanel individual={focusedIndividual} />
+          ) : (
+            <LayersPanel
+              individuals={individuals}
+              hidden={hidden}
+              onToggleVisibility={handleToggleVisibility}
+              onIsolate={handleIsolate}
+              onShowAll={handleShowAll}
+              focusedId={focusedId}
+              onFocus={handleFocus}
+            />
+          )}
         </div>
       </div>
     </div>

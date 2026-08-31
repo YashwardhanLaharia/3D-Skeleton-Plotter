@@ -19,7 +19,14 @@ extend({ OrbitControls: ThreeOrbitControls });
 
 const EMPTY_POSE = Object.freeze({});
 
-function SkeletonModel({ id, colour, coords = EMPTY_POSE, visible = true, command, isTarget }) {
+function SkeletonModel({
+  id,
+  colour,
+  coords = EMPTY_POSE,
+  visible = true,
+  command,
+  isTarget,
+}) {
   const { scene } = useLoader(GLTFLoader, modelUrl);
   const clonedScene = useMemo(() => SkeletonUtils.clone(scene), [scene]);
   const rig = useMemo(() => createSkeletonRig(clonedScene), [clonedScene]);
@@ -181,8 +188,8 @@ export default function MainView({
   return (
     <main className="viewport flex-grow-1 bg-body-secondary">
       <Canvas camera={{ position: [0, 1.4, 4], fov: 45 }}>
-        <color attach="background" args={["#e9ecef"]} />
-        <ambientLight intensity={1.5} />
+        <color attach="background" args={[focusedId ? "#1b1f24" : "#e9ecef"]} />
+        <ambientLight intensity={focusedId ? 0.9 : 1.5} />
         <directionalLight position={[3, 4, 5]} intensity={2} />
         <directionalLight position={[-3, 2, -4]} intensity={1} />
         {individuals.map((individual, index) => (
@@ -203,7 +210,16 @@ export default function MainView({
             </group>
           </Suspense>
         ))}
-        {!focusedId && <gridHelper args={[4, 12, "#adb5bd", "#ced4da"]} />}
+        {focusedId ? (
+          // A small ground reference keeps the specimen from floating in void.
+          // Sized to a body rather than a grave.
+          <gridHelper
+            args={[1.2, 6, "#3a4149", "#2b3238"]}
+            position={[0, 0, 0]}
+          />
+        ) : (
+          <gridHelper args={[4, 12, "#adb5bd", "#ced4da"]} />
+        )}
         <CameraControls controlsRef={controlsRef} />
         <FocusCamera focusedId={focusedId} controlsRef={controlsRef} />
       </Canvas>
