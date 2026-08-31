@@ -20,22 +20,25 @@
 import { BONES } from "./topology.js";
 
 function distance(a, b) {
-  const dx = b[0] - a[0];
-  const dy = b[1] - a[1];
-  const dz = b[2] - a[2];
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const dz = b.z - a.z;
   return Math.sqrt(dx * dx + dy * dy + dz * dz);
 }
 
 function isPosition(value) {
   return (
-    Array.isArray(value) &&
-    value.length === 3 &&
-    value.every((n) => typeof n === "number" && Number.isFinite(n))
+    value !== null &&
+    typeof value === "object" &&
+    Number.isFinite(value.x) &&
+    Number.isFinite(value.y) &&
+    Number.isFinite(value.z)
   );
 }
 
 /**
- * @param {Record<string, number[]>} joints  positions in scene space
+ * @param {Record<string, {x: number, y: number, z: number}>} joints
+ *        positions in scene space, keyed by joint ID
  * @param {Record<string, {found: boolean, restLength: number|null, limits: number[]}>} segments
  *        from rig.getDiagnostics().segments
  * @returns {{

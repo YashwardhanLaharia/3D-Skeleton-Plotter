@@ -12,7 +12,7 @@ const DIAGNOSTICS = {
 
 test("scale is measured length over rest length", () => {
   const result = computeSegmentScales(
-    { acetabulum_l: [0, 0, 0], knee_l: [0, 3, 0] },
+    { acetabulum_l: { x: 0, y: 0, z: 0 }, knee_l: { x: 0, y: 3, z: 0 } },
     DIAGNOSTICS,
   );
 
@@ -21,7 +21,7 @@ test("scale is measured length over rest length", () => {
 
 test("a bone matching the model scales by one", () => {
   const result = computeSegmentScales(
-    { acetabulum_l: [0, 0, 0], knee_l: [0, 2, 0] },
+    { acetabulum_l: { x: 0, y: 0, z: 0 }, knee_l: { x: 0, y: 2, z: 0 } },
     DIAGNOSTICS,
   );
 
@@ -30,7 +30,7 @@ test("a bone matching the model scales by one", () => {
 
 test("bones with no scalable segment are skipped", () => {
   const result = computeSegmentScales(
-    { wrist_l: [0, 0, 0], fingertips_l: [0, 1, 0] },
+    { wrist_l: { x: 0, y: 0, z: 0 }, fingertips_l: { x: 0, y: 1, z: 0 } },
     DIAGNOSTICS,
   );
 
@@ -39,7 +39,7 @@ test("bones with no scalable segment are skipped", () => {
 
 test("a segment absent from diagnostics is skipped", () => {
   const result = computeSegmentScales(
-    { acetabulum_r: [0, 0, 0], knee_r: [0, 3, 0] },
+    { acetabulum_r: { x: 0, y: 0, z: 0 }, knee_r: { x: 0, y: 3, z: 0 } },
     DIAGNOSTICS,
   );
 
@@ -47,7 +47,7 @@ test("a segment absent from diagnostics is skipped", () => {
 });
 
 test("a missing joint means no scale for that bone", () => {
-  const result = computeSegmentScales({ acetabulum_l: [0, 0, 0] }, DIAGNOSTICS);
+  const result = computeSegmentScales({ acetabulum_l: { x: 0, y: 0, z: 0 } }, DIAGNOSTICS);
   assert.deepEqual(result.scales, {});
 });
 
@@ -56,7 +56,7 @@ test("a missing joint means no scale for that bone", () => {
 // rather than silently given a wrong-length bone.
 test("a scale beyond the rig limits is clamped and reported", () => {
   const result = computeSegmentScales(
-    { acetabulum_l: [0, 0, 0], knee_l: [0, 10, 0] },
+    { acetabulum_l: { x: 0, y: 0, z: 0 }, knee_l: { x: 0, y: 10, z: 0 } },
     DIAGNOSTICS,
   );
 
@@ -67,7 +67,7 @@ test("a scale beyond the rig limits is clamped and reported", () => {
 
 test("clamping applies at the lower bound too", () => {
   const result = computeSegmentScales(
-    { acetabulum_l: [0, 0, 0], knee_l: [0, 0.2, 0] },
+    { acetabulum_l: { x: 0, y: 0, z: 0 }, knee_l: { x: 0, y: 0.2, z: 0 } },
     DIAGNOSTICS,
   );
 
@@ -77,7 +77,7 @@ test("clamping applies at the lower bound too", () => {
 
 test("two joints recorded at the same point are reported, not divided by zero", () => {
   const result = computeSegmentScales(
-    { acetabulum_l: [1, 1, 1], knee_l: [1, 1, 1] },
+    { acetabulum_l: { x: 1, y: 1, z: 1 }, knee_l: { x: 1, y: 1, z: 1 } },
     DIAGNOSTICS,
   );
 
@@ -88,10 +88,10 @@ test("two joints recorded at the same point are reported, not divided by zero", 
 test("bilateral asymmetry is measured where both sides are present", () => {
   const result = computeSegmentScales(
     {
-      acetabulum_l: [0, 0, 0],
-      knee_l: [0, 2, 0],
-      acetabulum_r: [0, 0, 0],
-      knee_r: [0, 2, 0],
+      acetabulum_l: { x: 0, y: 0, z: 0 },
+      knee_l: { x: 0, y: 2, z: 0 },
+      acetabulum_r: { x: 0, y: 0, z: 0 },
+      knee_r: { x: 0, y: 2, z: 0 },
     },
     { ...DIAGNOSTICS, thigh_r: { found: true, restLength: 2, limits: [0.5, 1.5] } },
   );
