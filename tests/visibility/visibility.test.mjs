@@ -1,0 +1,75 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import {
+  isVisible,
+  toggleHidden,
+  isolateOnly,
+  showAll,
+  pruneHidden,
+  isIsolated,
+} from "../../src/visibility.js";
+
+test("everything is visible when nothing is hidden", () => {
+  assert.equal(isVisible([], "ind-1"), true);
+});
+
+test("an id in the hidden list is not visible", () => {
+  assert.equal(isVisible(["ind-1"], "ind-1"), false);
+  assert.equal(isVisible(["ind-1"], "ind-2"), true);
+});
+
+test("toggling hides a visible individual", () => {
+  assert.deepEqual(toggleHidden([], "ind-1"), ["ind-1"]);
+});
+
+test("toggling shows a hidden individual", () => {
+  assert.deepEqual(toggleHidden(["ind-1"], "ind-1"), []);
+});
+
+test("toggling leaves other individuals alone", () => {
+  assert.deepEqual(toggleHidden(["ind-1"], "ind-2").sort(), ["ind-1", "ind-2"]);
+});
+
+test("toggling returns a new array rather than mutating", () => {
+  const hidden = ["ind-1"];
+  toggleHidden(hidden, "ind-2");
+  assert.deepEqual(hidden, ["ind-1"]);
+});
+
+const ALL = ["ind-1", "ind-2", "ind-3"];
+
+test("isolating hides everything except the target", () => {
+  assert.deepEqual(isolateOnly("ind-2", ALL), ["ind-1", "ind-3"]);
+});
+
+test("isolating replaces any previous hidden state", () => {
+  assert.deepEqual(isolateOnly("ind-1", ALL), ["ind-2", "ind-3"]);
+});
+
+test("isolating a lone individual hides nothing", () => {
+  assert.deepEqual(isolateOnly("ind-1", ["ind-1"]), []);
+});
+
+test("show all clears the hidden list", () => {
+  assert.deepEqual(showAll(), []);
+});
+
+test("isIsolated is true only when one individual is the sole visible one", () => {
+  assert.equal(isIsolated(["ind-1", "ind-3"], "ind-2", ALL), true);
+  assert.equal(isIsolated(["ind-3"], "ind-2", ALL), false);
+  assert.equal(isIsolated([], "ind-2", ALL), false);
+});
+
+test("isIsolated is false when there is only one individual", () => {
+  assert.equal(isIsolated([], "ind-1", ["ind-1"]), false);
+});
+
+// Same bug class as the nextId collision after loading a project: state that
+// refers to an id which no longer exists.
+test("pruning drops ids that no longer exist", () => {
+  assert.deepEqual(pruneHidden(["ind-1", "ind-9"], ALL), ["ind-1"]);
+});
+
+test("pruning keeps everything when nothing was deleted", () => {
+  assert.deepEqual(pruneHidden(["ind-1"], ALL), ["ind-1"]);
+});
