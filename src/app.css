@@ -468,3 +468,49 @@
 .layer-tag-focus {
   background: var(--bs-primary);
 }
+
+/* Top of the viewport, full width. Deliberately not a floating panel — the
+   user must be able to tell at a glance that they're in a mode. */
+.focus-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 6;
+  background: var(--bs-primary-bg-subtle);
+  border-bottom: 1px solid var(--bs-primary-border-subtle);
+  animation: focus-bar-in 0.2s ease-out;
+}
+
+@keyframes focus-bar-in {
+  from { transform: translateY(-100%); }
+  to   { transform: translateY(0); }
+}
+
+.focus-bar-label {
+  font-size: 0.8rem;
+  color: var(--bs-emphasis-color);
+}
+
+.focus-bar-exit {
+  padding: 0.1rem 0.6rem;
+  font-size: 0.75rem;
+}
+
+.focus-bar-kbd {
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  background: var(--bs-secondary-bg);
+  color: var(--bs-secondary-color);
+  font-size: 0.65rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .focus-bar {
+    animation: none;
+  }
+}
+
+.layers-panel-focused {
+  top: 2.75rem;
+}

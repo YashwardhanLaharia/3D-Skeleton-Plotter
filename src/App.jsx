@@ -27,6 +27,7 @@ import { JOINTS } from "./joints";
 import Sidebar from "./components/Sidebar";
 import MainView from "./components/MainView";
 import LayersPanel from "./components/LayersPanel";
+import FocusBar from "./components/FocusBar";
 import "./app.css";
 
 const PALETTE = [
@@ -167,7 +168,7 @@ export default function App() {
     setHidden(showAll());
   }
 
-    function handleFocus(individualId) {
+  function handleFocus(individualId) {
     setFocusedId((current) => {
       const next = current === individualId ? null : individualId;
       // Focusing must not leave the individual hidden underneath — otherwise
@@ -435,7 +436,10 @@ export default function App() {
             targetId={openId ?? individuals[0]?.id}
             focusedId={focusedId}
           />
-
+          <FocusBar
+            individual={individuals.find((i) => i.id === focusedId) ?? null}
+            onExit={handleExitFocus}
+          />
           <LayersPanel
             individuals={individuals}
             hidden={hidden}
