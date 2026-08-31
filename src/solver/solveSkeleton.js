@@ -49,6 +49,7 @@ export function solveSkeleton(joints = {}, { solveBone } = {}) {
   const ignored = [];
   const unknown = [];
   const invalid = [];
+    const failed = [];
 
   // Classify the input before solving anything, so the report distinguishes
   // "you gave us a landmark we don't rotate" from "you gave us a typo".
@@ -71,11 +72,17 @@ export function solveSkeleton(joints = {}, { solveBone } = {}) {
       continue;
     }
 
-    const rotation = solveBone(
-      joints[bone.proximal],
-      joints[bone.distal],
-      bone,
-    );
+    let rotation;
+    try {
+      rotation = solveBone(joints[bone.proximal], joints[bone.distal], bone);
+    } catch (error) {
+      // computeBoneRotation throws on invalid input rather than returning null.
+      // One bad bone must not stop the rest of the skeleton solving; partial
+      // results are the normal case here, not a failure state.
+      failed.push({ boneId: bone.id, reason: error.message });
+      unsolved.push(bone.id);
+      continue;
+    }
 
     if (!rotation) {
       unsolved.push(bone.id);
@@ -84,7 +91,7 @@ export function solveSkeleton(joints = {}, { solveBone } = {}) {
 
     pose[bone.jointId] = rotation;
     solved.push(bone.id);
-  }
+}
 
   return { pose, solved, unsolved, ignored, unknown, invalid };
 }

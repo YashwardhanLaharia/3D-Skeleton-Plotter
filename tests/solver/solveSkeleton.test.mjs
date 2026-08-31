@@ -102,3 +102,36 @@ test("both limbs solve independently", () => {
   assert.equal(result.pose.shoulder_l.x, 1);
   assert.equal(result.pose.shoulder_r.x, 2);
 });
+
+// computeBoneRotation throws on a zero-length restDirection. A bad rest
+// direction for one bone must not stop the other fourteen from solving.
+test("a bone whose solve throws is reported, not propagated", () => {
+  const throwingSolve = (proximal, distal, bone) => {
+    if (bone.id === "thigh_l") throw new RangeError("bad rest direction");
+    return { x: 1, y: 0, z: 0 };
+  };
+
+  const result = solveSkeleton(
+    {
+      acetabulum_l: [0, 0, 0],
+      knee_l: [0, 1, 0],
+      shoulder_l: [0, 0, 0],
+      elbow_l: [1, 0, 0],
+    },
+    { solveBone: throwingSolve },
+  );
+
+  assert.ok(result.unsolved.includes("thigh_l"));
+  assert.ok(result.pose.shoulder_l, "other bones still solve");
+  assert.equal(result.failed[0].boneId, "thigh_l");
+  assert.match(result.failed[0].reason, /rest direction/);
+});
+
+test("failed is empty when nothing throws", () => {
+  const result = solveSkeleton(
+    { shoulder_l: [0, 0, 0], elbow_l: [1, 0, 0] },
+    OPTIONS,
+  );
+
+  assert.deepEqual(result.failed, []);
+});
