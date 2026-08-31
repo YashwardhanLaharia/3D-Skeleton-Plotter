@@ -459,3 +459,12 @@
   color: var(--bs-secondary-color);
   font-weight: 400;
 }
+
+.layer-row-focused {
+  background: var(--bs-primary-bg-subtle);
+  box-shadow: inset 2px 0 0 var(--bs-primary);
+}
+
+.layer-tag-focus {
+  background: var(--bs-primary);
+}

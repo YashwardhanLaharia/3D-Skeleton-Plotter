@@ -13,17 +13,20 @@ function LayerRow({
   individual,
   visible,
   isolated,
+  focused,
   onToggleVisibility,
   onIsolate,
+  onFocus,
 }) {
   const name = individual.label.trim() || "Unlabelled";
 
   // The row is the control. Click hides, double-click isolates — the click
   // handler fires first on a double-click, so isolate reverses it before
   // acting. Cleaner than a timer, and the intermediate state is never painted.
+  // Click fires first on a double-click, so undo it before focusing.
   function handleDoubleClick() {
     onToggleVisibility(individual.id);
-    onIsolate(individual.id);
+    onFocus(individual.id);
   }
 
   return (
@@ -32,7 +35,10 @@ function LayerRow({
         type="button"
         className={`layer-row d-flex align-items-center gap-2 w-100 text-start ${
           visible ? "" : "layer-row-off"
-        } ${isolated ? "layer-row-isolated" : ""}`}
+        } ${isolated ? "layer-row-isolated" : ""} ${
+          focused ? "layer-row-focused" : ""
+        }`}
+
         onClick={() => onToggleVisibility(individual.id)}
         onDoubleClick={handleDoubleClick}
         aria-pressed={visible}
@@ -52,11 +58,18 @@ function LayerRow({
 
         <span className="layer-name text-truncate">{name}</span>
 
-        {isolated && (
+        {focused ? (
+          <span
+            className="layer-tag layer-tag-focus ms-auto"
+            aria-hidden="true"
+          >
+            focus
+          </span>
+        ) : isolated ? (
           <span className="layer-tag ms-auto" aria-hidden="true">
             only
           </span>
-        )}
+        ) : null}
       </button>
     </li>
   );
@@ -68,6 +81,8 @@ export default function LayersPanel({
   onToggleVisibility,
   onIsolate,
   onShowAll,
+  focusedId,
+  onFocus,
 }) {
   const [hoveredId, setHoveredId] = useState(null);
   const [isCollapsed, setIsCollapsed] = useState(true);
@@ -130,6 +145,8 @@ export default function LayersPanel({
                 isolated={isIsolated(hidden, individual.id, allIds)}
                 onToggleVisibility={onToggleVisibility}
                 onIsolate={onIsolate}
+                focused={individual.id === focusedId}
+                onFocus={onFocus}
               />
             ))}
           </ul>
