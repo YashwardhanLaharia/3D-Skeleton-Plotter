@@ -167,8 +167,16 @@ export default function App() {
     setHidden(showAll());
   }
 
-  function handleFocus(individualId) {
-    setFocusedId((current) => (current === individualId ? null : individualId));
+    function handleFocus(individualId) {
+    setFocusedId((current) => {
+      const next = current === individualId ? null : individualId;
+      // Focusing must not leave the individual hidden underneath — otherwise
+      // exiting reveals a stale hide and the skeleton vanishes.
+      if (next) {
+        setHidden((hiddenIds) => hiddenIds.filter((id) => id !== next));
+      }
+      return next;
+    });
   }
 
   function handleExitFocus() {
