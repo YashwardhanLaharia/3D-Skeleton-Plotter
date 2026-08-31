@@ -70,6 +70,11 @@ export default function App() {
   // View state only, see visibility.js.
   const [hidden, setHidden] = useState([]);
 
+  // Which individual is being examined close-up. View state, like `hidden` —
+  // not undoable, not saved. Separate from `hidden` on purpose so the two
+  // mechanisms can be compared before deciding whether they merge.
+  const [focusedId, setFocusedId] = useState(null);
+
   // Transient message for changes such as adding individuals, which are inconvenient to highlight in place
   const [notice, setNotice] = useState(null);
 
@@ -141,6 +146,8 @@ export default function App() {
           .map((individual) => individual.id),
       ),
     );
+
+    setFocusedId((current) => (current === individualId ? null : current));
   }
 
   function handleToggleVisibility(individualId) {
@@ -158,6 +165,14 @@ export default function App() {
 
   function handleShowAll() {
     setHidden(showAll());
+  }
+
+  function handleFocus(individualId) {
+    setFocusedId((current) => (current === individualId ? null : individualId));
+  }
+
+  function handleExitFocus() {
+    setFocusedId(null);
   }
 
   // Reveal the effect: expand the affected individual and flash the field, so
@@ -238,6 +253,8 @@ export default function App() {
     setIsDirty(false);
 
     setHidden([]);
+
+    setFocusedId(null);
   }
 
   function buildProjectData() {
@@ -331,6 +348,11 @@ export default function App() {
   // The inputs are React-controlled, so native undo would desync them.
   useEffect(() => {
     function onKeyDown(event) {
+      if (event.key === "Escape") {
+        setFocusedId(null);
+        return;
+      }
+
       if (!event.ctrlKey && !event.metaKey) return;
 
       const key = event.key.toLowerCase();
@@ -403,6 +425,7 @@ export default function App() {
             // Rig commands aim at the expanded individual, or the first one when
             // everything is collapsed, so the controls window always has a target.
             targetId={openId ?? individuals[0]?.id}
+            focusedId={focusedId}
           />
 
           <LayersPanel
@@ -411,6 +434,8 @@ export default function App() {
             onToggleVisibility={handleToggleVisibility}
             onIsolate={handleIsolate}
             onShowAll={handleShowAll}
+            focusedId={focusedId}
+            onFocus={handleFocus}
           />
         </div>
       </div>
