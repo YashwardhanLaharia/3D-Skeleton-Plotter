@@ -5,17 +5,35 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { createSkeletonRig } from "../rig/SkeletonRigApi.js";
 import modelUrl from "../assets/models/skeleton-male.glb";
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
+import { isVisible } from "../visibility";
 
 // Make Three.js orbit controls available as a React Three Fiber element.
 extend({ OrbitControls: ThreeOrbitControls });
 
 const EMPTY_POSE = Object.freeze({});
 
-function SkeletonModel({ colour, coords = EMPTY_POSE, command, isTarget }) {
+function SkeletonModel({
+  colour,
+  coords = EMPTY_POSE,
+  command,
+  isTarget,
+  visible = true,
+}) {
   const { scene } = useLoader(GLTFLoader, modelUrl);
   const clonedScene = useMemo(() => SkeletonUtils.clone(scene), [scene]);
   const rig = useMemo(() => createSkeletonRig(clonedScene), [clonedScene]);
   const transform = useMemo(() => rig.getDisplayTransform(), [rig]);
+
+  useEffect(() => {
+    if (colour) {
+      clonedScene.traverse((child) => {
+        if (child.isMesh) {
+          child.material = child.material.clone();
+          child.material.color.set(colour);
+        }
+      });
+    }
+  }, [colour, clonedScene]);
 
   useEffect(() => {
     rig.setPose(coords);
@@ -34,18 +52,12 @@ function SkeletonModel({ colour, coords = EMPTY_POSE, command, isTarget }) {
     rig.execute(command);
   }, [command, isTarget, rig]);
 
-  useEffect(() => {
-    if (colour) {
-      clonedScene.traverse((child) => {
-        if (child.isMesh) {
-          child.material.color.set(colour);
-        }
-      });
-    }
-  }, [colour, clonedScene]);
-
   return (
-    <group scale={transform.scale} position={transform.position}>
+    <group
+      scale={transform.scale}
+      position={transform.position}
+      visible={visible}
+    >
       <primitive object={clonedScene} />
     </group>
   );
@@ -65,7 +77,12 @@ function CameraControls() {
   return <orbitControls args={[camera, gl.domElement]} />;
 }
 
-export default function MainView({ individuals = [], command, targetId }) {
+export default function MainView({
+  individuals = [],
+  command,
+  targetId,
+  hidden = [],
+}) {
   return (
     <main className="viewport flex-grow-1 bg-body-secondary">
       <Canvas camera={{ position: [0, 1.4, 4], fov: 45 }}>
@@ -74,15 +91,13 @@ export default function MainView({ individuals = [], command, targetId }) {
         <directionalLight position={[3, 4, 5]} intensity={2} />
         <directionalLight position={[-3, 2, -4]} intensity={1} />
         {individuals.map((individual) => (
-          <Suspense
-            key={individual.id}
-            fallback={<LoadingModel />}
-          >
+          <Suspense key={individual.id} fallback={<LoadingModel />}>
             <SkeletonModel
               colour={individual.colour}
               coords={individual.coords}
               command={command}
               isTarget={individual.id === targetId}
+              visible={isVisible(hidden, individual.id)}
             />
           </Suspense>
         ))}

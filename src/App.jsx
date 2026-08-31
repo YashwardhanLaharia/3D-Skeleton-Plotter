@@ -7,11 +7,26 @@ import {
   SCHEMA_VERSION,
 } from "./projectFile";
 
-import { historyReducer, makeInitialHistory, diffSnapshots, findLastKnownLabel } from "./reducer";
+import {
+  historyReducer,
+  makeInitialHistory,
+  diffSnapshots,
+  findLastKnownLabel,
+} from "./reducer";
+
+import {
+  isVisible,
+  toggleHidden,
+  isolateOnly,
+  showAll,
+  pruneHidden,
+  isIsolated,
+} from "./visibility";
 
 import { JOINTS } from "./joints";
 import Sidebar from "./components/Sidebar";
 import MainView from "./components/MainView";
+import LayersPanel from "./components/LayersPanel";
 import "./app.css";
 
 const PALETTE = [
@@ -51,6 +66,10 @@ export default function App() {
   const canRedo = history.future.length > 0;
   // Which field to flash after an undo. Cleared after some time
   const [highlight, setHighlight] = useState(null);
+
+  // View state only, see visibility.js.
+  const [hidden, setHidden] = useState([]);
+
   // Transient message for changes such as adding individuals, which are inconvenient to highlight in place
   const [notice, setNotice] = useState(null);
 
@@ -114,6 +133,31 @@ export default function App() {
     dispatch({ type: "remove", individualId });
     setOpenId((current) => (current === individualId ? null : current));
     setIsDirty(true);
+    setHidden((current) =>
+      pruneHidden(
+        current,
+        individuals
+          .filter((individual) => individual.id !== individualId)
+          .map((individual) => individual.id),
+      ),
+    );
+  }
+
+  function handleToggleVisibility(individualId) {
+    setHidden((current) => toggleHidden(current, individualId));
+  }
+
+  function handleIsolate(individualId) {
+    const allIds = individuals.map((individual) => individual.id);
+    setHidden((current) =>
+      isIsolated(current, individualId, allIds)
+        ? showAll()
+        : isolateOnly(individualId, allIds),
+    );
+  }
+
+  function handleShowAll() {
+    setHidden(showAll());
   }
 
   // Reveal the effect: expand the affected individual and flash the field, so
@@ -124,7 +168,7 @@ export default function App() {
 
     // Structural changes announce themselves; field changes are shown in place.
     if (change.field === "added" || change.field === "removed") {
-            const known = change.needsLabelLookup
+      const known = change.needsLabelLookup
         ? findLastKnownLabel(history, change.individualId)
         : change.label;
       const name = known?.trim() || "unnamed individual";
@@ -192,6 +236,8 @@ export default function App() {
     setFilePath(result.path);
 
     setIsDirty(false);
+
+    setHidden([]);
   }
 
   function buildProjectData() {
@@ -325,6 +371,10 @@ export default function App() {
           canRedo={canRedo}
           highlight={highlight}
           notice={notice}
+          hidden={hidden}
+          onToggleVisibility={handleToggleVisibility}
+          onIsolate={handleIsolate}
+          onShowAll={handleShowAll}
           onToggle={handleToggle}
           onAdd={handleAdd}
           onRemove={handleRemove}
@@ -345,13 +395,24 @@ export default function App() {
           <span aria-hidden="true">{isSidebarOpen ? "‹" : "›"}</span>
         </button>
 
-        <MainView
-          individuals={individuals}
-          command={rigCommand}
-          // Rig commands aim at the expanded individual, or the first one when
-          // everything is collapsed, so the controls window always has a target.
-          targetId={openId ?? individuals[0]?.id}
-        />
+        <div className="viewport-wrap flex-grow-1 position-relative d-flex">
+          <MainView
+            individuals={individuals}
+            command={rigCommand}
+            hidden={hidden}
+            // Rig commands aim at the expanded individual, or the first one when
+            // everything is collapsed, so the controls window always has a target.
+            targetId={openId ?? individuals[0]?.id}
+          />
+
+          <LayersPanel
+            individuals={individuals}
+            hidden={hidden}
+            onToggleVisibility={handleToggleVisibility}
+            onIsolate={handleIsolate}
+            onShowAll={handleShowAll}
+          />
+        </div>
       </div>
     </div>
   );

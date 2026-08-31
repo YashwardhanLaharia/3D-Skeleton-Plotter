@@ -322,3 +322,140 @@
   backdrop-filter: blur(2px);
 }
 
+/* Floating over the viewport, top-right. Stays reachable when the sidebar is
+   collapsed, which is when you're most likely to be managing what's on screen. */
+.layers-panel {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 5;
+  width: 13rem;
+  max-height: calc(100% - 1.5rem);
+  overflow-y: auto;
+}
+
+.layers-header {
+  position: sticky;
+  top: 0;
+  background: var(--bs-body-bg);
+}
+
+.layers-show-all {
+  font-size: 0.7rem;
+  text-decoration: none;
+}
+
+.layer-row {
+  padding: 0.3rem 0.4rem;
+  border: 0;
+  border-radius: var(--bs-border-radius-sm);
+  background: transparent;
+}
+
+.layer-row:hover {
+  background: var(--bs-secondary-bg);
+}
+
+.layer-row:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: -2px;
+}
+
+.layer-row-isolated {
+  background: var(--bs-primary-bg-subtle);
+}
+
+/* Status, not a button */
+.layer-eye {
+  flex-shrink: 0;
+  width: 0.7rem;
+  color: var(--bs-secondary-color);
+  font-size: 0.6rem;
+  line-height: 1;
+}
+
+.layer-row-off .layer-eye,
+.layer-row-off .layer-name {
+  opacity: 0.4;
+}
+
+.layer-row-off .layer-name {
+  text-decoration: line-through;
+}
+
+.layer-row-off .layer-swatch {
+  opacity: 0.25;
+}
+
+.layer-name {
+  min-width: 0;
+  font-size: 0.78rem;
+  color: var(--bs-body-color);
+}
+
+.layer-tag {
+  flex-shrink: 0;
+  padding: 0 0.3rem;
+  border-radius: 0.6rem;
+  background: var(--bs-primary);
+  color: #fff;
+  font-size: 0.6rem;
+  letter-spacing: 0.02em;
+}
+
+.layers-hint {
+  color: var(--bs-secondary-color);
+  font-size: 0.65rem;
+  line-height: 1.4;
+  user-select: none;
+}
+
+.layer-swatch {
+  flex-shrink: 0;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 2px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.layer-name {
+  min-width: 0;
+  font-size: 0.75rem;
+}
+
+.layer-name-off {
+  color: var(--bs-secondary-color);
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.layers-collapse {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.layers-collapse {
+  flex-shrink: 0;
+  padding: 0 0.15rem;
+  border: 0;
+  background: transparent;
+  color: var(--bs-secondary-color);
+  line-height: 1;
+}
+
+.layers-collapse:hover {
+  color: var(--bs-body-color);
+}
+
+.layers-collapse:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 1px;
+  border-radius: 2px;
+}
+
+.layers-count {
+  font-size: 0.78rem;
+  color: var(--bs-secondary-color);
+  font-weight: 400;
+}
