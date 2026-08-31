@@ -177,6 +177,29 @@ function FocusCamera({ focusedId, controlsRef }) {
   return null;
 }
 
+// Ground reference under the focused specimen. Reads its position from the
+// scene rather than being passed one, because the display transform that
+// positions each skeleton lives inside SkeletonModel.
+function FocusGrid({ focusedId }) {
+  const { scene } = useThree();
+
+  const position = useMemo(() => {
+    const target = scene.getObjectByName(`skeleton-${focusedId}`);
+    if (!target) return [0, 0, 0];
+
+    const box = new Box3().setFromObject(target);
+    if (box.isEmpty()) return [0, 0, 0];
+
+    const centre = box.getCenter(new Vector3());
+    // Sit at the feet, not the centre of mass.
+    return [centre.x, box.min.y, centre.z];
+  }, [focusedId, scene]);
+
+  return (
+    <gridHelper args={[1.2, 6, "#3a4149", "#2b3238"]} position={position} />
+  );
+}
+
 export default function MainView({
   individuals = [],
   hidden = [],
@@ -185,6 +208,11 @@ export default function MainView({
   selectedRigId = null,
 }) {
   const controlsRef = useRef(null);
+  // The specimen sits wherever its display transform puts it, so a grid at the
+  // world origin reads as detached. Follow the focused individual's ground point.
+  const focusedIndex = individuals.findIndex(
+    (individual) => individual.id === focusedId,
+  );
   return (
     <main className="viewport flex-grow-1 bg-body-secondary">
       <Canvas camera={{ position: [0, 1.4, 4], fov: 45 }}>
@@ -211,12 +239,7 @@ export default function MainView({
           </Suspense>
         ))}
         {focusedId ? (
-          // A small ground reference keeps the specimen from floating in void.
-          // Sized to a body rather than a grave.
-          <gridHelper
-            args={[1.2, 6, "#3a4149", "#2b3238"]}
-            position={[0, 0, 0]}
-          />
+          <FocusGrid focusedId={focusedId} />
         ) : (
           <gridHelper args={[4, 12, "#adb5bd", "#ced4da"]} />
         )}
