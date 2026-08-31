@@ -26,25 +26,22 @@ function LayerRow({
   // Click fires first on a double-click, so undo it before focusing.
   function handleDoubleClick() {
     onToggleVisibility(individual.id);
-    onFocus(individual.id);
+    onIsolate(individual.id);
   }
 
   return (
-    <li>
+    <li className="layer-item d-flex align-items-center">
       <button
         type="button"
-        className={`layer-row d-flex align-items-center gap-2 w-100 text-start ${
+        className={`layer-row d-flex align-items-center gap-2 flex-grow-1 text-start ${
           visible ? "" : "layer-row-off"
         } ${isolated ? "layer-row-isolated" : ""} ${
           focused ? "layer-row-focused" : ""
         }`}
-
         onClick={() => onToggleVisibility(individual.id)}
         onDoubleClick={handleDoubleClick}
         aria-pressed={visible}
-        aria-label={`${name}, ${visible ? "visible" : "hidden"}${
-          isolated ? ", isolated" : ""
-        }`}
+        aria-label={`${name}, ${visible ? "visible" : "hidden"}`}
       >
         <span className="layer-eye" aria-hidden="true">
           {visible ? "●" : "○"}
@@ -58,18 +55,27 @@ function LayerRow({
 
         <span className="layer-name text-truncate">{name}</span>
 
-        {focused ? (
-          <span
-            className="layer-tag layer-tag-focus ms-auto"
-            aria-hidden="true"
-          >
-            focus
-          </span>
-        ) : isolated ? (
-          <span className="layer-tag ms-auto" aria-hidden="true">
-            only
-          </span>
-        ) : null}
+        <span className="layer-trailing ms-auto">
+          {focused ? (
+            <span className="layer-tag layer-tag-focus" aria-hidden="true">
+              focus
+            </span>
+          ) : isolated ? (
+            <span className="layer-tag" aria-hidden="true">
+              only
+            </span>
+          ) : null}
+        </span>
+      </button>
+
+      <button
+        type="button"
+        className="layer-focus-btn"
+        onClick={() => onFocus(individual.id)}
+        title={focused ? "Exit focus" : "Focus"}
+        aria-label={`${focused ? "Exit focus on" : "Focus"} ${name}`}
+      >
+        <span aria-hidden="true">⊙</span>
       </button>
     </li>
   );
