@@ -1,36 +1,25 @@
-# Solver
+## Scope
 
-Turns recorded skeletal joint coordinates into a rig pose. The solver is the layer between what a researcher types into the sidebar and what `SkeletonRigApi` can apply.
+This covers issue #18
 
-## Pipeline
+| Stage | Owner | Module |
+|---|---|---|
+| Site-grid coordinates → scene space | #16 | elsewhere |
+| One bone's rotation from two positions | #17 | `rig/solver/computeBoneRotation.js` |
+| **Bone topology, traversal, segment lengths** | **#18** | **this module** |
+| Wiring into the rig, live re-solve | #19 | elsewhere |
 
-Coordinates arrive from the CFA Body Excavation Form as site-grid measurements and leave as rotations and segment scales.
-
-```
-sidebar / CSV
-      ↓  { jointId: [x, y, z] }  site-grid metres, Z-up
-#16  normalise to scene space
-      ↓  { jointId: [x, y, z] }  scene units
-#18  solveSkeleton()             → pose      { jointId: {x, y, z} }  degrees
-     computeSegmentScales()      → scales    { segmentId: factor }
-      ↓
-#19  rig.replacePose(pose)
-     rig.setSegmentScale(id, factor)
-```
-
-Each stage is a pure function. Nothing in this module touches Three.js, React, or a loaded scene, so all of it is testable from the terminal.
+`solveBone` is injected rather than imported, so the traversal is testable against a stub and integrates without editing this module. 
 
 ## The Off-By-One
 
 **A bone's `jointId` is its proximal joint, never its distal one.**
 
-The rig rotates the bone *below* a joint. `elbow_l` rotates `DEF-UlnaL`, which is the forearm — the bone running from the elbow to the wrist. So when the solver aims the forearm, the joint it commands is `elbow_l`.
+The rig rotates the bone *below* a joint. `elbow_l` rotates `DEF-UlnaL`, which is the forearm — the bone running from the elbow to the wrist. So when the forearm is aimed, the joint commanded is `elbow_l`.
 
 ```js
 { id: "forearm_l", proximal: "elbow_l", distal: "wrist_l", jointId: "elbow_l" }
 ```
-
-Getting this wrong produces a skeleton that looks plausible and is entirely wrong. It is the single most likely cause of a bad reconstruction that passes every test.
 
 ## Topology
 
@@ -46,26 +35,24 @@ getBone("thigh_l");
 
 Fifteen bones across five chains: `leftArm`, `rightArm`, `leftLeg`, `rightLeg`, `axial`.
 
-The table is written out explicitly rather than derived by walking `bone.parent` at runtime. That keeps the solver testable without a loaded scene and avoids baking model-specific structure into logic. If the GLB ever changes, verify against `rig.getDiagnostics().regionChains`, which reports whether each region's joints are still descendants of their root bone.
+**Order is load-bearing.** Bones appear proximal-to-distal within each chain, and a test asserts it. See *Coordinate Spaces* below.
 
-Four of the twenty-five CFA points drive no bone and are listed in `UNUSED_JOINTS`. `ilium_superior_l/r` and `ischium_l/r` are positional landmarks rather than rotatable joints — the pelvis is solid in the current model. They may inform pelvis orientation at a later stage.
+Four of the twenty-five CFA points drive no bone and are listed in `UNUSED_JOINTS`. `ilium_superior_l/r` and `ischium_l/r` are positional landmarks rather than rotatable joints, the pelvis is solid in the current model.
 
 ## Solving a Skeleton
 
 ```js
 import { solveSkeleton } from "./solveSkeleton.js";
 
-const { pose, solved, unsolved, ignored, unknown, invalid } =
+const { pose, solved, unsolved, ignored, unknown, invalid, failed } =
   solveSkeleton(joints, { solveBone });
 ```
 
-`solveBone` is injected rather than imported, so the traversal can be tested against a stub and integrated against #17 without editing this file. If #17's signature differs from `(proximalPos, distalPos, bone) => {x, y, z}`, the adapter belongs at the call site.
+`pose` goes to `replacePose()` or `patchPose()`, which set absolute rotations. **Not** `rotateJoint()`, which accumulates — that one is built for hold-down buttons in the rig controls window, and feeding absolute solver output into it would compound.
 
-`pose` is ready to hand to `rig.replacePose()` unchanged.
+### Every Bone Solves From Its Own Two Joints
 
-### Every Bone Solves Independently
-
-There is no accumulation down the chain. Each bone is solved from its own two joints, so a gap partway down a limb does not block the bones below it.
+There is no accumulation of error down the chain. A gap partway down a limb does not block the bones below it.
 
 ```js
 solveSkeleton({
@@ -77,11 +64,9 @@ solveSkeleton({
 // thigh_l and lower_leg_l unsolved; foot_l still solves
 ```
 
-This matters because incomplete, disarticulated, and commingled remains are the normal condition in a mass grave, not an exception. The rig's own parent-child hierarchy keeps the solved segments attached.
-
 ### Reporting
 
-Nothing throws. A researcher entering coordinates by hand produces partial and occasionally malformed input constantly, and every case is reported instead.
+The module never throws; every case is reported.
 
 | Field | Meaning |
 |---|---|
@@ -90,12 +75,15 @@ Nothing throws. A researcher entering coordinates by hand produces partial and o
 | `ignored` | recognised landmarks that drive no bone |
 | `unknown` | joint ids not present in `joints.js` |
 | `invalid` | recognised joints whose position was malformed |
+| `failed` | bones whose solve threw, with the reason |
 
 `ignored` and `unknown` are deliberately separate. One means "we don't rotate that landmark", the other means "that's a typo", and the user needs to be told which.
 
+`failed` exists because `computeBoneRotation` throws on invalid input rather than returning null. One bad bone must not stop the remaining fourteen from solving, so the traversal catches per bone.
+
 ## Segment Scales
 
-Yash's rig deforms bone geometry between joints, so a measured femur can be made to match the individual rather than the model.
+The rig deforms bone geometry between joints, so a measured femur can be made to match the individual rather than the model.
 
 ```js
 import { computeSegmentScales } from "./segmentScales.js";
@@ -105,8 +93,6 @@ const { scales, clamped, degenerate } = computeSegmentScales(
   rig.getDiagnostics().segments,
 );
 ```
-
-The factor is the measured distance over the model's rest length. **Both must be in the same space**, which means this runs after #16, never before. `restLength` comes from `getDiagnostics().segments[id].restLength`.
 
 Eight bones are scalable: upper arms, forearms, thighs, lower legs. Everything else is aimed but not lengthened, so a measured distance that disagrees with the model is absorbed as positional drift down the chain.
 
@@ -120,14 +106,33 @@ clamped;  // [{ segmentId: "thigh_l", requested: 5, applied: 1.5 }]
 
 `degenerate` lists segments whose two joints were recorded at the same point.
 
-Both are currently reported and discarded. They are the raw material for plausibility warnings — a femur scaling to 5× is exactly the kind of transcription error the UI should surface, and an anomaly of this type appears in the client's own sample data. Integration should decide where they are shown.
+`solveBone` must receive both directions in the same space: Measured directions arrive in scene space; the rig thinks in local space. The caller is responsible for converting before calling, and for supplying a `restDirection` in that same space.
 
-## Tests
+## solveBone
 
+`solveSkeleton` takes `solveBone` injected so the traversal stays pure.
+`src/solver/solveBone.js` is that function, and it owns everything scene-dependent.
+
+```js
+import { createSolveBone, verifyRestConvention } from "./solveBone.js";
+
+const check = verifyRestConvention(scene);   // once, after load
+const solveBone = createSolveBone(scene);
+
+solveSkeleton(joints, { solveBone });
 ```
-tests/solver/topology.test.mjs
-tests/solver/solveSkeleton.test.mjs
-tests/solver/segmentScales.test.mjs
-```
 
-Run with `npm test`. No DOM, no scene, no rig instance required.
+Three facts measured against the model, not assumed:
+
+1. Every bone points along its own local **+Y** at rest. Largest deviation
+   found: 0.8° on the carpals. This does not mean bones point up in world
+   space — the femur's world direction at rest is roughly `(0, -1, 0)`.
+2. Rest directions are **stable** when an ancestor rotates, so they are a
+   property of the model rather than the pose and can be captured once.
+3. A commanded rotation produces the **same angular change** in world space.
+
+`verifyRestConvention()` re-checks (1) at runtime. A replacement mesh that
+breaks the convention fails loudly instead of producing a subtly wrong skeleton.
+
+The topology-id to GLB-name mapping lives here, not in `topology.js` — topology
+describes anatomy, this describes one particular mesh.
