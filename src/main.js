@@ -171,6 +171,15 @@ const menuTemplate = [
     ],
   },
   {
+    label: "Edit",
+    submenu: [
+      { label: "Undo", accelerator: "CmdOrCtrl+Z", click: () => sendToRenderer("menu-undo") },
+      { label: "Redo", accelerator: "CmdOrCtrl+Shift+Z", click: () => sendToRenderer("menu-redo") },
+      { type: "separator" },
+      { label: "Set Grave Dimensions", accelerator: "CmdOrCtrl+G", click: () => sendToRenderer("menu-change-grave-dimensions") },
+    ],
+  },
+  {
     label: "Rig",
     submenu: [{ label: "Open Rig Controls", click: createRigControlsWindow }],
   },

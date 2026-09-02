@@ -3,14 +3,15 @@ function NewProjectModal({ show, onHide, graveDimensions, setGraveDimensions }) 
     onHide();
     setGraveDimensions([graveDimensions[0], graveDimensions[1], graveDimensions[2]]);
   }
-  
+
   return (
     <>
-      <div className="new-project-modal modal modal-open" style={{ display: show ? 'block' : 'none' }} data-bs-backdrop="static" tabindex="-1">
+      <div id="set-grave-dimensions-modal" className="modal modal-open" style={{ display: show ? 'block' : 'none' }} data-bs-backdrop="static" tabindex="-1">
         <div className="modal-dialog modal-dialog-centered modal-lg">
           <div className="modal-content">
             <div className="modal-header">
-              <h1 className="modal-title fs-5">New Project</h1>
+              <h1 className="modal-title fs-5">Set Grave Dimensions</h1>
+              <button type="button" className="btn-close" onClick={onHide} aria-label="Close"></button>
             </div>
             <div className="modal-body">
               <p className="text-muted">Enter grave dimensions (in metres):</p>
@@ -25,12 +26,13 @@ function NewProjectModal({ show, onHide, graveDimensions, setGraveDimensions }) 
                 </div>
                 <div className="col-md-4">
                   <label htmlFor="depth" className="form-label">Depth</label>
-                  <input className="form-control" type="number" placeholder="Depth" value={graveDimensions[2]} onChange={(e) => setGraveDimensions([graveDimensions[0], graveDimensions[1], e.target.value])} />
+                  <input className="form-control" type="number" id="depth" placeholder="Depth" value={graveDimensions[2]} onChange={(e) => setGraveDimensions([graveDimensions[0], graveDimensions[1], e.target.value])} />
                 </div>
               </div>
             </div>
             <div className="modal-footer">
-              <button type="button" className="btn btn-primary" onClick={handleCreate}>Create</button>  
+            <button type="button" className="btn btn-secondary" onClick={onHide}>Hide</button>
+              <button type="button" className="btn btn-primary" id="confirm-grave-dimensions" onClick={handleCreate}>Confirm</button>  
             </div>
           </div>
         </div>

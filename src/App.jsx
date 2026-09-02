@@ -214,6 +214,10 @@ export default function App() {
     setIsDirty(true);
   }
 
+  function handleChangeGraveDimensions() {
+    setIsNewProjectModalOpen(true);
+  }
+
   async function handleNew() {
     if (isDirty) {
       const choice = await window.electronAPI.confirmDiscard("new");
@@ -329,6 +333,7 @@ export default function App() {
     handleRequestClose,
     handleUndo,
     handleRedo,
+    handleChangeGraveDimensions
   };
 
   useEffect(() => {
@@ -337,6 +342,9 @@ export default function App() {
       if (action === "menu-open") actionsRef.current.handleOpen();
       if (action === "menu-save") actionsRef.current.handleSave(false);
       if (action === "menu-save-as") actionsRef.current.handleSave(true);
+      if (action === "menu-undo") actionsRef.current.handleUndo();
+      if (action === "menu-redo") actionsRef.current.handleRedo();
+      if (action === "menu-change-grave-dimensions") actionsRef.current.handleChangeGraveDimensions();
     });
     return () => unsubscribe?.();
   }, []);

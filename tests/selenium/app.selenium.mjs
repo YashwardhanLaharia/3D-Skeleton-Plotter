@@ -120,6 +120,9 @@ test("accepts decimal coordinates, rejects letters, and updates progress", async
 test("adds independent individuals with different default colours", async (t) => {
   const driver = await openApp(t);
 
+  // Close the new project modal
+  await driver.findElement(By.id("confirm-grave-dimensions")).click();
+
   await (await buttonWithText(driver, "Add individual")).click();
   await waitForElementCount(driver, ".individual", 2);
 
@@ -143,6 +146,14 @@ test("adds independent individuals with different default colours", async (t) =>
 
 test("changes an individual's colour and supports undo and redo", async (t) => {
   const driver = await openApp(t);
+
+  // Close the new project modal
+  await driver.findElement(By.id("confirm-grave-dimensions")).click();
+
+  // Hide the layers header, which can overlap wth sidebar at very small screen sizes
+  const layersHeader = await driver.wait(until.elementLocated(By.className("layers-panel")), WAIT_TIME);
+  await driver.executeScript("arguments[0].style.display = 'none';", layersHeader);
+
   const colourInput = await driver.findElement(By.css('.individual input[type="color"]'));
   const undoButton = await driver.findElement(By.css('[aria-label="Undo"]'));
   const redoButton = await driver.findElement(By.css('[aria-label="Redo"]'));
@@ -176,6 +187,13 @@ test("changes an individual's colour and supports undo and redo", async (t) => {
 test("cancels and confirms deletion of an additional individual", async (t) => {
   const driver = await openApp(t);
 
+  // Close the new project modal
+  await driver.findElement(By.id("confirm-grave-dimensions")).click();
+
+  // Hide the layers header, which can overlap wth sidebar at very small screen sizes
+  const layersHeader = await driver.wait(until.elementLocated(By.className("layers-panel")), WAIT_TIME);
+  await driver.executeScript("arguments[0].style.display = 'none';", layersHeader);
+
   await (await buttonWithText(driver, "Add individual")).click();
   await waitForElementCount(driver, ".individual", 2);
 
@@ -207,6 +225,10 @@ test("cancels and confirms deletion of an additional individual", async (t) => {
 
 test("moves between coordinate rows with the keyboard", async (t) => {
   const driver = await openApp(t);
+
+  // Close the new project modal
+  await driver.findElement(By.id("confirm-grave-dimensions")).click();
+
   const kneeX = await driver.findElement(By.css('[aria-label="left knee, X"]'));
 
   await kneeX.click();
@@ -225,6 +247,13 @@ test("moves between coordinate rows with the keyboard", async (t) => {
 
 test("toggles the sidebar and collapses and expands an individual", async (t) => {
   const driver = await openApp(t);
+
+  // Close the new project modal
+  await driver.findElement(By.id("confirm-grave-dimensions")).click();
+
+  // Hide the layers header, which can overlap wth sidebar at very small screen sizes
+  const layersHeader = await driver.wait(until.elementLocated(By.className("layers-panel")), WAIT_TIME);
+  await driver.executeScript("arguments[0].style.display = 'none';", layersHeader);
 
   await driver.findElement(By.css('[aria-label="Hide sidebar"]')).click();
   const showSidebar = await driver.wait(
@@ -248,3 +277,18 @@ test("toggles the sidebar and collapses and expands an individual", async (t) =>
   await waitForElementCount(driver, ".coord-input", 75);
   assert.equal(await individualHeader.getAttribute("aria-expanded"), "true");
 });
+
+test("sets the grave dimensions", async (t) => {
+  const driver = await openApp(t);
+  await driver.wait(until.elementLocated(By.id("set-grave-dimensions-modal")), WAIT_TIME);
+  const widthInput = await driver.findElement(By.id("width"));
+  const lengthInput = await driver.findElement(By.id("length"));
+  const depthInput = await driver.findElement(By.id("depth"));
+  await widthInput.sendKeys("1");
+  await lengthInput.sendKeys("2");
+  await depthInput.sendKeys("3");
+  await driver.findElement(By.id("confirm-grave-dimensions")).click();
+  assert.equal(await widthInput.getAttribute("value"), "11");
+  assert.equal(await lengthInput.getAttribute("value"), "12");
+  assert.equal(await depthInput.getAttribute("value"), "13");
+});   

@@ -6,6 +6,7 @@ import { createSkeletonRig } from "../rig/SkeletonRigApi.js";
 import modelUrl from "../assets/models/skeleton-male.glb";
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 import { isVisible } from "../visibility";
+import { graveDimensionsToGridScale } from "../graveDimensions.js";
 
 // Make Three.js orbit controls available as a React Three Fiber element.
 extend({ OrbitControls: ThreeOrbitControls });
@@ -102,7 +103,8 @@ export default function MainView({
             />
           </Suspense>
         ))}
-        <gridHelper args={[4, 12, "#adb5bd", "#ced4da"]} scale={graveDimensions} />
+        {/* The grid helper is scaled to the grave dimensions, but the axes are still in the original order. */}
+        <gridHelper args={[4, 12, "#adb5bd", "#ced4da"]} scale={graveDimensionsToGridScale(graveDimensions)} />
         <CameraControls />
       </Canvas>
     </main>
