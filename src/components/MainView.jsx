@@ -79,6 +79,7 @@ function CameraControls() {
 
 export default function MainView({
   individuals = [],
+  graveDimensions = [1, 1, 1],
   command,
   targetId,
   hidden = [],
@@ -101,7 +102,7 @@ export default function MainView({
             />
           </Suspense>
         ))}
-        <gridHelper args={[4, 12, "#adb5bd", "#ced4da"]} />
+        <gridHelper args={[4, 12, "#adb5bd", "#ced4da"]} scale={graveDimensions} />
         <CameraControls />
       </Canvas>
     </main>

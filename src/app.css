@@ -459,3 +459,11 @@
   color: var(--bs-secondary-color);
   font-weight: 400;
 }
+
+.modal-backdrop {
+  background-color: #e9ecef !important;
+}
+
+.modal-backdrop.show {
+  opacity: 1 !important;
+}

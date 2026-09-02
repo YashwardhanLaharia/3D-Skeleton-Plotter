@@ -27,6 +27,7 @@ import { JOINTS } from "./joints";
 import Sidebar from "./components/Sidebar";
 import MainView from "./components/MainView";
 import LayersPanel from "./components/LayersPanel";
+import NewProjectModal from "./components/NewProjectModal";
 import "./app.css";
 
 const PALETTE = [
@@ -56,7 +57,8 @@ function makeBlankCoords() {
 
 export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-
+  const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(true);
+  const [graveDimensions, setGraveDimensions] = useState([1, 1, 1]);
   // The data model is now an array of individuals, not one coordinate object.
   // Each carries its own label, colour, and full coordinate set.
   const [history, dispatch] = useReducer(historyReducer, undefined, () =>
@@ -231,6 +233,7 @@ export default function App() {
 
     dispatch({ type: "new", individuals: STARTING_STATE });
 
+    setIsNewProjectModalOpen(true);
     setOpenId(STARTING_STATE[0].id);
     setIsDirty(true);
   }
@@ -395,6 +398,7 @@ export default function App() {
 
   return (
     <div className="app-shell d-flex flex-column vh-100 overflow-hidden">
+      <NewProjectModal show={isNewProjectModalOpen} onHide={() => setIsNewProjectModalOpen(false)} graveDimensions={graveDimensions} setGraveDimensions={setGraveDimensions} />
       <div className="app-workspace d-flex flex-grow-1 overflow-hidden">
         <Sidebar
           individuals={individuals}
@@ -436,6 +440,7 @@ export default function App() {
             individuals={individuals}
             command={rigCommand}
             hidden={hidden}
+            graveDimensions={graveDimensions}
             // Rig commands aim at the expanded individual, or the first one when
             // everything is collapsed, so the controls window always has a target.
             targetId={openId ?? individuals[0]?.id}
