@@ -1,6 +1,6 @@
 // Reading and checking project files.
 
-import { JOINTS } from "./joints";
+import { JOINTS } from "./joints.js";
 
 export const SCHEMA_VERSION = 1;
 

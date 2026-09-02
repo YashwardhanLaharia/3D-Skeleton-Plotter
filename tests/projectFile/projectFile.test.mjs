@@ -1,21 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { JOINTS } from "../../src/joints.js";
-
-const projectFileUrl = new URL("../../src/projectFile.js", import.meta.url).href;
-const hooks = registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "./joints" && context.parentURL === projectFileUrl) {
-      return nextResolve("./joints.js", context);
-    }
-    return nextResolve(specifier, context);
-  },
-});
-
-const { normaliseIndividual, validateProject, SCHEMA_VERSION } =
-  await import(projectFileUrl);
-hooks.deregister();
+import {
+  normaliseIndividual,
+  validateProject,
+  SCHEMA_VERSION,
+} from "../../src/projectFile.js";
 
 const firstJointId = JOINTS[0].id;
 
