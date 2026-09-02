@@ -123,6 +123,10 @@ test("adds independent individuals with different default colours", async (t) =>
   // Close the new project modal
   await driver.findElement(By.id("confirm-grave-dimensions")).click();
 
+  // Hide the layers header, which can overlap wth sidebar at very small screen sizes
+  const layersHeader = await driver.wait(until.elementLocated(By.className("layers-panel")), WAIT_TIME);
+  await driver.executeScript("arguments[0].style.display = 'none';", layersHeader);
+
   await (await buttonWithText(driver, "Add individual")).click();
   await waitForElementCount(driver, ".individual", 2);
 
