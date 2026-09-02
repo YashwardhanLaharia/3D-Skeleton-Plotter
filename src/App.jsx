@@ -39,6 +39,15 @@ const PALETTE = [
   "#CC79A7",
 ];
 
+const STARTING_STATE = [
+  {
+    id: "ind-1",
+    label: "",
+    colour: "#E69F00",
+    coords: makeBlankCoords(),
+  }
+];
+
 function makeBlankCoords() {
   return Object.fromEntries(
     JOINTS.map((joint) => [joint.id, { x: "", y: "", z: "" }]),
@@ -51,14 +60,7 @@ export default function App() {
   // The data model is now an array of individuals, not one coordinate object.
   // Each carries its own label, colour, and full coordinate set.
   const [history, dispatch] = useReducer(historyReducer, undefined, () =>
-    makeInitialHistory([
-      {
-        id: "ind-1",
-        label: "",
-        colour: "#E69F00",
-        coords: makeBlankCoords(),
-      },
-    ]),
+    makeInitialHistory(STARTING_STATE)
   );
 
   const individuals = history.present;
@@ -210,6 +212,29 @@ export default function App() {
     setIsDirty(true);
   }
 
+  async function handleNew() {
+    if (isDirty) {
+      const choice = await window.electronAPI.confirmDiscard("new");
+      if (choice === "cancel") return;
+      if (choice === "save") {
+        const saved = await handleSave(false);
+        if (!saved) return;
+      }
+    }
+
+    const result = await window.electronAPI.newProject();
+
+    if (!result.ok) {
+      if (!result.canceled) console.error(result.error);
+      return;
+    }
+
+    dispatch({ type: "new", individuals: STARTING_STATE });
+
+    setOpenId(STARTING_STATE[0].id);
+    setIsDirty(true);
+  }
+
   async function handleOpen() {
     if (isDirty) {
       const choice = await window.electronAPI.confirmDiscard("open");
@@ -295,6 +320,7 @@ export default function App() {
   // it was on first render, so saving would write an empty project forever.
   const actionsRef = useRef(null);
   actionsRef.current = {
+    handleNew,
     handleOpen,
     handleSave,
     handleRequestClose,
@@ -304,6 +330,7 @@ export default function App() {
 
   useEffect(() => {
     const unsubscribe = window.electronAPI?.onMenuAction((action) => {
+      if (action === "menu-new") actionsRef.current.handleNew();
       if (action === "menu-open") actionsRef.current.handleOpen();
       if (action === "menu-save") actionsRef.current.handleSave(false);
       if (action === "menu-save-as") actionsRef.current.handleSave(true);

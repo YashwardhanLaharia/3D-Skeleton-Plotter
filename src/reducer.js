@@ -112,6 +112,9 @@ export function historyReducer(state, action) {
       };
     }
 
+    case "new":
+      return makeInitialHistory(action.individuals);
+
     // Opening a project wipes history. Otherwise Ctrl+Z after a load would
     // undo into the previous project's data.
     case "load":
