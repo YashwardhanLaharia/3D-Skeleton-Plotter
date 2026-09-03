@@ -229,6 +229,7 @@ export default function App() {
     dispatch({ type: "new", individuals: STARTING_STATE });
 
     setIsNewProjectModalOpen(true);
+    setFilePath(null);
     setOpenId(STARTING_STATE[0].id);
     setIsDirty(true);
   }
