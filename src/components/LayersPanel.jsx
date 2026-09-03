@@ -13,32 +13,35 @@ function LayerRow({
   individual,
   visible,
   isolated,
+  focused,
   onToggleVisibility,
   onIsolate,
+  onFocus,
 }) {
   const name = individual.label.trim() || "Unlabelled";
 
   // The row is the control. Click hides, double-click isolates — the click
   // handler fires first on a double-click, so isolate reverses it before
   // acting. Cleaner than a timer, and the intermediate state is never painted.
+  // Click fires first on a double-click, so undo it before focusing.
   function handleDoubleClick() {
     onToggleVisibility(individual.id);
     onIsolate(individual.id);
   }
 
   return (
-    <li>
+    <li className="layer-item d-flex align-items-center">
       <button
         type="button"
-        className={`layer-row d-flex align-items-center gap-2 w-100 text-start ${
+        className={`layer-row d-flex align-items-center gap-2 flex-grow-1 text-start ${
           visible ? "" : "layer-row-off"
-        } ${isolated ? "layer-row-isolated" : ""}`}
+        } ${isolated ? "layer-row-isolated" : ""} ${
+          focused ? "layer-row-focused" : ""
+        }`}
         onClick={() => onToggleVisibility(individual.id)}
         onDoubleClick={handleDoubleClick}
         aria-pressed={visible}
-        aria-label={`${name}, ${visible ? "visible" : "hidden"}${
-          isolated ? ", isolated" : ""
-        }`}
+        aria-label={`${name}, ${visible ? "visible" : "hidden"}`}
       >
         <span className="layer-eye" aria-hidden="true">
           {visible ? "●" : "○"}
@@ -52,11 +55,27 @@ function LayerRow({
 
         <span className="layer-name text-truncate">{name}</span>
 
-        {isolated && (
-          <span className="layer-tag ms-auto" aria-hidden="true">
-            only
-          </span>
-        )}
+        <span className="layer-trailing ms-auto">
+          {focused ? (
+            <span className="layer-tag layer-tag-focus" aria-hidden="true">
+              focus
+            </span>
+          ) : isolated ? (
+            <span className="layer-tag" aria-hidden="true">
+              only
+            </span>
+          ) : null}
+        </span>
+      </button>
+
+      <button
+        type="button"
+        className="layer-focus-btn"
+        onClick={() => onFocus(individual.id)}
+        title={focused ? "Exit focus" : "Focus"}
+        aria-label={`${focused ? "Exit focus on" : "Focus"} ${name}`}
+      >
+        <span aria-hidden="true">⊙</span>
       </button>
     </li>
   );
@@ -68,6 +87,8 @@ export default function LayersPanel({
   onToggleVisibility,
   onIsolate,
   onShowAll,
+  focusedId,
+  onFocus,
 }) {
   const [hoveredId, setHoveredId] = useState(null);
   const [isCollapsed, setIsCollapsed] = useState(true);
@@ -78,7 +99,11 @@ export default function LayersPanel({
   const visibleCount = individuals.length - hiddenCount;
 
   return (
-    <section className="layers-panel bg-body border rounded shadow-sm">
+    <section
+      className={`layers-panel bg-body border rounded shadow-sm ${
+        isCollapsed ? "layers-panel-collapsed" : ""
+      } ${focusedId ? "layers-panel-focused" : ""}`}
+    >
       <header className="layers-header d-flex align-items-center gap-1 px-2 py-1 border-bottom">
         <button
           type="button"
@@ -130,6 +155,8 @@ export default function LayersPanel({
                 isolated={isIsolated(hidden, individual.id, allIds)}
                 onToggleVisibility={onToggleVisibility}
                 onIsolate={onIsolate}
+                focused={individual.id === focusedId}
+                onFocus={onFocus}
               />
             ))}
           </ul>

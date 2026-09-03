@@ -27,6 +27,8 @@ import { JOINTS } from "./joints";
 import Sidebar from "./components/Sidebar";
 import MainView from "./components/MainView";
 import LayersPanel from "./components/LayersPanel";
+import FocusBar from "./components/FocusBar";
+import InspectionPanel from "./components/InspectionPanel";
 import NewProjectModal from "./components/NewProjectModal";
 import "./app.css";
 
@@ -46,7 +48,7 @@ const STARTING_STATE = [
     label: "",
     colour: "#E69F00",
     coords: makeBlankCoords(),
-  }
+  },
 ];
 
 function makeBlankCoords() {
@@ -62,7 +64,7 @@ export default function App() {
   // The data model is now an array of individuals, not one coordinate object.
   // Each carries its own label, colour, and full coordinate set.
   const [history, dispatch] = useReducer(historyReducer, undefined, () =>
-    makeInitialHistory(STARTING_STATE)
+    makeInitialHistory(STARTING_STATE),
   );
 
   const individuals = history.present;
@@ -73,6 +75,11 @@ export default function App() {
 
   // View state only, see visibility.js.
   const [hidden, setHidden] = useState([]);
+
+  // Which individual is being examined close-up. View state, like `hidden` —
+  // not undoable, not saved. Separate from `hidden` on purpose so the two
+  // mechanisms can be compared before deciding whether they merge.
+  const [focusedId, setFocusedId] = useState(null);
 
   // Transient message for changes such as adding individuals, which are inconvenient to highlight in place
   const [notice, setNotice] = useState(null);
@@ -145,6 +152,8 @@ export default function App() {
           .map((individual) => individual.id),
       ),
     );
+
+    setFocusedId((current) => (current === individualId ? null : current));
   }
 
   function handleToggleVisibility(individualId) {
@@ -162,6 +171,20 @@ export default function App() {
 
   function handleShowAll() {
     setHidden(showAll());
+  }
+
+  function handleFocus(individualId) {
+    const next = focusedId === individualId ? null : individualId;
+    setFocusedId(next);
+    // Focusing must not leave the individual hidden underneath — otherwise
+    // exiting reveals a stale hide and the skeleton vanishes.
+    if (next) {
+      setHidden((hiddenIds) => hiddenIds.filter((id) => id !== next));
+    }
+  }
+
+  function handleExitFocus() {
+    setFocusedId(null);
   }
 
   // Reveal the effect: expand the affected individual and flash the field, so
@@ -271,6 +294,8 @@ export default function App() {
     setIsDirty(false);
 
     setHidden([]);
+
+    setFocusedId(null);
   }
 
   function buildProjectData() {
@@ -325,7 +350,7 @@ export default function App() {
     handleRequestClose,
     handleUndo,
     handleRedo,
-    handleChangeGraveDimensions
+    handleChangeGraveDimensions,
   };
 
   useEffect(() => {
@@ -336,7 +361,8 @@ export default function App() {
       if (action === "menu-save-as") actionsRef.current.handleSave(true);
       if (action === "menu-undo") actionsRef.current.handleUndo();
       if (action === "menu-redo") actionsRef.current.handleRedo();
-      if (action === "menu-change-grave-dimensions") actionsRef.current.handleChangeGraveDimensions();
+      if (action === "menu-change-grave-dimensions")
+        actionsRef.current.handleChangeGraveDimensions();
     });
     return () => unsubscribe?.();
   }, []);
@@ -370,6 +396,11 @@ export default function App() {
   // The inputs are React-controlled, so native undo would desync them.
   useEffect(() => {
     function onKeyDown(event) {
+      if (event.key === "Escape") {
+        setFocusedId(null);
+        return;
+      }
+
       if (!event.ctrlKey && !event.metaKey) return;
 
       const key = event.key.toLowerCase();
@@ -396,9 +427,19 @@ export default function App() {
     document.title = `${isDirty ? "• " : ""}${name} — Skeleton Plotter`;
   }, [filePath, isDirty]);
 
+  const focusedIndividual =
+    individuals.find((individual) => individual.id === focusedId) ?? null;
+
+  console.log("focusedId:", focusedId, "individual:", focusedIndividual?.id);
+
   return (
     <div className="app-shell d-flex flex-column vh-100 overflow-hidden">
-      <NewProjectModal show={isNewProjectModalOpen} onHide={() => setIsNewProjectModalOpen(false)} graveDimensions={graveDimensions} setGraveDimensions={setGraveDimensions} />
+      <NewProjectModal
+        show={isNewProjectModalOpen}
+        onHide={() => setIsNewProjectModalOpen(false)}
+        graveDimensions={graveDimensions}
+        setGraveDimensions={setGraveDimensions}
+      />
       <div className="app-workspace d-flex flex-grow-1 overflow-hidden">
         <Sidebar
           individuals={individuals}
@@ -440,19 +481,25 @@ export default function App() {
             individuals={individuals}
             command={rigCommand}
             hidden={hidden}
+            focusedId={focusedId}
             graveDimensions={graveDimensions}
-            // Rig commands aim at the expanded individual, or the first one when
-            // everything is collapsed, so the controls window always has a target.
             targetId={openId ?? individuals[0]?.id}
           />
+          <FocusBar individual={focusedIndividual} onExit={handleExitFocus} />
 
-          <LayersPanel
-            individuals={individuals}
-            hidden={hidden}
-            onToggleVisibility={handleToggleVisibility}
-            onIsolate={handleIsolate}
-            onShowAll={handleShowAll}
-          />
+          {focusedId ? (
+            <InspectionPanel individual={focusedIndividual} />
+          ) : (
+            <LayersPanel
+              individuals={individuals}
+              hidden={hidden}
+              onToggleVisibility={handleToggleVisibility}
+              onIsolate={handleIsolate}
+              onShowAll={handleShowAll}
+              focusedId={focusedId}
+              onFocus={handleFocus}
+            />
+          )}
         </div>
       </div>
     </div>

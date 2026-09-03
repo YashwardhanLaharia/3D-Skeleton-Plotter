@@ -215,12 +215,15 @@
   line-height: 1.2;
 }
 
-
 /* Flash the field an undo changed. The section may have just been expanded, so
    the user needs pointing at the specific input, not just the individual. */
 @keyframes coord-flash {
-  0%   { background-color: var(--bs-warning-bg-subtle); }
-  100% { background-color: transparent; }
+  0% {
+    background-color: var(--bs-warning-bg-subtle);
+  }
+  100% {
+    background-color: transparent;
+  }
 }
 
 .form-control.coord-input-flash {
@@ -242,8 +245,12 @@
 }
 
 @keyframes notice-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -460,6 +467,174 @@
   font-weight: 400;
 }
 
+.layer-row-focused {
+  background: var(--bs-primary-bg-subtle);
+  box-shadow: inset 2px 0 0 var(--bs-primary);
+}
+
+.layer-tag-focus {
+  background: var(--bs-primary);
+}
+
+/* Top of the viewport, full width. Deliberately not a floating panel — the
+   user must be able to tell at a glance that they're in a mode. */
+.focus-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 6;
+  background: var(--bs-primary-bg-subtle);
+  border-bottom: 1px solid var(--bs-primary-border-subtle);
+  animation: focus-bar-in 0.2s ease-out;
+}
+
+@keyframes focus-bar-in {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.focus-bar-label {
+  font-size: 0.8rem;
+  color: var(--bs-emphasis-color);
+}
+
+.focus-bar-exit {
+  padding: 0.1rem 0.6rem;
+  font-size: 0.75rem;
+}
+
+.focus-bar-kbd {
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  background: var(--bs-secondary-bg);
+  color: var(--bs-secondary-color);
+  font-size: 0.65rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .focus-bar {
+    animation: none;
+  }
+}
+
+.layers-panel-focused {
+  top: 2.75rem;
+}
+
+.inspection-panel {
+  position: absolute;
+  top: 2.75rem;
+  right: 0.75rem;
+  z-index: 5;
+  width: 13.5rem;
+  max-height: calc(100% - 3.5rem);
+  display: flex;
+  flex-direction: column;
+}
+
+.inspection-sub {
+  color: var(--bs-secondary-color);
+  font-size: 0.68rem;
+}
+
+.inspection-body {
+  overflow-y: auto;
+  padding: 0.4rem 0.5rem 0.5rem;
+}
+
+.inspection-group + .inspection-group {
+  margin-top: 0.6rem;
+}
+
+.inspection-group-title {
+  margin: 0 0 0.2rem;
+  color: var(--bs-secondary-color);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.inspection-row {
+  padding: 0.1rem 0;
+  font-size: 0.72rem;
+}
+
+.inspection-name {
+  min-width: 0;
+  color: var(--bs-body-color);
+}
+
+.inspection-value {
+  flex-shrink: 0;
+  font-family: var(--bs-font-monospace);
+  font-variant-numeric: tabular-nums;
+  color: var(--bs-body-color);
+}
+
+.inspection-missing {
+  color: var(--bs-secondary-color);
+  opacity: 0.5;
+}
+
+.inspection-flags {
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--bs-border-color);
+}
+
+.inspection-flag {
+  padding: 0.25rem 0.35rem;
+  margin-bottom: 0.25rem;
+  border-radius: var(--bs-border-radius-sm);
+  background: var(--bs-warning-bg-subtle);
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
+.inspection-flag-delta {
+  display: block;
+  font-family: var(--bs-font-monospace);
+  font-weight: 600;
+}
+
+/* The focus button sits outside the row button — nested buttons are invalid —
+   and stays hidden until hover so the resting list stays calm. */
+.layer-item {
+  border-radius: var(--bs-border-radius-sm);
+}
+
+.layer-focus-btn {
+  flex-shrink: 0;
+  padding: 0.1rem 0.3rem;
+  border: 0;
+  background: transparent;
+  color: var(--bs-secondary-color);
+  font-size: 0.8rem;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.layer-item:hover .layer-focus-btn,
+.layer-focus-btn:focus-visible {
+  opacity: 0.7;
+}
+
+.layer-focus-btn:hover {
+  opacity: 1;
+  color: var(--bs-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .layer-focus-btn {
+    transition: none;
+  }
+}
 .new-project-modal-backdrop {
   background-color: #e9ecef !important;
 }
