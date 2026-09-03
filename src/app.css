@@ -215,12 +215,15 @@
   line-height: 1.2;
 }
 
-
 /* Flash the field an undo changed. The section may have just been expanded, so
    the user needs pointing at the specific input, not just the individual. */
 @keyframes coord-flash {
-  0%   { background-color: var(--bs-warning-bg-subtle); }
-  100% { background-color: transparent; }
+  0% {
+    background-color: var(--bs-warning-bg-subtle);
+  }
+  100% {
+    background-color: transparent;
+  }
 }
 
 .form-control.coord-input-flash {
@@ -242,8 +245,12 @@
 }
 
 @keyframes notice-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -483,8 +490,12 @@
 }
 
 @keyframes focus-bar-in {
-  from { transform: translateY(-100%); }
-  to   { transform: translateY(0); }
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(0);
+  }
 }
 
 .focus-bar-label {
@@ -623,4 +634,11 @@
   .layer-focus-btn {
     transition: none;
   }
+}
+.new-project-modal-backdrop {
+  background-color: #e9ecef !important;
+}
+
+.new-project-modal-backdrop.show {
+  opacity: 1 !important;
 }

@@ -81,6 +81,10 @@ ipcMain.handle("save-project", async (_event, { payload, filePath }) => {
   }
 });
 
+ipcMain.handle("new-project", async () => {
+  return { ok: true, path: null, data: null };
+});
+
 ipcMain.handle("open-project", async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: "Open project",
@@ -104,6 +108,7 @@ ipcMain.handle("open-project", async () => {
 
 ipcMain.handle("confirm-discard", async (_event, context) => {
   const isClosing = context === "close";
+  const isNew = context === "new";
 
   const result = await dialog.showMessageBox(mainWindow, {
     type: "warning",
@@ -114,7 +119,9 @@ ipcMain.handle("confirm-discard", async (_event, context) => {
     message: "This reconstruction has unsaved changes.",
     detail: isClosing
       ? "Closing now will discard them."
-      : "Opening another project will discard them.",
+      : isNew
+        ? "Creating a new project will discard them."
+        : "Opening another project will discard them.",
   });
 
   if (result.response === 0) return "save";
@@ -139,6 +146,11 @@ const menuTemplate = [
     label: "File",
     submenu: [
       {
+        label: "New…",
+        accelerator: "CmdOrCtrl+N",
+        click: () => sendToRenderer("menu-new"),
+      },
+      {
         label: "Open…",
         accelerator: "CmdOrCtrl+O",
         click: () => sendToRenderer("menu-open"),
@@ -156,6 +168,15 @@ const menuTemplate = [
       },
       { type: "separator" },
       { label: 'Quit', accelerator: 'CmdOrCtrl+Q', click: () => mainWindow.close() },
+    ],
+  },
+  {
+    label: "Edit",
+    submenu: [
+      { label: "Undo", accelerator: "CmdOrCtrl+Z", click: () => sendToRenderer("menu-undo") },
+      { label: "Redo", accelerator: "CmdOrCtrl+Shift+Z", click: () => sendToRenderer("menu-redo") },
+      { type: "separator" },
+      { label: "Set Grave Dimensions", accelerator: "CmdOrCtrl+G", click: () => sendToRenderer("menu-change-grave-dimensions") },
     ],
   },
   {

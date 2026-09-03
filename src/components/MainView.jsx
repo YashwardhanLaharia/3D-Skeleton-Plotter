@@ -13,6 +13,7 @@ import modelUrl from "../assets/models/skeleton-male.glb";
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 import { isVisible } from "../visibility";
 import { Box3, Vector3 } from "three";
+import { graveDimensionsToGridScale } from "../graveDimensions.js";
 
 // Make Three.js orbit controls available as a React Three Fiber element.
 extend({ OrbitControls: ThreeOrbitControls });
@@ -200,17 +201,16 @@ function FocusGrid({ focusedId }) {
     grid.position.set(centre.x, box.min.y, centre.z);
   });
 
-  return (
-    <gridHelper ref={gridRef} args={[1.2, 6, "#3a4149", "#2b3238"]} />
-  );
+  return <gridHelper ref={gridRef} args={[1.2, 6, "#3a4149", "#2b3238"]} />;
 }
 
 export default function MainView({
   individuals = [],
+  graveDimensions = [1, 1, 1],
+  command,
+  targetId,
   hidden = [],
   focusedId = null,
-  command = null,
-  selectedRigId = null,
 }) {
   const controlsRef = useRef(null);
   // The specimen sits wherever its display transform puts it, so a grid at the
@@ -225,31 +225,31 @@ export default function MainView({
         <ambientLight intensity={focusedId ? 0.9 : 1.5} />
         <directionalLight position={[3, 4, 5]} intensity={2} />
         <directionalLight position={[-3, 2, -4]} intensity={1} />
-        {individuals.map((individual, index) => (
+        {individuals.map((individual) => (
           <Suspense key={individual.id} fallback={<LoadingModel />}>
-            <group position={[index * 1, 0, 0]}>
-              <SkeletonModel
-                id={individual.id}
-                colour={individual.colour}
-                coords={individual.coords}
-                command={command}
-                isTarget={individual.id === selectedRigId}
-                visible={
-                  focusedId
-                    ? individual.id === focusedId
-                    : isVisible(hidden, individual.id)
-                }
-              />
-            </group>
+            <SkeletonModel
+              id={individual.id}
+              colour={individual.colour}
+              coords={individual.coords}
+              command={command}
+              isTarget={individual.id === targetId}
+              visible={
+                focusedId
+                  ? individual.id === focusedId
+                  : isVisible(hidden, individual.id)
+              }
+            />
           </Suspense>
         ))}
         {focusedId ? (
-          <FocusGrid
-            focusedId={focusedId}
-            individualCount={individuals.length}
-          />
+          <FocusGrid focusedId={focusedId} />
         ) : (
-          <gridHelper args={[4, 12, "#adb5bd", "#ced4da"]} />
+          /* Scaled to the grave dimensions, but the axes are still in the
+             original order. */
+          <gridHelper
+            args={[4, 12, "#adb5bd", "#ced4da"]}
+            scale={graveDimensionsToGridScale(graveDimensions)}
+          />
         )}
         <CameraControls controlsRef={controlsRef} />
         <FocusCamera focusedId={focusedId} controlsRef={controlsRef} />

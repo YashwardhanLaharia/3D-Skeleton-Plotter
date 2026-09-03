@@ -29,6 +29,7 @@ import MainView from "./components/MainView";
 import LayersPanel from "./components/LayersPanel";
 import FocusBar from "./components/FocusBar";
 import InspectionPanel from "./components/InspectionPanel";
+import NewProjectModal from "./components/NewProjectModal";
 import "./app.css";
 
 const PALETTE = [
@@ -41,6 +42,15 @@ const PALETTE = [
   "#CC79A7",
 ];
 
+const STARTING_STATE = [
+  {
+    id: "ind-1",
+    label: "",
+    colour: "#E69F00",
+    coords: makeBlankCoords(),
+  },
+];
+
 function makeBlankCoords() {
   return Object.fromEntries(
     JOINTS.map((joint) => [joint.id, { x: "", y: "", z: "" }]),
@@ -49,18 +59,12 @@ function makeBlankCoords() {
 
 export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-
+  const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(true);
+  const [graveDimensions, setGraveDimensions] = useState([1, 1, 1]);
   // The data model is now an array of individuals, not one coordinate object.
   // Each carries its own label, colour, and full coordinate set.
   const [history, dispatch] = useReducer(historyReducer, undefined, () =>
-    makeInitialHistory([
-      {
-        id: "ind-1",
-        label: "",
-        colour: "#E69F00",
-        coords: makeBlankCoords(),
-      },
-    ]),
+    makeInitialHistory(STARTING_STATE),
   );
 
   const individuals = history.present;
@@ -224,6 +228,35 @@ export default function App() {
     setIsDirty(true);
   }
 
+  function handleChangeGraveDimensions() {
+    setIsNewProjectModalOpen(true);
+  }
+
+  async function handleNew() {
+    if (isDirty) {
+      const choice = await window.electronAPI.confirmDiscard("new");
+      if (choice === "cancel") return;
+      if (choice === "save") {
+        const saved = await handleSave(false);
+        if (!saved) return;
+      }
+    }
+
+    const result = await window.electronAPI.newProject();
+
+    if (!result.ok) {
+      if (!result.canceled) console.error(result.error);
+      return;
+    }
+
+    dispatch({ type: "new", individuals: STARTING_STATE });
+
+    setIsNewProjectModalOpen(true);
+    setFilePath(null);
+    setOpenId(STARTING_STATE[0].id);
+    setIsDirty(true);
+  }
+
   async function handleOpen() {
     if (isDirty) {
       const choice = await window.electronAPI.confirmDiscard("open");
@@ -311,18 +344,25 @@ export default function App() {
   // it was on first render, so saving would write an empty project forever.
   const actionsRef = useRef(null);
   actionsRef.current = {
+    handleNew,
     handleOpen,
     handleSave,
     handleRequestClose,
     handleUndo,
     handleRedo,
+    handleChangeGraveDimensions,
   };
 
   useEffect(() => {
     const unsubscribe = window.electronAPI?.onMenuAction((action) => {
+      if (action === "menu-new") actionsRef.current.handleNew();
       if (action === "menu-open") actionsRef.current.handleOpen();
       if (action === "menu-save") actionsRef.current.handleSave(false);
       if (action === "menu-save-as") actionsRef.current.handleSave(true);
+      if (action === "menu-undo") actionsRef.current.handleUndo();
+      if (action === "menu-redo") actionsRef.current.handleRedo();
+      if (action === "menu-change-grave-dimensions")
+        actionsRef.current.handleChangeGraveDimensions();
     });
     return () => unsubscribe?.();
   }, []);
@@ -394,6 +434,12 @@ export default function App() {
 
   return (
     <div className="app-shell d-flex flex-column vh-100 overflow-hidden">
+      <NewProjectModal
+        show={isNewProjectModalOpen}
+        onHide={() => setIsNewProjectModalOpen(false)}
+        graveDimensions={graveDimensions}
+        setGraveDimensions={setGraveDimensions}
+      />
       <div className="app-workspace d-flex flex-grow-1 overflow-hidden">
         <Sidebar
           individuals={individuals}
@@ -435,10 +481,9 @@ export default function App() {
             individuals={individuals}
             command={rigCommand}
             hidden={hidden}
-            // Rig commands aim at the expanded individual, or the first one when
-            // everything is collapsed, so the controls window always has a target.
-            targetId={openId ?? individuals[0]?.id}
             focusedId={focusedId}
+            graveDimensions={graveDimensions}
+            targetId={openId ?? individuals[0]?.id}
           />
           <FocusBar individual={focusedIndividual} onExit={handleExitFocus} />
 

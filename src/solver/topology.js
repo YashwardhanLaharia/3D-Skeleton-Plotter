@@ -11,6 +11,11 @@
 // measured distance that disagrees with the model is absorbed as positional
 // drift down the chain.
 //
+// ORDER IS IMPORTANT. Bones must appear proximal-to-distal within each
+// chain. The rig applies rotations in local space, so a bone's frame depends
+// on where its parent was placed — solving a tibia before its femur would
+// compute against a frame that is about to move. A test asserts this.
+//
 // Derived from BODY_REGIONS in rigConfig.js, whose joint arrays are already in
 // anatomical order. Written out explicitly rather than walking bone.parent at
 // runtime so the solver stays testable without a loaded scene. Verify against
