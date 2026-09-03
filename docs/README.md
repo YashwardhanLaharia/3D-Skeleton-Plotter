@@ -20,7 +20,7 @@ docs/
 │   └── project-file.md       # Schema, schemaVersion, individuals structure
 └── development/
     ├── setup.md              # npm scripts, Electron Forge, Vite configs
-    └── testing.md            # Branching, PRs, code conventions (if needed)
+    └── testing.md            # Testing information
 ```
 
 ### Operators
