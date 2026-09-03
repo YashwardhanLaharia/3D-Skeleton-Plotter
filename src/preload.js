@@ -12,6 +12,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveProject(request) {
     return ipcRenderer.invoke('save-project', request);
   },
+  newProject() {
+    return ipcRenderer.invoke('new-project');
+  },
   openProject() {
     return ipcRenderer.invoke('open-project');
   },
@@ -27,7 +30,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return ipcRenderer.invoke('confirm-close');
   },
   onMenuAction(callback) {
-    const channels = ['menu-open', 'menu-save', 'menu-save-as'];
+    const channels = ['menu-new', 'menu-open', 'menu-save', 'menu-save-as', 'menu-undo', 'menu-redo', 'menu-change-grave-dimensions'];
     const removers = channels.map((channel) => {
       const listener = () => callback(channel);
       ipcRenderer.on(channel, listener);
