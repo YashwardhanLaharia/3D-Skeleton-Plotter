@@ -15,28 +15,66 @@ import { isVisible } from "../visibility";
 import { Box3, Vector3 } from "three";
 import { graveDimensionsToGridScale } from "../graveDimensions.js";
 import { toSceneSpace, graveOrigin } from "../sceneSpace.js";
+import { toNumericJoints } from "../solver/numericJoints.js";
+import { solveSkeleton } from "../solver/solveSkeleton.js";
+import { createSolveBone } from "../solver/solveBone.js";
 
 // Make Three.js orbit controls available as a React Three Fiber element.
 extend({ OrbitControls: ThreeOrbitControls });
 
 const EMPTY_POSE = Object.freeze({});
 
-// Global scale factor for the scene. Must be passed into the grid helper and the scene space conversion functions.
+// Global scale factor for the scene.
+// Must be passed into the grid helper and the scene space conversion functions.
 const globalScale = 1;
-
 
 function SkeletonModel({
   id,
   colour,
   coords = EMPTY_POSE,
+  graveDimensions,
   visible = true,
   command,
   isTarget,
 }) {
   const { scene } = useLoader(GLTFLoader, modelUrl);
-  const clonedScene = useMemo(() => SkeletonUtils.clone(scene), [scene]);
-  const rig = useMemo(() => createSkeletonRig(clonedScene), [clonedScene]);
-  const transform = useMemo(() => rig.getDisplayTransform(), [rig]);
+
+  const clonedScene = useMemo(
+    () => SkeletonUtils.clone(scene),
+    [scene],
+  );
+
+  const rig = useMemo(
+    () => createSkeletonRig(clonedScene),
+    [clonedScene],
+  );
+
+  const transform = useMemo(
+    () => rig.getDisplayTransform(),
+    [rig],
+  );
+
+  // #20 integration:
+  // Creates the one-bone solver using the cloned skeleton scene.
+  const solveBone = useMemo(
+    () => createSolveBone(clonedScene),
+    [clonedScene],
+  );
+
+  // Sidebar coordinates arrive as strings.
+  // Convert them to numbers, then convert site-grid coordinates
+  // into Three.js scene-space coordinates.
+  const sceneJoints = useMemo(() => {
+    const numericJoints = toNumericJoints(coords);
+    const origin = graveOrigin(graveDimensions);
+
+    return Object.fromEntries(
+      Object.entries(numericJoints).map(([jointId, point]) => [
+        jointId,
+        toSceneSpace(point, origin, globalScale),
+      ]),
+    );
+  }, [coords, graveDimensions]);
 
   useEffect(() => {
     if (colour) {
@@ -49,9 +87,14 @@ function SkeletonModel({
     }
   }, [colour, clonedScene]);
 
+  // Solve the skeleton from the measured joint positions.
+  // solveSkeleton produces absolute joint rotations, so replacePose
+  // is used instead of setPose/rotateJoint.
   useEffect(() => {
-    rig.setPose(coords);
-  }, [coords, rig]);
+    const { pose } = solveSkeleton(sceneJoints, { solveBone });
+
+    rig.replacePose(pose);
+  }, [sceneJoints, solveBone, rig]);
 
   // Commands arrive one at a time from the Rig Controls window and are only
   // meaningful to the model they were aimed at. The ref is seeded with any
@@ -61,7 +104,14 @@ function SkeletonModel({
 
   useEffect(() => {
     if (!command || !isTarget) return;
-    if (command.id != null && lastCommandRef.current?.id === command.id) return;
+
+    if (
+      command.id != null &&
+      lastCommandRef.current?.id === command.id
+    ) {
+      return;
+    }
+
     lastCommandRef.current = command;
     rig.execute(command);
   }, [command, isTarget, rig]);
@@ -89,7 +139,13 @@ function LoadingModel() {
 
 function CameraControls({ controlsRef }) {
   const { camera, gl } = useThree();
-  return <orbitControls ref={controlsRef} args={[camera, gl.domElement]} />;
+
+  return (
+    <orbitControls
+      ref={controlsRef}
+      args={[camera, gl.domElement]}
+    />
+  );
 }
 
 // Moves the camera to frame one individual, and back again on exit.
@@ -107,6 +163,7 @@ function FocusCamera({ focusedId, controlsRef }) {
 
   useEffect(() => {
     const controls = controlsRef.current;
+
     if (!controls) return;
 
     if (focusedId) {
@@ -119,10 +176,14 @@ function FocusCamera({ focusedId, controlsRef }) {
         };
       }
 
-      const target = scene.getObjectByName(`skeleton-${focusedId}`);
+      const target = scene.getObjectByName(
+        `skeleton-${focusedId}`,
+      );
+
       if (!target) return;
 
       const box = new Box3().setFromObject(target);
+
       if (box.isEmpty()) return;
 
       const centre = box.getCenter(new Vector3());
@@ -132,7 +193,9 @@ function FocusCamera({ focusedId, controlsRef }) {
       // Pull back far enough that the whole individual fits the vertical field
       // of view, with a margin so it isn't touching the frame edges.
       const fov = (camera.fov * Math.PI) / 180;
-      const distance = (extent / 2 / Math.tan(fov / 2)) * 1.6;
+
+      const distance =
+        (extent / 2 / Math.tan(fov / 2)) * 1.6;
 
       tween.current = {
         from: {
@@ -140,7 +203,15 @@ function FocusCamera({ focusedId, controlsRef }) {
           target: controls.target.clone(),
         },
         to: {
-          position: centre.clone().add(new Vector3(0, extent * 0.15, distance)),
+          position: centre
+            .clone()
+            .add(
+              new Vector3(
+                0,
+                extent * 0.15,
+                distance,
+              ),
+            ),
           target: centre.clone(),
         },
         start: performance.now(),
@@ -154,6 +225,7 @@ function FocusCamera({ focusedId, controlsRef }) {
         to: saved.current,
         start: performance.now(),
       };
+
       saved.current = null;
     }
   }, [focusedId, camera, scene, controlsRef]);
@@ -161,11 +233,13 @@ function FocusCamera({ focusedId, controlsRef }) {
   useFrame(() => {
     const active = tween.current;
     const controls = controlsRef.current;
+
     if (!active || !controls) return;
 
     const DURATION = 600;
     const elapsed = performance.now() - active.start;
     const t = Math.min(elapsed / DURATION, 1);
+
     // Ease-out cubic: quick to move, gentle to settle.
     const eased = 1 - Math.pow(1 - t, 3);
 
@@ -174,10 +248,18 @@ function FocusCamera({ focusedId, controlsRef }) {
       active.to.position,
       eased,
     );
-    controls.target.lerpVectors(active.from.target, active.to.target, eased);
+
+    controls.target.lerpVectors(
+      active.from.target,
+      active.to.target,
+      eased,
+    );
+
     controls.update();
 
-    if (t === 1) tween.current = null;
+    if (t === 1) {
+      tween.current = null;
+    }
   });
 
   return null;
@@ -196,17 +278,32 @@ function FocusGrid({ focusedId }) {
   // individual moves the one you're looking at. Cheap: one bounding box a frame.
   useFrame(() => {
     const grid = gridRef.current;
-    const target = scene.getObjectByName(`skeleton-${focusedId}`);
+
+    const target = scene.getObjectByName(
+      `skeleton-${focusedId}`,
+    );
+
     if (!grid || !target) return;
 
     const box = new Box3().setFromObject(target);
+
     if (box.isEmpty()) return;
 
     const centre = box.getCenter(new Vector3());
-    grid.position.set(centre.x, box.min.y, centre.z);
+
+    grid.position.set(
+      centre.x,
+      box.min.y,
+      centre.z,
+    );
   });
 
-  return <gridHelper ref={gridRef} args={[1.2, 6, "#3a4149", "#2b3238"]} />;
+  return (
+    <gridHelper
+      ref={gridRef}
+      args={[1.2, 6, "#3a4149", "#2b3238"]}
+    />
+  );
 }
 
 export default function MainView({
@@ -218,46 +315,96 @@ export default function MainView({
   focusedId = null,
 }) {
   const controlsRef = useRef(null);
+
   // The specimen sits wherever its display transform puts it, so a grid at the
   // world origin reads as detached. Follow the focused individual's ground point.
   const focusedIndex = individuals.findIndex(
     (individual) => individual.id === focusedId,
   );
+
   return (
     <main className="viewport flex-grow-1 bg-body-secondary">
-      <Canvas camera={{ position: [0, 1.4, 4], fov: 45 }}>
-        <color attach="background" args={[focusedId ? "#1b1f24" : "#e9ecef"]} />
-        <ambientLight intensity={focusedId ? 0.9 : 1.5} />
-        <directionalLight position={[3, 4, 5]} intensity={2} />
-        <directionalLight position={[-3, 2, -4]} intensity={1} />
+      <Canvas
+        camera={{
+          position: [0, 1.4, 4],
+          fov: 45,
+        }}
+      >
+        <color
+          attach="background"
+          args={[
+            focusedId
+              ? "#1b1f24"
+              : "#e9ecef",
+          ]}
+        />
+
+        <ambientLight
+          intensity={focusedId ? 0.9 : 1.5}
+        />
+
+        <directionalLight
+          position={[3, 4, 5]}
+          intensity={2}
+        />
+
+        <directionalLight
+          position={[-3, 2, -4]}
+          intensity={1}
+        />
+
         {individuals.map((individual) => (
-          <Suspense key={individual.id} fallback={<LoadingModel />}>
+          <Suspense
+            key={individual.id}
+            fallback={<LoadingModel />}
+          >
             <SkeletonModel
               id={individual.id}
               colour={individual.colour}
               coords={individual.coords}
+              graveDimensions={graveDimensions}
               command={command}
-              isTarget={individual.id === targetId}
+              isTarget={
+                individual.id === targetId
+              }
               visible={
                 focusedId
                   ? individual.id === focusedId
-                  : isVisible(hidden, individual.id)
+                  : isVisible(
+                      hidden,
+                      individual.id,
+                    )
               }
             />
           </Suspense>
         ))}
+
         {focusedId ? (
           <FocusGrid focusedId={focusedId} />
         ) : (
           /* Scaled to the grave dimensions, but the axes are still in the
              original order. */
           <gridHelper
-            args={[globalScale, 12, "#adb5bd", "#ced4da"]}
-            scale={graveDimensionsToGridScale(graveDimensions)}
+            args={[
+              globalScale,
+              12,
+              "#adb5bd",
+              "#ced4da",
+            ]}
+            scale={graveDimensionsToGridScale(
+              graveDimensions,
+            )}
           />
         )}
-        <CameraControls controlsRef={controlsRef} />
-        <FocusCamera focusedId={focusedId} controlsRef={controlsRef} />
+
+        <CameraControls
+          controlsRef={controlsRef}
+        />
+
+        <FocusCamera
+          focusedId={focusedId}
+          controlsRef={controlsRef}
+        />
       </Canvas>
     </main>
   );
