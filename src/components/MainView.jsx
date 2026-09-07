@@ -20,9 +20,10 @@ import { createSkeletonRig } from "../rig/SkeletonRigApi.js";
 import modelUrl from "../assets/models/skeleton-male.glb";
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 import { isVisible } from "../visibility";
-import { Box3, Scene, Vector2, Vector3 } from "three";
+import { Box3, Vector2, Vector3 } from "three";
 import { graveDimensionsToGridScale } from "../graveDimensions.js";
 import { toSceneSpace, graveOrigin } from "../sceneSpace.js";
+import { makeGLBExportScene } from "../exportScene.js";
 
 // Make Three.js orbit controls available as a React Three Fiber element.
 extend({ OrbitControls: ThreeOrbitControls });
@@ -104,34 +105,6 @@ function CameraControls({ controlsRef }) {
 
 const SCREENSHOT_WIDTH = 1920;
 const SCREENSHOT_HEIGHT = 1080;
-
-function makeGLBExportScene(scene, camera, controls) {
-  const exportScene = new Scene();
-  exportScene.name = "Skeleton Plotter viewport";
-
-  scene.children.forEach((child) => {
-    if (child.name.startsWith("skeleton-")) {
-      if (child.visible) exportScene.add(SkeletonUtils.clone(child));
-      return;
-    }
-
-    // Preserve the visible viewport reference grid and lighting. UI objects
-    // are not part of the Three.js scene and therefore are never exported.
-    if (child.isGridHelper || child.isLight) {
-      exportScene.add(child.clone(true));
-    }
-  });
-
-  const exportedCamera = camera.clone();
-  exportedCamera.name = "Viewport camera";
-  exportedCamera.userData = {
-    orbitTarget: controls?.target?.toArray() ?? null,
-  };
-  exportScene.add(exportedCamera);
-  exportScene.updateMatrixWorld(true);
-
-  return exportScene;
-}
 
 // Capture the WebGL scene itself, independent of the surrounding React UI.
 const ViewportExport = forwardRef(function ViewportExport(
