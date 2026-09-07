@@ -14,11 +14,16 @@ import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 import { isVisible } from "../visibility";
 import { Box3, Vector3 } from "three";
 import { graveDimensionsToGridScale } from "../graveDimensions.js";
+import { toSceneSpace, graveOrigin } from "../sceneSpace.js";
 
 // Make Three.js orbit controls available as a React Three Fiber element.
 extend({ OrbitControls: ThreeOrbitControls });
 
 const EMPTY_POSE = Object.freeze({});
+
+// Global scale factor for the scene. Must be passed into the grid helper and the scene space conversion functions.
+const globalScale = 1;
+
 
 function SkeletonModel({
   id,
@@ -247,7 +252,7 @@ export default function MainView({
           /* Scaled to the grave dimensions, but the axes are still in the
              original order. */
           <gridHelper
-            args={[4, 12, "#adb5bd", "#ced4da"]}
+            args={[globalScale, 12, "#adb5bd", "#ced4da"]}
             scale={graveDimensionsToGridScale(graveDimensions)}
           />
         )}
