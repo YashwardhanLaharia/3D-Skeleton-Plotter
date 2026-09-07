@@ -208,15 +208,15 @@ const menuTemplate = [
         label: "Export",
         submenu: [
           {
-            label: "Screenshot…",
+            label: "Screenshot",
             accelerator: "CmdOrCtrl+Shift+E",
             click: () => sendToRenderer("menu-export-screenshot"),
           },
           {
-            label: "GLB…",
+            label: "GLB",
+            accelerator: "CmdOrCtrl+Shift+G",
             click: () => sendToRenderer("menu-export-glb"),
           },
-          { label: "GLTF", enabled: false },
         ],
       },
       { type: "separator" },
