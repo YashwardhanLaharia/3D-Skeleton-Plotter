@@ -15,11 +15,12 @@ import {
 } from "@react-three/fiber";
 import { OrbitControls as ThreeOrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
 import { createSkeletonRig } from "../rig/SkeletonRigApi.js";
 import modelUrl from "../assets/models/skeleton-male.glb";
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 import { isVisible } from "../visibility";
-import { Box3, Vector2, Vector3 } from "three";
+import { Box3, Scene, Vector2, Vector3 } from "three";
 import { graveDimensionsToGridScale } from "../graveDimensions.js";
 import { toSceneSpace, graveOrigin } from "../sceneSpace.js";
 
@@ -34,6 +35,7 @@ const globalScale = 1;
 
 function SkeletonModel({
   id,
+  label = "",
   colour,
   coords = EMPTY_POSE,
   visible = true,
@@ -76,6 +78,7 @@ function SkeletonModel({
   return (
     <group
       name={`skeleton-${id}`}
+      userData={{ individualId: id, label }}
       scale={transform.scale}
       position={transform.position}
       visible={visible}
@@ -101,6 +104,34 @@ function CameraControls({ controlsRef }) {
 
 const SCREENSHOT_WIDTH = 1920;
 const SCREENSHOT_HEIGHT = 1080;
+
+function makeGLBExportScene(scene, camera, controls) {
+  const exportScene = new Scene();
+  exportScene.name = "Skeleton Plotter viewport";
+
+  scene.children.forEach((child) => {
+    if (child.name.startsWith("skeleton-")) {
+      if (child.visible) exportScene.add(SkeletonUtils.clone(child));
+      return;
+    }
+
+    // Preserve the visible viewport reference grid and lighting. UI objects
+    // are not part of the Three.js scene and therefore are never exported.
+    if (child.isGridHelper || child.isLight) {
+      exportScene.add(child.clone(true));
+    }
+  });
+
+  const exportedCamera = camera.clone();
+  exportedCamera.name = "Viewport camera";
+  exportedCamera.userData = {
+    orbitTarget: controls?.target?.toArray() ?? null,
+  };
+  exportScene.add(exportedCamera);
+  exportScene.updateMatrixWorld(true);
+
+  return exportScene;
+}
 
 // Capture the WebGL scene itself, independent of the surrounding React UI.
 const ViewportExport = forwardRef(function ViewportExport(
@@ -142,6 +173,24 @@ const ViewportExport = forwardRef(function ViewportExport(
           controlsRef.current?.update();
           gl.render(scene, camera);
         }
+      },
+      async exportGLB() {
+        const exportScene = makeGLBExportScene(
+          scene,
+          camera,
+          controlsRef.current,
+        );
+        const exporter = new GLTFExporter();
+        const data = await new Promise((resolve, reject) => {
+          exporter.parse(
+            exportScene,
+            resolve,
+            reject,
+            { binary: true },
+          );
+        });
+
+        return window.electronAPI.saveGLB(data);
       },
     }),
     [camera, controlsRef, gl, scene],
@@ -298,6 +347,7 @@ const MainView = forwardRef(function MainView(
           <Suspense key={individual.id} fallback={<LoadingModel />}>
             <SkeletonModel
               id={individual.id}
+              label={individual.label}
               colour={individual.colour}
               coords={individual.coords}
               command={command}

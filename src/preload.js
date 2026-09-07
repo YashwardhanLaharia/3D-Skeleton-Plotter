@@ -15,6 +15,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveScreenshot(data) {
     return ipcRenderer.invoke('save-screenshot', data);
   },
+  saveGLB(data) {
+    return ipcRenderer.invoke('save-glb', data);
+  },
   newProject() {
     return ipcRenderer.invoke('new-project');
   },
@@ -33,7 +36,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return ipcRenderer.invoke('confirm-close');
   },
   onMenuAction(callback) {
-    const channels = ['menu-new', 'menu-open', 'menu-save', 'menu-save-as', 'menu-export-screenshot', 'menu-undo', 'menu-redo', 'menu-change-grave-dimensions'];
+    const channels = ['menu-new', 'menu-open', 'menu-save', 'menu-save-as', 'menu-export-screenshot', 'menu-export-glb', 'menu-undo', 'menu-redo', 'menu-change-grave-dimensions'];
     const removers = channels.map((channel) => {
       const listener = () => callback(channel);
       ipcRenderer.on(channel, listener);

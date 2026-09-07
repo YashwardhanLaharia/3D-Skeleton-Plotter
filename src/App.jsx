@@ -351,6 +351,17 @@ export default function App() {
     }
   }
 
+  async function handleExportGLB() {
+    try {
+      const result = await viewportRef.current?.exportGLB();
+      if (result && !result.ok && !result.canceled) {
+        setNotice(result.error);
+      }
+    } catch (error) {
+      setNotice(`Could not export GLB: ${error.message}`);
+    }
+  }
+
   // Menu clicks arrive from the main process. The ref keeps the listener pointing
   // at the latest handlers: registering once with [] would capture the state as
   // it was on first render, so saving would write an empty project forever.
@@ -361,6 +372,7 @@ export default function App() {
     handleSave,
     handleRequestClose,
     handleExportScreenshot,
+    handleExportGLB,
     handleUndo,
     handleRedo,
     handleChangeGraveDimensions,
@@ -374,6 +386,7 @@ export default function App() {
       if (action === "menu-save-as") actionsRef.current.handleSave(true);
       if (action === "menu-export-screenshot")
         actionsRef.current.handleExportScreenshot();
+      if (action === "menu-export-glb") actionsRef.current.handleExportGLB();
       if (action === "menu-undo") actionsRef.current.handleUndo();
       if (action === "menu-redo") actionsRef.current.handleRedo();
       if (action === "menu-change-grave-dimensions")
