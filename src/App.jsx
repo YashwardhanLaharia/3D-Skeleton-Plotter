@@ -88,6 +88,7 @@ export default function App() {
   const [filePath, setFilePath] = useState(null);
   const [isDirty, setIsDirty] = useState(false);
   const [rigCommand, setRigCommand] = useState(null);
+  const viewportRef = useRef(null);
   const nextId = useRef(2);
 
   useEffect(() => {
@@ -339,6 +340,17 @@ export default function App() {
     window.electronAPI.confirmClose();
   }
 
+  async function handleExportScreenshot() {
+    try {
+      const result = await viewportRef.current?.captureScreenshot();
+      if (result && !result.ok && !result.canceled) {
+        setNotice(result.error);
+      }
+    } catch (error) {
+      setNotice(`Could not export screenshot: ${error.message}`);
+    }
+  }
+
   // Menu clicks arrive from the main process. The ref keeps the listener pointing
   // at the latest handlers: registering once with [] would capture the state as
   // it was on first render, so saving would write an empty project forever.
@@ -348,6 +360,7 @@ export default function App() {
     handleOpen,
     handleSave,
     handleRequestClose,
+    handleExportScreenshot,
     handleUndo,
     handleRedo,
     handleChangeGraveDimensions,
@@ -359,6 +372,8 @@ export default function App() {
       if (action === "menu-open") actionsRef.current.handleOpen();
       if (action === "menu-save") actionsRef.current.handleSave(false);
       if (action === "menu-save-as") actionsRef.current.handleSave(true);
+      if (action === "menu-export-screenshot")
+        actionsRef.current.handleExportScreenshot();
       if (action === "menu-undo") actionsRef.current.handleUndo();
       if (action === "menu-redo") actionsRef.current.handleRedo();
       if (action === "menu-change-grave-dimensions")
@@ -478,6 +493,7 @@ export default function App() {
 
         <div className="viewport-wrap flex-grow-1 position-relative d-flex">
           <MainView
+            ref={viewportRef}
             individuals={individuals}
             command={rigCommand}
             hidden={hidden}

@@ -1,4 +1,11 @@
-import { Suspense, useEffect, useMemo, useRef } from "react";
+import {
+  Suspense,
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+} from "react";
 import {
   Canvas,
   extend,
@@ -12,7 +19,7 @@ import { createSkeletonRig } from "../rig/SkeletonRigApi.js";
 import modelUrl from "../assets/models/skeleton-male.glb";
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 import { isVisible } from "../visibility";
-import { Box3, Vector3 } from "three";
+import { Box3, Vector2, Vector3 } from "three";
 import { graveDimensionsToGridScale } from "../graveDimensions.js";
 import { toSceneSpace, graveOrigin } from "../sceneSpace.js";
 
@@ -91,6 +98,57 @@ function CameraControls({ controlsRef }) {
   const { camera, gl } = useThree();
   return <orbitControls ref={controlsRef} args={[camera, gl.domElement]} />;
 }
+
+const SCREENSHOT_WIDTH = 1920;
+const SCREENSHOT_HEIGHT = 1080;
+
+// Capture the WebGL scene itself, independent of the surrounding React UI.
+const ViewportExport = forwardRef(function ViewportExport(
+  { controlsRef },
+  ref,
+) {
+  const { camera, gl, scene } = useThree();
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      async captureScreenshot() {
+        const canvas = gl.domElement;
+        const previousSize = gl.getSize(new Vector2());
+        const previousPixelRatio = gl.getPixelRatio();
+        const previousAspect = camera.aspect;
+
+        camera.aspect = SCREENSHOT_WIDTH / SCREENSHOT_HEIGHT;
+        camera.updateProjectionMatrix();
+        gl.setPixelRatio(1);
+        gl.setSize(SCREENSHOT_WIDTH, SCREENSHOT_HEIGHT, false);
+
+        gl.render(scene, camera);
+
+        try {
+          const blob = await new Promise((resolve, reject) => {
+            canvas.toBlob((nextBlob) => {
+              if (nextBlob) resolve(nextBlob);
+              else reject(new Error("The viewport could not be encoded as PNG."));
+            }, "image/png");
+          });
+
+          return window.electronAPI.saveScreenshot(await blob.arrayBuffer());
+        } finally {
+          camera.aspect = previousAspect;
+          camera.updateProjectionMatrix();
+          gl.setPixelRatio(previousPixelRatio);
+          gl.setSize(previousSize.x, previousSize.y, false);
+          controlsRef.current?.update();
+          gl.render(scene, camera);
+        }
+      },
+    }),
+    [camera, controlsRef, gl, scene],
+  );
+
+  return null;
+});
 
 // Moves the camera to frame one individual, and back again on exit.
 //
@@ -209,14 +267,17 @@ function FocusGrid({ focusedId }) {
   return <gridHelper ref={gridRef} args={[1.2, 6, "#3a4149", "#2b3238"]} />;
 }
 
-export default function MainView({
-  individuals = [],
-  graveDimensions = [1, 1, 1],
-  command,
-  targetId,
-  hidden = [],
-  focusedId = null,
-}) {
+const MainView = forwardRef(function MainView(
+  {
+    individuals = [],
+    graveDimensions = [1, 1, 1],
+    command,
+    targetId,
+    hidden = [],
+    focusedId = null,
+  },
+  ref,
+) {
   const controlsRef = useRef(null);
   // The specimen sits wherever its display transform puts it, so a grid at the
   // world origin reads as detached. Follow the focused individual's ground point.
@@ -225,7 +286,10 @@ export default function MainView({
   );
   return (
     <main className="viewport flex-grow-1 bg-body-secondary">
-      <Canvas camera={{ position: [0, 1.4, 4], fov: 45 }}>
+      <Canvas
+        camera={{ position: [0, 1.4, 4], fov: 45 }}
+        gl={{ preserveDrawingBuffer: true }}
+      >
         <color attach="background" args={[focusedId ? "#1b1f24" : "#e9ecef"]} />
         <ambientLight intensity={focusedId ? 0.9 : 1.5} />
         <directionalLight position={[3, 4, 5]} intensity={2} />
@@ -258,7 +322,10 @@ export default function MainView({
         )}
         <CameraControls controlsRef={controlsRef} />
         <FocusCamera focusedId={focusedId} controlsRef={controlsRef} />
+        <ViewportExport ref={ref} controlsRef={controlsRef} />
       </Canvas>
     </main>
   );
-}
+});
+
+export default MainView;
