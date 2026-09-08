@@ -18,6 +18,8 @@ import { toSceneSpace, graveOrigin } from "../sceneSpace.js";
 import { toNumericJoints } from "../solver/numericJoints.js";
 import { solveSkeleton } from "../solver/solveSkeleton.js";
 import { createSolveBone } from "../solver/solveBone.js";
+import { computeSegmentScales } from "../solver/segmentScales.js";
+import { findPlacementAnchor } from "../solver/placementAnchor.js";
 
 // Make Three.js orbit controls available as a React Three Fiber element.
 extend({ OrbitControls: ThreeOrbitControls });
@@ -25,7 +27,7 @@ extend({ OrbitControls: ThreeOrbitControls });
 const EMPTY_POSE = Object.freeze({});
 
 // Global scale factor for the scene.
-// Must be passed into the grid helper and the scene space conversion functions.
+// Must be passed into the grid helper and scene-space conversion functions.
 const globalScale = 1;
 
 function SkeletonModel({
@@ -37,6 +39,8 @@ function SkeletonModel({
   command,
   isTarget,
 }) {
+  const groupRef = useRef(null);
+
   const { scene } = useLoader(GLTFLoader, modelUrl);
 
   const clonedScene = useMemo(
@@ -49,13 +53,7 @@ function SkeletonModel({
     [clonedScene],
   );
 
-  const transform = useMemo(
-    () => rig.getDisplayTransform(),
-    [rig],
-  );
-
-  // #20 integration:
-  // Creates the one-bone solver using the cloned skeleton scene.
+  // Creates the one-bone solver using this skeleton's cloned scene.
   const solveBone = useMemo(
     () => createSolveBone(clonedScene),
     [clonedScene],
@@ -87,19 +85,33 @@ function SkeletonModel({
     }
   }, [colour, clonedScene]);
 
-  // Solve the skeleton from the measured joint positions.
-  // solveSkeleton produces absolute joint rotations, so replacePose
-  // is used instead of setPose/rotateJoint.
+  // Solve rotations and measured long-bone lengths.
   useEffect(() => {
+    // Reset previous solver results first.
+    // Each coordinate update is solved from the neutral model rather
+    // than being affected by the previous solved pose.
+    rig.replacePose({});
+    rig.replaceSegmentScales({});
+
+    clonedScene.updateMatrixWorld(true);
+
+    // Solve bone rotations.
     const { pose } = solveSkeleton(sceneJoints, { solveBone });
 
-    rig.replacePose(pose);
-  }, [sceneJoints, solveBone, rig]);
+    // Calculate measured segment lengths relative to model rest lengths.
+    const diagnostics = rig.getDiagnostics();
 
-  // Commands arrive one at a time from the Rig Controls window and are only
-  // meaningful to the model they were aimed at. The ref is seeded with any
-  // command present at mount so a model that loads late never replays a stale
-  // rotation, and the command id guards against re-running when isTarget flips.
+    const { scales } = computeSegmentScales(
+      sceneJoints,
+      diagnostics.segments,
+    );
+
+    // Apply the new absolute scale and pose.
+    rig.replaceSegmentScales(scales);
+    rig.replacePose(pose);
+  }, [sceneJoints, solveBone, rig, clonedScene]);
+
+  // Commands arrive one at a time from the Rig Controls window.
   const lastCommandRef = useRef(command ?? null);
 
   useEffect(() => {
@@ -116,11 +128,50 @@ function SkeletonModel({
     rig.execute(command);
   }, [command, isTarget, rig]);
 
+  // Whole-skeleton grave placement.
+  //
+  // findPlacementAnchor prefers head_centre when available.
+  // If it is missing, it uses the next usable measured joint.
+  useEffect(() => {
+    const group = groupRef.current;
+
+    if (!group) return;
+
+    // Remove the previous whole-skeleton translation before finding
+    // the current model anchor position.
+    group.position.set(0, 0, 0);
+    group.updateWorldMatrix(true, true);
+
+    clonedScene.updateMatrixWorld(true);
+
+    const anchor = findPlacementAnchor(
+      sceneJoints,
+      clonedScene,
+    );
+
+    // Nothing usable has been measured yet.
+    if (!anchor) {
+      return;
+    }
+
+    const modelPosition =
+      anchor.modelAnchor.getWorldPosition(new Vector3());
+
+    // Translate the complete skeleton so that the model joint lands
+    // on its measured grave coordinate.
+    group.position.set(
+      anchor.measuredAnchor.x - modelPosition.x,
+      anchor.measuredAnchor.y - modelPosition.y,
+      anchor.measuredAnchor.z - modelPosition.z,
+    );
+
+    group.updateWorldMatrix(true, true);
+  }, [sceneJoints, clonedScene, command]);
+
   return (
     <group
+      ref={groupRef}
       name={`skeleton-${id}`}
-      scale={transform.scale}
-      position={transform.position}
       visible={visible}
     >
       <primitive object={clonedScene} />
@@ -149,13 +200,6 @@ function CameraControls({ controlsRef }) {
 }
 
 // Moves the camera to frame one individual, and back again on exit.
-//
-// The previous camera position and target are stored on entry and restored on
-// exit — losing your grave viewpoint every time you inspect something would be
-// far more disruptive than the inspection is useful.
-//
-// Tweened rather than cut so the user understands they're looking at the same
-// skeleton from closer, not at a different screen.
 function FocusCamera({ focusedId, controlsRef }) {
   const { camera, scene } = useThree();
   const saved = useRef(null);
@@ -167,8 +211,6 @@ function FocusCamera({ focusedId, controlsRef }) {
     if (!controls) return;
 
     if (focusedId) {
-      // Store where we were, but only on first entry — re-entering focus from
-      // an already-focused state shouldn't overwrite the grave viewpoint.
       if (!saved.current) {
         saved.current = {
           position: camera.position.clone(),
@@ -190,8 +232,6 @@ function FocusCamera({ focusedId, controlsRef }) {
       const size = box.getSize(new Vector3());
       const extent = Math.max(size.x, size.y, size.z);
 
-      // Pull back far enough that the whole individual fits the vertical field
-      // of view, with a margin so it isn't touching the frame edges.
       const fov = (camera.fov * Math.PI) / 180;
 
       const distance =
@@ -240,7 +280,6 @@ function FocusCamera({ focusedId, controlsRef }) {
     const elapsed = performance.now() - active.start;
     const t = Math.min(elapsed / DURATION, 1);
 
-    // Ease-out cubic: quick to move, gentle to settle.
     const eased = 1 - Math.pow(1 - t, 3);
 
     camera.position.lerpVectors(
@@ -265,17 +304,11 @@ function FocusCamera({ focusedId, controlsRef }) {
   return null;
 }
 
-// Ground reference under the focused specimen. Reads its position from the
-// scene rather than being passed one, because the display transform that
-// positions each skeleton lives inside SkeletonModel.
+// Ground reference under the focused specimen.
 function FocusGrid({ focusedId }) {
   const { scene } = useThree();
   const gridRef = useRef(null);
 
-  // Tracked per frame rather than memoised. The focused specimen's position
-  // changes whenever the set of loaded skeletons changes, because each model
-  // is centred on itself by its display transform — so deleting an unrelated
-  // individual moves the one you're looking at. Cheap: one bounding box a frame.
   useFrame(() => {
     const grid = gridRef.current;
 
@@ -315,12 +348,6 @@ export default function MainView({
   focusedId = null,
 }) {
   const controlsRef = useRef(null);
-
-  // The specimen sits wherever its display transform puts it, so a grid at the
-  // world origin reads as detached. Follow the focused individual's ground point.
-  const focusedIndex = individuals.findIndex(
-    (individual) => individual.id === focusedId,
-  );
 
   return (
     <main className="viewport flex-grow-1 bg-body-secondary">
@@ -382,8 +409,6 @@ export default function MainView({
         {focusedId ? (
           <FocusGrid focusedId={focusedId} />
         ) : (
-          /* Scaled to the grave dimensions, but the axes are still in the
-             original order. */
           <gridHelper
             args={[
               globalScale,
