@@ -105,6 +105,12 @@ function SkeletonModel({
 
     // TEMPORARY — delete before opening the PR.
   useEffect(() => {
+
+    for (const name of ["DEF-HumerusL", "DEF-FemurL", "DEF-UlnaL", "DEF-Skull"]) {
+      const bone = clonedScene.getObjectByName(name);
+      console.log(name, "parent:", bone?.parent?.name);
+    }
+    
     clonedScene.updateMatrixWorld(true);
 
     const check = (label, proxId, distId, boneName) => {
