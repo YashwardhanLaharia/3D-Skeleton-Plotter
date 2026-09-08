@@ -143,10 +143,28 @@ export function createSolveBone(scene) {
 
     target.normalize();
 
-    return computeBoneRotation(
+    // return computeBoneRotation(
+    //   { x: 0, y: 0, z: 0 },
+    //   { x: target.x, y: target.y, z: target.z },
+    //   REST_DIRECTION,
+    // );
+    const result = computeBoneRotation(
       { x: 0, y: 0, z: 0 },
       { x: target.x, y: target.y, z: target.z },
       REST_DIRECTION,
     );
+
+    // TEMPORARY — delete before the PR.
+    if (bone.id === "upper_arm_l" || bone.id === "thigh_l" || bone.id === "forearm_l") {
+      console.log(
+        bone.id,
+        "target:",
+        target.toArray().map((n) => n.toFixed(3)),
+        "→ rotation:",
+        result && [result.x, result.y, result.z].map((n) => n.toFixed(1)),
+      );
+    }
+
+    return result;
   };
 }

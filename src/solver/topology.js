@@ -33,16 +33,10 @@
 
 /** @type {Bone[]} */
 export const BONES = [
-    // Left arm. The clavicle exists so the humerus has a solved parent — measured:
-  // with an unsolved clavicle the humerus was 35.9 deg off and the ulna 61.2,
-  // because solveBone converts against the bone's live world frame and an
-  // unposed parent leaves that frame at rest.
-  { id: "clavicle_l", proximal: "manubrium", distal: "shoulder_l", jointId: "manubrium", segmentId: null, chain: "leftArm" },
   { id: "upper_arm_l", proximal: "shoulder_l", distal: "elbow_l", jointId: "shoulder_l", segmentId: "upper_arm_l", chain: "leftArm" },
   { id: "forearm_l", proximal: "elbow_l", distal: "wrist_l", jointId: "elbow_l", segmentId: "forearm_l", chain: "leftArm" },
   { id: "hand_l", proximal: "wrist_l", distal: "fingertips_l", jointId: "wrist_l", segmentId: null, chain: "leftArm" },
-
-  { id: "clavicle_r", proximal: "manubrium", distal: "shoulder_r", jointId: "manubrium", segmentId: null, chain: "rightArm" },
+  
   { id: "upper_arm_r", proximal: "shoulder_r", distal: "elbow_r", jointId: "shoulder_r", segmentId: "upper_arm_r", chain: "rightArm" },
   { id: "forearm_r", proximal: "elbow_r", distal: "wrist_r", jointId: "elbow_r", segmentId: "forearm_r", chain: "rightArm" },
   { id: "hand_r", proximal: "wrist_r", distal: "fingertips_r", jointId: "wrist_r", segmentId: null, chain: "rightArm" },

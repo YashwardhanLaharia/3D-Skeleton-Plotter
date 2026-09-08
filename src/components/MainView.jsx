@@ -97,20 +97,41 @@ function SkeletonModel({
     solveSkeleton(sceneJoints, {
       solveBone,
       applyBone: (jointId, rotation, bone, pose) => {
+        console.log("applying", bone.id);
         rig.replacePose(pose);
         clonedScene.updateMatrixWorld(true);
       },
     });
   }, [sceneJoints, solveBone, rig, clonedScene]);
 
-    // TEMPORARY — delete before opening the PR.
+  // TEMPORARY
   useEffect(() => {
-
-    for (const name of ["DEF-HumerusL", "DEF-FemurL", "DEF-UlnaL", "DEF-Skull"]) {
+    for (const name of [
+      "DEF-HumerusL",
+      "DEF-FemurL",
+      "DEF-UlnaL",
+      "DEF-Skull",
+    ]) {
       const bone = clonedScene.getObjectByName(name);
       console.log(name, "parent:", bone?.parent?.name);
     }
-    
+
+    for (const name of ["DEF-ClavicleL", "DEF-Pelvis"]) {
+      const bone = clonedScene.getObjectByName(name);
+      if (!bone) {
+        console.log(name, "missing");
+        continue;
+      }
+      const dir = new Vector3(0, 1, 0).applyQuaternion(
+        bone.getWorldQuaternion(new Quaternion()),
+      );
+      console.log(
+        name,
+        "world dir:",
+        dir.toArray().map((n) => n.toFixed(3)),
+      );
+    }
+
     clonedScene.updateMatrixWorld(true);
 
     const check = (label, proxId, distId, boneName) => {
@@ -147,7 +168,15 @@ function SkeletonModel({
     check("humerus L", "shoulder_l", "elbow_l", "DEF-HumerusL");
     check("ulna L", "elbow_l", "wrist_l", "DEF-UlnaL");
     check("skull", "head_centre", "head_proximal", "DEF-Skull");
-  }, [sceneJoints, clonedScene]);
+
+    const state = rig.getState();
+    console.log(
+      "stored — acetabulum_l:",
+      state.jointRotations?.acetabulum_l,
+      "| shoulder_l:",
+      state.jointRotations?.shoulder_l,
+    );
+  }, [sceneJoints, clonedScene, rig]);
 
   // Commands arrive one at a time from the Rig Controls window.
   const lastCommandRef = useRef(command ?? null);
