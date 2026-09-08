@@ -168,36 +168,36 @@ function SkeletonModel({
 
   // TEMPORARY
   useEffect(() => {
-    for (const name of [
-      "DEF-HumerusL",
-      "DEF-FemurL",
-      "DEF-UlnaL",
-      "DEF-Skull",
-    ]) {
-      const bone = clonedScene.getObjectByName(name);
-      console.log(name, "parent:", bone?.parent?.name);
-    }
+    // for (const name of [
+    //   "DEF-HumerusL",
+    //   "DEF-FemurL",
+    //   "DEF-UlnaL",
+    //   "DEF-Skull",
+    // ]) {
+    //   const bone = clonedScene.getObjectByName(name);
+    //   console.log(name, "parent:", bone?.parent?.name);
+    // }
 
-    for (const name of ["DEF-ClavicleL", "DEF-Pelvis"]) {
-      const bone = clonedScene.getObjectByName(name);
-      if (!bone) {
-        console.log(name, "missing");
-        continue;
-      }
-      const dir = new Vector3(0, 1, 0).applyQuaternion(
-        bone.getWorldQuaternion(new Quaternion()),
-      );
-      console.log(
-        name,
-        "world dir:",
-        dir.toArray().map((n) => n.toFixed(3)),
-      );
-    }
+    // for (const name of ["DEF-ClavicleL", "DEF-Pelvis"]) {
+    //   const bone = clonedScene.getObjectByName(name);
+    //   if (!bone) {
+    //     console.log(name, "missing");
+    //     continue;
+    //   }
+    //   const dir = new Vector3(0, 1, 0).applyQuaternion(
+    //     bone.getWorldQuaternion(new Quaternion()),
+    //   );
+    //   console.log(
+    //     name,
+    //     "world dir:",
+    //     dir.toArray().map((n) => n.toFixed(3)),
+    //   );
+    // }
 
-    for (const name of ["DEF-ScapulaL", "DEF-ClavicleL"]) {
-      const bone = clonedScene.getObjectByName(name);
-      console.log(name, "→ parent:", bone?.parent?.name);
-    }
+    // for (const name of ["DEF-ScapulaL", "DEF-ClavicleL"]) {
+    //   const bone = clonedScene.getObjectByName(name);
+    //   console.log(name, "→ parent:", bone?.parent?.name);
+    // }
 
     clonedScene.updateMatrixWorld(true);
 
@@ -236,23 +236,23 @@ function SkeletonModel({
     check("ulna L", "elbow_l", "wrist_l", "DEF-UlnaL");
     check("skull", "head_centre", "head_proximal", "DEF-Skull");
 
-    const state = rig.getState();
-    console.log(
-      "stored — acetabulum_l:",
-      state.jointRotations?.acetabulum_l,
-      "| shoulder_l:",
-      state.jointRotations?.shoulder_l,
-    );
+    // const state = rig.getState();
+    // console.log(
+    //   "stored — acetabulum_l:",
+    //   state.jointRotations?.acetabulum_l,
+    //   "| shoulder_l:",
+    //   state.jointRotations?.shoulder_l,
+    // );
 
-    const scapula = clonedScene.getObjectByName("DEF-ScapulaL");
-    clonedScene.updateMatrixWorld(true);
-    console.log(
-      "final scapL world:",
-      scapula
-        ?.getWorldPosition(new Vector3())
-        .toArray()
-        .map((n) => n.toFixed(3)),
-    );
+    // const scapula = clonedScene.getObjectByName("DEF-ScapulaL");
+    // clonedScene.updateMatrixWorld(true);
+    // console.log(
+    //   "final scapL world:",
+    //   scapula
+    //     ?.getWorldPosition(new Vector3())
+    //     .toArray()
+    //     .map((n) => n.toFixed(3)),
+    // );
   }, [sceneJoints, clonedScene, rig]);
 
   // Commands arrive one at a time from the Rig Controls window.
