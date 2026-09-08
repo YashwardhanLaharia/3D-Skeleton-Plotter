@@ -134,3 +134,84 @@ test("failed is empty when nothing throws", () => {
 
   assert.deepEqual(result.failed, []);
 });
+
+// Bones must be applied as they are solved, proximal to distal. Each bone's
+// measured direction is converted into its own world frame, which moves when a
+// parent is posed — so a tibia solved before its femur is applied is measured
+// against a frame that is about to change. Verified: solved in isolation the
+// tibia was 0.0 deg off; solved alongside an unapplied femur, 89.0 deg.
+test("each bone is applied before the next is solved", () => {
+  const order = [];
+
+  const solveBone = (proximal, distal, bone) => {
+    order.push(`solve:${bone.id}`);
+    return { x: 0, y: 0, z: 0 };
+  };
+
+  const applyBone = (jointId, rotation, bone) => {
+    order.push(`apply:${bone.id}`);
+  };
+
+  solveSkeleton(
+    {
+      acetabulum_l: { x: 0, y: 0, z: 0 },
+      knee_l: { x: 0, y: 1, z: 0 },
+      ankle_l: { x: 0, y: 2, z: 0 },
+    },
+    { solveBone, applyBone },
+  );
+
+  assert.deepEqual(order, [
+    "solve:thigh_l",
+    "apply:thigh_l",
+    "solve:lower_leg_l",
+    "apply:lower_leg_l",
+  ]);
+});
+
+test("applyBone is optional", () => {
+  const result = solveSkeleton(
+    { shoulder_l: { x: 0, y: 0, z: 0 }, elbow_l: { x: 1, y: 0, z: 0 } },
+    OPTIONS,
+  );
+
+  assert.ok(result.pose.shoulder_l);
+});
+
+test("a bone that fails to solve is not applied", () => {
+  const applied = [];
+
+  solveSkeleton(
+    {
+      acetabulum_l: { x: 0, y: 0, z: 0 },
+      knee_l: { x: 0, y: 1, z: 0 },
+    },
+    {
+      solveBone: () => null,
+      applyBone: (jointId, rotation, bone) => applied.push(bone.id),
+    },
+  );
+
+  assert.deepEqual(applied, []);
+});
+
+test("the accumulated pose is passed to applyBone", () => {
+  const seen = [];
+
+  solveSkeleton(
+    {
+      acetabulum_l: { x: 0, y: 0, z: 0 },
+      knee_l: { x: 0, y: 1, z: 0 },
+      ankle_l: { x: 0, y: 2, z: 0 },
+    },
+    {
+      solveBone: () => ({ x: 1, y: 2, z: 3 }),
+      applyBone: (jointId, rotation, bone, pose) => {
+        seen.push(Object.keys(pose).length);
+      },
+    },
+  );
+
+  // First call sees one joint, second sees two — the pose grows as it goes.
+  assert.deepEqual(seen, [1, 2]);
+});
