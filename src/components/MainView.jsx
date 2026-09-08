@@ -12,12 +12,16 @@ import { createSkeletonRig } from "../rig/SkeletonRigApi.js";
 import modelUrl from "../assets/models/skeleton-male.glb";
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 import { isVisible } from "../visibility";
-import { Box3, Vector3, Quaternion } from "three";
+import { Box3, Vector3, Quaternion, Matrix4 } from "three";
 import { graveDimensionsToGridScale } from "../graveDimensions.js";
 import { toSceneSpace, graveOrigin } from "../sceneSpace.js";
 import { toNumericJoints } from "../solver/numericJoints.js";
 import { solveSkeleton } from "../solver/solveSkeleton.js";
-import { createSolveBone } from "../solver/solveBone.js";
+import {
+  createSolveBone,
+  verifyRestConvention,
+  BONE_OBJECTS,
+} from "../solver/solveBone.js";
 import { computeSegmentScales } from "../solver/segmentScales.js";
 import { findPlacementAnchor } from "../solver/placementAnchor.js";
 
@@ -76,33 +80,91 @@ function SkeletonModel({
     }
   }, [colour, clonedScene]);
 
+  // Each bone's local rotation before anything is posed. Composing onto these
+  // preserves the orientation surrounding anatomy is positioned against.
+  const restRotations = useMemo(() => {
+    const map = new Map();
+    for (const [boneId, name] of Object.entries(BONE_OBJECTS)) {
+      const object = clonedScene.getObjectByName(name);
+      if (object) map.set(boneId, object.quaternion.clone());
+    }
+    return map;
+  }, [clonedScene]);
+
   // Solve rotations and measured long-bone lengths.
   //
-  // Each bone is applied as it is solved. solveBone reads the bone's live world
-  // frame, so a parent must already be posed before its child is solved —
-  // solving the whole skeleton against the rest pose and applying at the end
-  // puts every bone below a rotated parent out by the parent's rotation.
+  // Bones are applied as they are solved, proximal to distal — solveBone
+  // converts against the bone's live world frame, which moves when a parent is
+  // posed. Measured: a tibia solved in isolation was 0.0 deg off; solved
+  // alongside an unapplied femur, 89.0 deg.
+  //
+  // Rotations are written to the bone directly rather than through
+  // rig.replacePose. The rig composes by adding Euler components onto the rest
+  // rotation, which only approximates a rotation when the two share an axis.
+  // That is fine for the controls window nudging one axis at a time, but wrong
+  // for the arbitrary compound rotations the solver produces — the humerus came
+  // out 35.9 deg off through the rig and 0.0 deg set directly. Tracked in #NN.
   useEffect(() => {
     rig.replacePose({});
     rig.replaceSegmentScales({});
     clonedScene.updateMatrixWorld(true);
 
-    // Segment scales first: a lengthened femur moves the knee, and the tibia
-    // must be solved against the moved position.
     const diagnostics = rig.getDiagnostics();
     const { scales } = computeSegmentScales(sceneJoints, diagnostics.segments);
     rig.replaceSegmentScales(scales);
     clonedScene.updateMatrixWorld(true);
 
-    solveSkeleton(sceneJoints, {
+    const report = solveSkeleton(sceneJoints, {
       solveBone,
-      applyBone: (jointId, rotation, bone, pose) => {
-        console.log("applying", bone.id);
-        rig.replacePose(pose);
-        clonedScene.updateMatrixWorld(true);
+      applyBone: (jointId, rotation, bone) => {
+        const object = clonedScene.getObjectByName(BONE_OBJECTS[bone.id]);
+        if (!object?.parent) return;
+
+        const proximal = sceneJoints[bone.proximal];
+        const distal = sceneJoints[bone.distal];
+        if (!proximal || !distal) return;
+
+        object.parent.updateMatrixWorld(true);
+
+        const wantedWorld = new Vector3(
+          distal.x - proximal.x,
+          distal.y - proximal.y,
+          distal.z - proximal.z,
+        ).normalize();
+
+        const wantedLocal = wantedWorld.applyQuaternion(
+          object.parent.getWorldQuaternion(new Quaternion()).invert(),
+        );
+
+        // Compose onto the bone's rest rotation rather than replacing it, so
+        // the bone ends up at the target direction relative to where it
+        // started rather than relative to its parent's axes.
+        const restQuat = restRotations.get(bone.id);
+        if (!restQuat) return;
+
+        const restDirLocal = new Vector3(0, 1, 0).applyQuaternion(restQuat);
+        const delta = new Quaternion().setFromUnitVectors(
+          restDirLocal,
+          wantedLocal,
+        );
+
+        object.quaternion.copy(delta.multiply(restQuat));
+        object.updateMatrixWorld(true);
       },
     });
-  }, [sceneJoints, solveBone, rig, clonedScene]);
+
+    if (
+      report.unknown.length ||
+      report.invalid.length ||
+      report.failed.length
+    ) {
+      console.warn("solve issues", {
+        unknown: report.unknown,
+        invalid: report.invalid,
+        failed: report.failed,
+      });
+    }
+  }, [sceneJoints, solveBone, rig, clonedScene, restRotations]);
 
   // TEMPORARY
   useEffect(() => {
@@ -130,6 +192,11 @@ function SkeletonModel({
         "world dir:",
         dir.toArray().map((n) => n.toFixed(3)),
       );
+    }
+
+    for (const name of ["DEF-ScapulaL", "DEF-ClavicleL"]) {
+      const bone = clonedScene.getObjectByName(name);
+      console.log(name, "→ parent:", bone?.parent?.name);
     }
 
     clonedScene.updateMatrixWorld(true);
@@ -175,6 +242,16 @@ function SkeletonModel({
       state.jointRotations?.acetabulum_l,
       "| shoulder_l:",
       state.jointRotations?.shoulder_l,
+    );
+
+    const scapula = clonedScene.getObjectByName("DEF-ScapulaL");
+    clonedScene.updateMatrixWorld(true);
+    console.log(
+      "final scapL world:",
+      scapula
+        ?.getWorldPosition(new Vector3())
+        .toArray()
+        .map((n) => n.toFixed(3)),
     );
   }, [sceneJoints, clonedScene, rig]);
 

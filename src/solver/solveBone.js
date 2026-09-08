@@ -37,7 +37,7 @@ const CONVENTION_TOLERANCE_DEG = 5;
 // Maps topology bone ids to the GLB objects they rotate. Kept here rather than
 // in topology.js so that module stays free of model-specific names — topology
 // describes anatomy, this describes one particular mesh.
-const BONE_OBJECTS = {
+export const BONE_OBJECTS = {
   upper_arm_l: "DEF-HumerusL",
   forearm_l: "DEF-UlnaL",
   hand_l: "DEF-CarpalsL",
@@ -143,28 +143,10 @@ export function createSolveBone(scene) {
 
     target.normalize();
 
-    // return computeBoneRotation(
-    //   { x: 0, y: 0, z: 0 },
-    //   { x: target.x, y: target.y, z: target.z },
-    //   REST_DIRECTION,
-    // );
-    const result = computeBoneRotation(
+    return computeBoneRotation(
       { x: 0, y: 0, z: 0 },
       { x: target.x, y: target.y, z: target.z },
       REST_DIRECTION,
     );
-
-    // TEMPORARY — delete before the PR.
-    if (bone.id === "upper_arm_l" || bone.id === "thigh_l" || bone.id === "forearm_l") {
-      console.log(
-        bone.id,
-        "target:",
-        target.toArray().map((n) => n.toFixed(3)),
-        "→ rotation:",
-        result && [result.x, result.y, result.z].map((n) => n.toFixed(1)),
-      );
-    }
-
-    return result;
   };
 }
