@@ -430,8 +430,6 @@ export default function App() {
   const focusedIndividual =
     individuals.find((individual) => individual.id === focusedId) ?? null;
 
-  console.log("focusedId:", focusedId, "individual:", focusedIndividual?.id);
-
   return (
     <div className="app-shell d-flex flex-column vh-100 overflow-hidden">
       <NewProjectModal
