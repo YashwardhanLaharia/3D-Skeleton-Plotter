@@ -1,4 +1,6 @@
 export const PLACEMENT_ANCHORS = [
+  { jointId: "sacral_promontory", boneName: "DEF-SpineLumbar5" },
+  
   { jointId: "head_centre", boneName: "DEF-Skull" },
 
   { jointId: "acetabulum_l", boneName: "DEF-FemurL" },

@@ -1,4 +1,4 @@
-import { Box3, Matrix4, Vector3 } from "three";
+import { Box3, Matrix4, Vector3, Quaternion, Euler } from "three";
 
 // Foot meshes provide a more reliable ground reference than the full skeleton bounds.
 const FOOT_MESH_PATTERN = /(foot|feet|metatarsal|calcaneus)/i;
@@ -10,11 +10,25 @@ export function clamp(value, min, max) {
 
 /** Applies degree offsets on top of a bone's imported rest rotation. */
 export function applyRotation(bone, restRotation, rotation) {
-  const nextRotation = restRotation.clone();
-  nextRotation.x += (rotation.x * Math.PI) / 180;
-  nextRotation.y += (rotation.y * Math.PI) / 180;
-  nextRotation.z += (rotation.z * Math.PI) / 180;
-  bone.rotation.copy(nextRotation);
+  // Identity deltas must restore the captured rest Euler exactly. Rebuilding
+  // via quaternion → Euler can change components by a ULP and breaks strict
+  // "untouched bone" checks in the rig tests.
+  if (rotation.x === 0 && rotation.y === 0 && rotation.z === 0) {
+    bone.rotation.copy(restRotation);
+    return;
+  }
+
+  const order = restRotation.order ?? "XYZ";
+  const restQuat = new Quaternion().setFromEuler(restRotation);
+  const deltaQuat = new Quaternion().setFromEuler(
+    new Euler(
+      (rotation.x * Math.PI) / 180,
+      (rotation.y * Math.PI) / 180,
+      (rotation.z * Math.PI) / 180,
+      order,
+    ),
+  );
+  bone.quaternion.copy(restQuat).multiply(deltaQuat);
 }
 
 /** Captures private geometry and rest transforms for one independently scalable segment. */
@@ -148,10 +162,17 @@ export function syncAttachment({
 
   scene.updateMatrixWorld(true);
   // Convert the driver's rest-to-current delta into the attachment's local space.
-  const driverDelta = new Matrix4()
-    .copy(driver.matrixWorld)
-    .multiply(new Matrix4().copy(restDriver).invert());
-  const targetWorld = driverDelta.multiply(restAttachment);
+    // Follow the driver's translation but not its rotation. Applying the full
+  // delta swings the sternum around the spine — at 15cm off-axis and a 61 deg
+  // solver rotation, it lands on the opposite side of the vertebral column.
+  const driverPos = new Vector3().setFromMatrixPosition(driver.matrixWorld);
+  const restPos = new Vector3().setFromMatrixPosition(restDriver);
+  const translation = new Matrix4().makeTranslation(
+    driverPos.x - restPos.x,
+    driverPos.y - restPos.y,
+    driverPos.z - restPos.z,
+  );
+  const targetWorld = translation.multiply(restAttachment);
   const targetLocal = new Matrix4();
 
   if (attachment.parent) {
@@ -167,5 +188,11 @@ export function syncAttachment({
     attachment.position,
     attachment.quaternion,
     attachment.scale
+  );
+    console.log(
+    "restAttachment position:",
+    new Vector3().setFromMatrixPosition(restAttachment).toArray().map((n) => n.toFixed(3)),
+    "| restDriver position:",
+    new Vector3().setFromMatrixPosition(restDriver).toArray().map((n) => n.toFixed(3)),
   );
 }

@@ -141,12 +141,31 @@ export function createSolveBone(scene) {
       .invert();
     target.applyQuaternion(inverse);
 
+    // target.normalize();
+
+    // return computeBoneRotation(
+    //   { x: 0, y: 0, z: 0 },
+    //   { x: target.x, y: target.y, z: target.z },
+    //   REST_DIRECTION,
+    // );
     target.normalize();
 
-    return computeBoneRotation(
+    const result = computeBoneRotation(
       { x: 0, y: 0, z: 0 },
       { x: target.x, y: target.y, z: target.z },
       REST_DIRECTION,
     );
+
+    // TEMPORARY
+    if (bone.id === "spine") {
+      console.log(
+        "spine target:",
+        target.toArray().map((n) => n.toFixed(3)),
+        "→ rotation:",
+        result && [result.x, result.y, result.z].map((n) => n.toFixed(1)),
+      );
+    }
+
+    return result;
   };
 }

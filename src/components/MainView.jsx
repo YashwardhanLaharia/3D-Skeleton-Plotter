@@ -91,6 +91,27 @@ function SkeletonModel({
     return map;
   }, [clonedScene]);
 
+  // Sternum's offset from the top of the spinal chain, before anything is posed.
+  const restSternumOffset = useMemo(() => {
+    clonedScene.updateMatrixWorld(true);
+    const sternum = clonedScene.getObjectByName("DEF-Sternum");
+    const top = clonedScene.getObjectByName("DEF-SpineCervical1");
+    if (!sternum || !top) return null;
+    return sternum
+      .getWorldPosition(new Vector3())
+      .sub(top.getWorldPosition(new Vector3()));
+  }, [clonedScene]);
+
+  // Femur's offset from the pelvis at rest, for comparison with the sternum's.
+  const restFemurOffset = useMemo(() => {
+    clonedScene.updateMatrixWorld(true);
+    const femur = clonedScene.getObjectByName("DEF-FemurL");
+    const pelvis = clonedScene.getObjectByName("DEF-Pelvis");
+    if (!femur || !pelvis) return null;
+    return femur
+      .getWorldPosition(new Vector3())
+      .sub(pelvis.getWorldPosition(new Vector3()));
+  }, [clonedScene]);
   // Solve rotations and measured long-bone lengths.
   //
   // Bones are applied as they are solved, proximal to distal — solveBone
@@ -114,44 +135,27 @@ function SkeletonModel({
     rig.replaceSegmentScales(scales);
     clonedScene.updateMatrixWorld(true);
 
+    let spineRot = null;
     const report = solveSkeleton(sceneJoints, {
       solveBone,
-      applyBone: (jointId, rotation, bone) => {
-        const object = clonedScene.getObjectByName(BONE_OBJECTS[bone.id]);
-        if (!object?.parent) return;
-
-        const proximal = sceneJoints[bone.proximal];
-        const distal = sceneJoints[bone.distal];
-        if (!proximal || !distal) return;
-
-        object.parent.updateMatrixWorld(true);
-
-        const wantedWorld = new Vector3(
-          distal.x - proximal.x,
-          distal.y - proximal.y,
-          distal.z - proximal.z,
-        ).normalize();
-
-        const wantedLocal = wantedWorld.applyQuaternion(
-          object.parent.getWorldQuaternion(new Quaternion()).invert(),
-        );
-
-        // Compose onto the bone's rest rotation rather than replacing it, so
-        // the bone ends up at the target direction relative to where it
-        // started rather than relative to its parent's axes.
-        const restQuat = restRotations.get(bone.id);
-        if (!restQuat) return;
-
-        const restDirLocal = new Vector3(0, 1, 0).applyQuaternion(restQuat);
-        const delta = new Quaternion().setFromUnitVectors(
-          restDirLocal,
-          wantedLocal,
-        );
-
-        object.quaternion.copy(delta.multiply(restQuat));
-        object.updateMatrixWorld(true);
+      applyBone: (jointId, rotation, bone, pose) => {
+        if (bone.id === "spine") spineRot = rotation;
+        rig.replacePose(pose);
+        clonedScene.updateMatrixWorld(true);
       },
     });
+
+    // TEMPORARY
+    if (spineRot) {
+      const lumbar = clonedScene.getObjectByName("DEF-SpineLumbar5");
+      lumbar.rotation.set(
+        (spineRot.x * Math.PI) / 180,
+        (spineRot.y * Math.PI) / 180,
+        (spineRot.z * Math.PI) / 180,
+      );
+      clonedScene.updateMatrixWorld(true);
+    }
+    console.log("manubrium raw:", sceneJoints.manubrium);
 
     if (
       report.unknown.length ||
@@ -164,7 +168,63 @@ function SkeletonModel({
         failed: report.failed,
       });
     }
-  }, [sceneJoints, solveBone, rig, clonedScene, restRotations]);
+
+  }, [sceneJoints, solveBone, rig, clonedScene]);
+
+  // Commands arrive one at a time from the Rig Controls window.
+  const lastCommandRef = useRef(command ?? null);
+
+  useEffect(() => {
+    if (!command || !isTarget) return;
+
+    if (command.id != null && lastCommandRef.current?.id === command.id) {
+      return;
+    }
+
+    lastCommandRef.current = command;
+    rig.execute(command);
+  }, [command, isTarget, rig]);
+
+  // Whole-skeleton grave placement.
+  //
+  // findPlacementAnchor prefers head_centre when available.
+  // If it is missing, it uses the next usable measured joint.
+  useEffect(() => {
+    const group = groupRef.current;
+
+    if (!group) return;
+
+    // Remove the previous whole-skeleton translation before finding
+    // the current model anchor position.
+    group.position.set(0, 0, 0);
+    group.updateWorldMatrix(true, true);
+
+    clonedScene.updateMatrixWorld(true);
+
+    const anchor = findPlacementAnchor(sceneJoints, clonedScene);
+
+    // Nothing usable has been measured yet.
+    if (!anchor) {
+      return;
+    }
+
+    const modelPosition = anchor.modelAnchor.getWorldPosition(new Vector3());
+
+    // Translate the complete skeleton so that the model joint lands
+    // on its measured grave coordinate.
+    group.position.set(
+      anchor.measuredAnchor.x - modelPosition.x,
+      anchor.measuredAnchor.y - modelPosition.y,
+      anchor.measuredAnchor.z - modelPosition.z,
+    );
+    console.log(
+      "placement anchor:",
+      anchor.jointId,
+      "→ group.position",
+      group.position.toArray().map((n) => n.toFixed(3)),
+    );
+    group.updateWorldMatrix(true, true);
+  }, [sceneJoints, clonedScene, command]);
 
   // TEMPORARY
   useEffect(() => {
@@ -236,6 +296,187 @@ function SkeletonModel({
     check("ulna L", "elbow_l", "wrist_l", "DEF-UlnaL");
     check("skull", "head_centre", "head_proximal", "DEF-Skull");
 
+    const sternum = clonedScene.getObjectByName("DEF-Sternum");
+    const wanted = sceneJoints.manubrium;
+    if (sternum && wanted) {
+      clonedScene.updateMatrixWorld(true);
+      const actual = sternum.getWorldPosition(new Vector3());
+      const wantedVec = new Vector3(wanted.x, wanted.y, wanted.z);
+      console.log(
+        "manubrium — wanted:",
+        wantedVec.toArray().map((n) => n.toFixed(3)),
+        "| actual:",
+        actual.toArray().map((n) => n.toFixed(3)),
+        "| off by:",
+        actual.distanceTo(wantedVec).toFixed(3),
+        "m",
+      );
+    }
+
+    const lumbar5 = clonedScene.getObjectByName("DEF-SpineLumbar5");
+    const cerv1 = clonedScene.getObjectByName("DEF-SpineCervical1");
+    const sacrum = sceneJoints.sacral_promontory;
+
+    if (lumbar5 && cerv1 && sacrum && wanted) {
+      clonedScene.updateMatrixWorld(true);
+      const spineChain = [];
+      clonedScene.traverse((child) => {
+        if (/^DEF-Spine/i.test(child.name)) spineChain.push(child);
+      });
+      clonedScene.updateMatrixWorld(true);
+
+      // Ordered by the traversal, which follows the hierarchy — lumbar to cervical.
+      let summed = 0;
+      for (let i = 1; i < spineChain.length; i += 1) {
+        summed += spineChain[i - 1]
+          .getWorldPosition(new Vector3())
+          .distanceTo(spineChain[i].getWorldPosition(new Vector3()));
+      }
+
+      const straight = spineChain[0]
+        .getWorldPosition(new Vector3())
+        .distanceTo(spineChain[spineChain.length - 1].getWorldPosition(new Vector3()));
+
+      console.log(
+        "spine — summed:", summed.toFixed(3),
+        "m | straight:", straight.toFixed(3),
+        "m | measured target:",
+        new Vector3(sceneJoints.sacral_promontory.x, sceneJoints.sacral_promontory.y, sceneJoints.sacral_promontory.z)
+          .distanceTo(new Vector3(sceneJoints.manubrium.x, sceneJoints.manubrium.y, sceneJoints.manubrium.z))
+          .toFixed(3),
+        "m",
+      );
+
+
+      console.log(
+        "chain now — summed:", summed.toFixed(3),
+        "straight:", straight.toFixed(3),
+        "ratio:", (summed / straight).toFixed(3),
+      );
+      const lumbar = clonedScene.getObjectByName("DEF-SpineLumbar5");
+      console.log(
+        "lumbar5 local rotation:",
+        lumbar.rotation.toArray().slice(0, 3).map((n) => ((n * 180) / Math.PI).toFixed(1)),
+      );
+
+      const top = clonedScene.getObjectByName("DEF-SpineCervical1");
+      clonedScene.updateMatrixWorld(true);
+      const chainDir = top.getWorldPosition(new Vector3())
+        .sub(lumbar.getWorldPosition(new Vector3()))
+        .normalize();
+      const wantDir = new Vector3(
+        sceneJoints.manubrium.x - sceneJoints.sacral_promontory.x,
+        sceneJoints.manubrium.y - sceneJoints.sacral_promontory.y,
+        sceneJoints.manubrium.z - sceneJoints.sacral_promontory.z,
+      ).normalize();
+      console.log(
+        "chain dir:", chainDir.toArray().map(n => n.toFixed(3)),
+        "| want dir:", wantDir.toArray().map(n => n.toFixed(3)),
+        "| angle:", (chainDir.angleTo(wantDir) * 180 / Math.PI).toFixed(1), "deg",
+      );
+
+      console.log(
+        "cervical1 vs manubrium target — off by:",
+        top.getWorldPosition(new Vector3())
+          .distanceTo(new Vector3(sceneJoints.manubrium.x, sceneJoints.manubrium.y, sceneJoints.manubrium.z))
+          .toFixed(3), "m",
+      );
+
+      const target = new Vector3(
+        sceneJoints.manubrium.x,
+        sceneJoints.manubrium.y,
+        sceneJoints.manubrium.z,
+      );
+
+      clonedScene.updateMatrixWorld(true);
+
+      const distances = [];
+      clonedScene.traverse((child) => {
+        if (/^DEF-Spine/i.test(child.name)) {
+          distances.push({
+            name: child.name,
+            d: child.getWorldPosition(new Vector3()).distanceTo(target),
+          });
+        }
+      });
+
+      distances.sort((a, b) => a.d - b.d);
+      console.log(
+        "closest spinal bones to manubrium target:",
+        distances.slice(0, 5).map((x) => `${x.name}: ${x.d.toFixed(3)}`),
+      );
+
+      const sternumNow = clonedScene.getObjectByName("DEF-Sternum");
+      const topNow = clonedScene.getObjectByName("DEF-SpineCervical1");
+      clonedScene.updateMatrixWorld(true);
+
+      const offsetNow = sternumNow
+        .getWorldPosition(new Vector3())
+        .sub(topNow.getWorldPosition(new Vector3()));
+
+      console.log(
+        "sternum offset from chain top — rest:",
+        restSternumOffset?.toArray().map((n) => n.toFixed(3)),
+        "| now:",
+        offsetNow.toArray().map((n) => n.toFixed(3)),
+        "| moved:",
+        restSternumOffset
+          ? offsetNow.distanceTo(restSternumOffset).toFixed(3)
+          : "n/a",
+        "m",
+      );
+    }
+    const femurNow = clonedScene.getObjectByName("DEF-FemurL");
+    const pelvisNow = clonedScene.getObjectByName("DEF-Pelvis");
+    clonedScene.updateMatrixWorld(true);
+
+    const femurOffsetNow = femurNow
+      .getWorldPosition(new Vector3())
+      .sub(pelvisNow.getWorldPosition(new Vector3()));
+
+    console.log(
+      "femur offset from pelvis — rest:",
+      restFemurOffset?.toArray().map((n) => n.toFixed(3)),
+      "| now:",
+      femurOffsetNow.toArray().map((n) => n.toFixed(3)),
+    );
+    // TEMPORARY — does a 180 deg roll about the body's long axis put the
+    // sternum on the correct side of the spine?
+    // {
+    //   const group = groupRef.current;
+    //   if (group) {
+    //     const sac = sceneJoints.sacral_promontory;
+    //     const man = sceneJoints.manubrium;
+
+    //     // The body's long axis, in world space.
+    //     const axis = new Vector3(
+    //       man.x - sac.x,
+    //       man.y - sac.y,
+    //       man.z - sac.z,
+    //     ).normalize();
+
+    //     const pivot = new Vector3(sac.x, sac.y, sac.z);
+    //     const roll = new Quaternion().setFromAxisAngle(axis, Math.PI);
+
+    //     // Rotate the group about the sacrum rather than the origin.
+    //     group.position.sub(pivot).applyQuaternion(roll).add(pivot);
+    //     group.quaternion.premultiply(roll);
+    //     group.updateMatrixWorld(true);
+    //     clonedScene.updateMatrixWorld(true);
+
+    //     const sternumAfter = clonedScene
+    //       .getObjectByName("DEF-Sternum")
+    //       .getWorldPosition(new Vector3());
+
+    //     console.log(
+    //       "AFTER 180 ROLL — manubrium off by:",
+    //       sternumAfter
+    //         .distanceTo(new Vector3(man.x, man.y, man.z))
+    //         .toFixed(3),
+    //       "m",
+    //     );
+    //   }
+    // }
     // const state = rig.getState();
     // console.log(
     //   "stored — acetabulum_l:",
@@ -253,58 +494,8 @@ function SkeletonModel({
     //     .toArray()
     //     .map((n) => n.toFixed(3)),
     // );
-  }, [sceneJoints, clonedScene, rig]);
-
-  // Commands arrive one at a time from the Rig Controls window.
-  const lastCommandRef = useRef(command ?? null);
-
-  useEffect(() => {
-    if (!command || !isTarget) return;
-
-    if (command.id != null && lastCommandRef.current?.id === command.id) {
-      return;
-    }
-
-    lastCommandRef.current = command;
-    rig.execute(command);
-  }, [command, isTarget, rig]);
-
-  // Whole-skeleton grave placement.
-  //
-  // findPlacementAnchor prefers head_centre when available.
-  // If it is missing, it uses the next usable measured joint.
-  useEffect(() => {
-    const group = groupRef.current;
-
-    if (!group) return;
-
-    // Remove the previous whole-skeleton translation before finding
-    // the current model anchor position.
-    group.position.set(0, 0, 0);
-    group.updateWorldMatrix(true, true);
-
-    clonedScene.updateMatrixWorld(true);
-
-    const anchor = findPlacementAnchor(sceneJoints, clonedScene);
-
-    // Nothing usable has been measured yet.
-    if (!anchor) {
-      return;
-    }
-
-    const modelPosition = anchor.modelAnchor.getWorldPosition(new Vector3());
-
-    // Translate the complete skeleton so that the model joint lands
-    // on its measured grave coordinate.
-    group.position.set(
-      anchor.measuredAnchor.x - modelPosition.x,
-      anchor.measuredAnchor.y - modelPosition.y,
-      anchor.measuredAnchor.z - modelPosition.z,
-    );
-
-    group.updateWorldMatrix(true, true);
-  }, [sceneJoints, clonedScene, command]);
-
+  }, [sceneJoints, clonedScene, rig, restSternumOffset, restFemurOffset]);
+  
   return (
     <group ref={groupRef} name={`skeleton-${id}`} visible={visible}>
       <primitive object={clonedScene} />

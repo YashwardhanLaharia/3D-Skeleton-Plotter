@@ -87,7 +87,7 @@ const JOINT_DEFINITIONS = {
     region: "torso",
     primaryBoneName: "DEF-SpineLumbar5",
     boneNames: LOWER_BODY_SACRAL_BONE_NAMES,
-    max: 45,
+    max: 180,
     distribute: true,
   },
   shoulder_l: { label: "left shoulder", region: "leftArm", boneNames: ["DEF-HumerusL"], max: 120 },
