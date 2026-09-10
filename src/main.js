@@ -81,6 +81,44 @@ ipcMain.handle("save-project", async (_event, { payload, filePath }) => {
   }
 });
 
+ipcMain.handle("save-screenshot", async (_event, data) => {
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: "Export screenshot",
+    defaultPath: "skeleton-plotter.png",
+    filters: [{ name: "PNG image", extensions: ["png"] }],
+  });
+
+  if (result.canceled || !result.filePath) {
+    return { ok: false, canceled: true };
+  }
+
+  try {
+    await fs.writeFile(result.filePath, Buffer.from(data));
+    return { ok: true, path: result.filePath };
+  } catch (error) {
+    return { ok: false, error: `Could not export screenshot: ${error.message}` };
+  }
+});
+
+ipcMain.handle("save-glb", async (_event, data) => {
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: "Export GLB scene",
+    defaultPath: "skeleton-plotter.glb",
+    filters: [{ name: "Binary glTF scene", extensions: ["glb"] }],
+  });
+
+  if (result.canceled || !result.filePath) {
+    return { ok: false, canceled: true };
+  }
+
+  try {
+    await fs.writeFile(result.filePath, Buffer.from(data));
+    return { ok: true, path: result.filePath };
+  } catch (error) {
+    return { ok: false, error: `Could not export GLB: ${error.message}` };
+  }
+});
+
 ipcMain.handle("new-project", async () => {
   return { ok: true, path: null, data: null };
 });
@@ -165,6 +203,21 @@ const menuTemplate = [
         label: "Save As…",
         accelerator: "CmdOrCtrl+Shift+S",
         click: () => sendToRenderer("menu-save-as"),
+      },
+      {
+        label: "Export",
+        submenu: [
+          {
+            label: "Screenshot",
+            accelerator: "CmdOrCtrl+Shift+E",
+            click: () => sendToRenderer("menu-export-screenshot"),
+          },
+          {
+            label: "GLB",
+            accelerator: "CmdOrCtrl+Shift+G",
+            click: () => sendToRenderer("menu-export-glb"),
+          },
+        ],
       },
       { type: "separator" },
       { label: 'Quit', accelerator: 'CmdOrCtrl+Q', click: () => mainWindow.close() },

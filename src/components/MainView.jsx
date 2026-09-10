@@ -1,4 +1,11 @@
-import { Suspense, useEffect, useMemo, useRef } from "react";
+import {
+  Suspense,
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+} from "react";
 import {
   Canvas,
   extend,
@@ -8,13 +15,15 @@ import {
 } from "@react-three/fiber";
 import { OrbitControls as ThreeOrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
 import { createSkeletonRig } from "../rig/SkeletonRigApi.js";
 import modelUrl from "../assets/models/skeleton-male.glb";
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 import { isVisible } from "../visibility";
-import { Box3, Vector3 } from "three";
+import { Box3, Vector2, Vector3 } from "three";
 import { graveDimensionsToGridScale } from "../graveDimensions.js";
 import { toSceneSpace, graveOrigin } from "../sceneSpace.js";
+import { makeGLBExportScene } from "../exportScene.js";
 import { toNumericJoints } from "../solver/numericJoints.js";
 import { solveSkeleton } from "../solver/solveSkeleton.js";
 import { createSolveBone } from "../solver/solveBone.js";
@@ -32,6 +41,7 @@ const globalScale = 1;
 
 function SkeletonModel({
   id,
+  label = "",
   colour,
   coords = EMPTY_POSE,
   graveDimensions,
@@ -172,6 +182,9 @@ function SkeletonModel({
     <group
       ref={groupRef}
       name={`skeleton-${id}`}
+      userData={{ individualId: id, label }}
+      scale={transform.scale}
+      position={transform.position}
       visible={visible}
     >
       <primitive object={clonedScene} />
@@ -198,6 +211,75 @@ function CameraControls({ controlsRef }) {
     />
   );
 }
+
+const SCREENSHOT_WIDTH = 1920;
+const SCREENSHOT_HEIGHT = 1080;
+
+// Capture the WebGL scene itself, independent of the surrounding React UI.
+const ViewportExport = forwardRef(function ViewportExport(
+  { controlsRef },
+  ref,
+) {
+  const { camera, gl, scene } = useThree();
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      async captureScreenshot() {
+        const canvas = gl.domElement;
+        const previousSize = gl.getSize(new Vector2());
+        const previousPixelRatio = gl.getPixelRatio();
+        const previousAspect = camera.aspect;
+
+        camera.aspect = SCREENSHOT_WIDTH / SCREENSHOT_HEIGHT;
+        camera.updateProjectionMatrix();
+        gl.setPixelRatio(1);
+        gl.setSize(SCREENSHOT_WIDTH, SCREENSHOT_HEIGHT, false);
+
+        gl.render(scene, camera);
+
+        try {
+          const blob = await new Promise((resolve, reject) => {
+            canvas.toBlob((nextBlob) => {
+              if (nextBlob) resolve(nextBlob);
+              else reject(new Error("The viewport could not be encoded as PNG."));
+            }, "image/png");
+          });
+
+          return window.electronAPI.saveScreenshot(await blob.arrayBuffer());
+        } finally {
+          camera.aspect = previousAspect;
+          camera.updateProjectionMatrix();
+          gl.setPixelRatio(previousPixelRatio);
+          gl.setSize(previousSize.x, previousSize.y, false);
+          controlsRef.current?.update();
+          gl.render(scene, camera);
+        }
+      },
+      async exportGLB() {
+        const exportScene = makeGLBExportScene(
+          scene,
+          camera,
+          controlsRef.current,
+        );
+        const exporter = new GLTFExporter();
+        const data = await new Promise((resolve, reject) => {
+          exporter.parse(
+            exportScene,
+            resolve,
+            reject,
+            { binary: true },
+          );
+        });
+
+        return window.electronAPI.saveGLB(data);
+      },
+    }),
+    [camera, controlsRef, gl, scene],
+  );
+
+  return null;
+});
 
 // Moves the camera to frame one individual, and back again on exit.
 function FocusCamera({ focusedId, controlsRef }) {
@@ -339,14 +421,17 @@ function FocusGrid({ focusedId }) {
   );
 }
 
-export default function MainView({
-  individuals = [],
-  graveDimensions = [1, 1, 1],
-  command,
-  targetId,
-  hidden = [],
-  focusedId = null,
-}) {
+const MainView = forwardRef(function MainView(
+  {
+    individuals = [],
+    graveDimensions = [1, 1, 1],
+    command,
+    targetId,
+    hidden = [],
+    focusedId = null,
+  },
+  ref,
+) {
   const controlsRef = useRef(null);
 
   return (
@@ -387,6 +472,7 @@ export default function MainView({
           >
             <SkeletonModel
               id={individual.id}
+              label={individual.label}
               colour={individual.colour}
               coords={individual.coords}
               graveDimensions={graveDimensions}
@@ -421,6 +507,15 @@ export default function MainView({
             )}
           />
         )}
+        <CameraControls controlsRef={controlsRef} />
+        <FocusCamera focusedId={focusedId} controlsRef={controlsRef} />
+        <ViewportExport ref={ref} controlsRef={controlsRef} />
+      </Canvas>
+    </main>
+  );
+});
+
+export default MainView;
 
         <CameraControls
           controlsRef={controlsRef}
