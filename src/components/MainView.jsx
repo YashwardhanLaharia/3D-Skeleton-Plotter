@@ -24,29 +24,65 @@ import { Box3, Vector2, Vector3 } from "three";
 import { graveDimensionsToGridScale } from "../graveDimensions.js";
 import { toSceneSpace, graveOrigin } from "../sceneSpace.js";
 import { makeGLBExportScene } from "../exportScene.js";
+import { toNumericJoints } from "../solver/numericJoints.js";
+import { solveSkeleton } from "../solver/solveSkeleton.js";
+import { createSolveBone } from "../solver/solveBone.js";
+import { computeSegmentScales } from "../solver/segmentScales.js";
+import { findPlacementAnchor } from "../solver/placementAnchor.js";
 
 // Make Three.js orbit controls available as a React Three Fiber element.
 extend({ OrbitControls: ThreeOrbitControls });
 
 const EMPTY_POSE = Object.freeze({});
 
-// Global scale factor for the scene. Must be passed into the grid helper and the scene space conversion functions.
+// Global scale factor for the scene.
+// Must be passed into the grid helper and scene-space conversion functions.
 const globalScale = 1;
-
 
 function SkeletonModel({
   id,
   label = "",
   colour,
   coords = EMPTY_POSE,
+  graveDimensions,
   visible = true,
   command,
   isTarget,
 }) {
+  const groupRef = useRef(null);
+
   const { scene } = useLoader(GLTFLoader, modelUrl);
-  const clonedScene = useMemo(() => SkeletonUtils.clone(scene), [scene]);
-  const rig = useMemo(() => createSkeletonRig(clonedScene), [clonedScene]);
-  const transform = useMemo(() => rig.getDisplayTransform(), [rig]);
+
+  const clonedScene = useMemo(
+    () => SkeletonUtils.clone(scene),
+    [scene],
+  );
+
+  const rig = useMemo(
+    () => createSkeletonRig(clonedScene),
+    [clonedScene],
+  );
+
+  // Creates the one-bone solver using this skeleton's cloned scene.
+  const solveBone = useMemo(
+    () => createSolveBone(clonedScene),
+    [clonedScene],
+  );
+
+  // Sidebar coordinates arrive as strings.
+  // Convert them to numbers, then convert site-grid coordinates
+  // into Three.js scene-space coordinates.
+  const sceneJoints = useMemo(() => {
+    const numericJoints = toNumericJoints(coords);
+    const origin = graveOrigin(graveDimensions);
+
+    return Object.fromEntries(
+      Object.entries(numericJoints).map(([jointId, point]) => [
+        jointId,
+        toSceneSpace(point, origin, globalScale),
+      ]),
+    );
+  }, [coords, graveDimensions]);
 
   useEffect(() => {
     if (colour) {
@@ -59,25 +95,92 @@ function SkeletonModel({
     }
   }, [colour, clonedScene]);
 
+  // Solve rotations and measured long-bone lengths.
   useEffect(() => {
-    rig.setPose(coords);
-  }, [coords, rig]);
+    // Reset previous solver results first.
+    // Each coordinate update is solved from the neutral model rather
+    // than being affected by the previous solved pose.
+    rig.replacePose({});
+    rig.replaceSegmentScales({});
 
-  // Commands arrive one at a time from the Rig Controls window and are only
-  // meaningful to the model they were aimed at. The ref is seeded with any
-  // command present at mount so a model that loads late never replays a stale
-  // rotation, and the command id guards against re-running when isTarget flips.
+    clonedScene.updateMatrixWorld(true);
+
+    // Solve bone rotations.
+    const { pose } = solveSkeleton(sceneJoints, { solveBone });
+
+    // Calculate measured segment lengths relative to model rest lengths.
+    const diagnostics = rig.getDiagnostics();
+
+    const { scales } = computeSegmentScales(
+      sceneJoints,
+      diagnostics.segments,
+    );
+
+    // Apply the new absolute scale and pose.
+    rig.replaceSegmentScales(scales);
+    rig.replacePose(pose);
+  }, [sceneJoints, solveBone, rig, clonedScene]);
+
+  // Commands arrive one at a time from the Rig Controls window.
   const lastCommandRef = useRef(command ?? null);
 
   useEffect(() => {
     if (!command || !isTarget) return;
-    if (command.id != null && lastCommandRef.current?.id === command.id) return;
+
+    if (
+      command.id != null &&
+      lastCommandRef.current?.id === command.id
+    ) {
+      return;
+    }
+
     lastCommandRef.current = command;
     rig.execute(command);
   }, [command, isTarget, rig]);
 
+  // Whole-skeleton grave placement.
+  //
+  // findPlacementAnchor prefers head_centre when available.
+  // If it is missing, it uses the next usable measured joint.
+  useEffect(() => {
+    const group = groupRef.current;
+
+    if (!group) return;
+
+    // Remove the previous whole-skeleton translation before finding
+    // the current model anchor position.
+    group.position.set(0, 0, 0);
+    group.updateWorldMatrix(true, true);
+
+    clonedScene.updateMatrixWorld(true);
+
+    const anchor = findPlacementAnchor(
+      sceneJoints,
+      clonedScene,
+    );
+
+    // Nothing usable has been measured yet.
+    if (!anchor) {
+      return;
+    }
+
+    const modelPosition =
+      anchor.modelAnchor.getWorldPosition(new Vector3());
+
+    // Translate the complete skeleton so that the model joint lands
+    // on its measured grave coordinate.
+    group.position.set(
+      anchor.measuredAnchor.x - modelPosition.x,
+      anchor.measuredAnchor.y - modelPosition.y,
+      anchor.measuredAnchor.z - modelPosition.z,
+    );
+
+    group.updateWorldMatrix(true, true);
+  }, [sceneJoints, clonedScene, command]);
+
   return (
     <group
+      ref={groupRef}
       name={`skeleton-${id}`}
       userData={{ individualId: id, label }}
       scale={transform.scale}
@@ -100,7 +203,13 @@ function LoadingModel() {
 
 function CameraControls({ controlsRef }) {
   const { camera, gl } = useThree();
-  return <orbitControls ref={controlsRef} args={[camera, gl.domElement]} />;
+
+  return (
+    <orbitControls
+      ref={controlsRef}
+      args={[camera, gl.domElement]}
+    />
+  );
 }
 
 const SCREENSHOT_WIDTH = 1920;
@@ -173,13 +282,6 @@ const ViewportExport = forwardRef(function ViewportExport(
 });
 
 // Moves the camera to frame one individual, and back again on exit.
-//
-// The previous camera position and target are stored on entry and restored on
-// exit — losing your grave viewpoint every time you inspect something would be
-// far more disruptive than the inspection is useful.
-//
-// Tweened rather than cut so the user understands they're looking at the same
-// skeleton from closer, not at a different screen.
 function FocusCamera({ focusedId, controlsRef }) {
   const { camera, scene } = useThree();
   const saved = useRef(null);
@@ -187,11 +289,10 @@ function FocusCamera({ focusedId, controlsRef }) {
 
   useEffect(() => {
     const controls = controlsRef.current;
+
     if (!controls) return;
 
     if (focusedId) {
-      // Store where we were, but only on first entry — re-entering focus from
-      // an already-focused state shouldn't overwrite the grave viewpoint.
       if (!saved.current) {
         saved.current = {
           position: camera.position.clone(),
@@ -199,20 +300,24 @@ function FocusCamera({ focusedId, controlsRef }) {
         };
       }
 
-      const target = scene.getObjectByName(`skeleton-${focusedId}`);
+      const target = scene.getObjectByName(
+        `skeleton-${focusedId}`,
+      );
+
       if (!target) return;
 
       const box = new Box3().setFromObject(target);
+
       if (box.isEmpty()) return;
 
       const centre = box.getCenter(new Vector3());
       const size = box.getSize(new Vector3());
       const extent = Math.max(size.x, size.y, size.z);
 
-      // Pull back far enough that the whole individual fits the vertical field
-      // of view, with a margin so it isn't touching the frame edges.
       const fov = (camera.fov * Math.PI) / 180;
-      const distance = (extent / 2 / Math.tan(fov / 2)) * 1.6;
+
+      const distance =
+        (extent / 2 / Math.tan(fov / 2)) * 1.6;
 
       tween.current = {
         from: {
@@ -220,7 +325,15 @@ function FocusCamera({ focusedId, controlsRef }) {
           target: controls.target.clone(),
         },
         to: {
-          position: centre.clone().add(new Vector3(0, extent * 0.15, distance)),
+          position: centre
+            .clone()
+            .add(
+              new Vector3(
+                0,
+                extent * 0.15,
+                distance,
+              ),
+            ),
           target: centre.clone(),
         },
         start: performance.now(),
@@ -234,6 +347,7 @@ function FocusCamera({ focusedId, controlsRef }) {
         to: saved.current,
         start: performance.now(),
       };
+
       saved.current = null;
     }
   }, [focusedId, camera, scene, controlsRef]);
@@ -241,12 +355,13 @@ function FocusCamera({ focusedId, controlsRef }) {
   useFrame(() => {
     const active = tween.current;
     const controls = controlsRef.current;
+
     if (!active || !controls) return;
 
     const DURATION = 600;
     const elapsed = performance.now() - active.start;
     const t = Math.min(elapsed / DURATION, 1);
-    // Ease-out cubic: quick to move, gentle to settle.
+
     const eased = 1 - Math.pow(1 - t, 3);
 
     camera.position.lerpVectors(
@@ -254,39 +369,56 @@ function FocusCamera({ focusedId, controlsRef }) {
       active.to.position,
       eased,
     );
-    controls.target.lerpVectors(active.from.target, active.to.target, eased);
+
+    controls.target.lerpVectors(
+      active.from.target,
+      active.to.target,
+      eased,
+    );
+
     controls.update();
 
-    if (t === 1) tween.current = null;
+    if (t === 1) {
+      tween.current = null;
+    }
   });
 
   return null;
 }
 
-// Ground reference under the focused specimen. Reads its position from the
-// scene rather than being passed one, because the display transform that
-// positions each skeleton lives inside SkeletonModel.
+// Ground reference under the focused specimen.
 function FocusGrid({ focusedId }) {
   const { scene } = useThree();
   const gridRef = useRef(null);
 
-  // Tracked per frame rather than memoised. The focused specimen's position
-  // changes whenever the set of loaded skeletons changes, because each model
-  // is centred on itself by its display transform — so deleting an unrelated
-  // individual moves the one you're looking at. Cheap: one bounding box a frame.
   useFrame(() => {
     const grid = gridRef.current;
-    const target = scene.getObjectByName(`skeleton-${focusedId}`);
+
+    const target = scene.getObjectByName(
+      `skeleton-${focusedId}`,
+    );
+
     if (!grid || !target) return;
 
     const box = new Box3().setFromObject(target);
+
     if (box.isEmpty()) return;
 
     const centre = box.getCenter(new Vector3());
-    grid.position.set(centre.x, box.min.y, centre.z);
+
+    grid.position.set(
+      centre.x,
+      box.min.y,
+      centre.z,
+    );
   });
 
-  return <gridHelper ref={gridRef} args={[1.2, 6, "#3a4149", "#2b3238"]} />;
+  return (
+    <gridHelper
+      ref={gridRef}
+      args={[1.2, 6, "#3a4149", "#2b3238"]}
+    />
+  );
 }
 
 const MainView = forwardRef(function MainView(
@@ -301,46 +433,78 @@ const MainView = forwardRef(function MainView(
   ref,
 ) {
   const controlsRef = useRef(null);
-  // The specimen sits wherever its display transform puts it, so a grid at the
-  // world origin reads as detached. Follow the focused individual's ground point.
-  const focusedIndex = individuals.findIndex(
-    (individual) => individual.id === focusedId,
-  );
+
   return (
     <main className="viewport flex-grow-1 bg-body-secondary">
       <Canvas
-        camera={{ position: [0, 1.4, 4], fov: 45 }}
-        gl={{ preserveDrawingBuffer: true }}
+        camera={{
+          position: [0, 1.4, 4],
+          fov: 45,
+        }}
       >
-        <color attach="background" args={[focusedId ? "#1b1f24" : "#e9ecef"]} />
-        <ambientLight intensity={focusedId ? 0.9 : 1.5} />
-        <directionalLight position={[3, 4, 5]} intensity={2} />
-        <directionalLight position={[-3, 2, -4]} intensity={1} />
+        <color
+          attach="background"
+          args={[
+            focusedId
+              ? "#1b1f24"
+              : "#e9ecef",
+          ]}
+        />
+
+        <ambientLight
+          intensity={focusedId ? 0.9 : 1.5}
+        />
+
+        <directionalLight
+          position={[3, 4, 5]}
+          intensity={2}
+        />
+
+        <directionalLight
+          position={[-3, 2, -4]}
+          intensity={1}
+        />
+
         {individuals.map((individual) => (
-          <Suspense key={individual.id} fallback={<LoadingModel />}>
+          <Suspense
+            key={individual.id}
+            fallback={<LoadingModel />}
+          >
             <SkeletonModel
               id={individual.id}
               label={individual.label}
               colour={individual.colour}
               coords={individual.coords}
+              graveDimensions={graveDimensions}
               command={command}
-              isTarget={individual.id === targetId}
+              isTarget={
+                individual.id === targetId
+              }
               visible={
                 focusedId
                   ? individual.id === focusedId
-                  : isVisible(hidden, individual.id)
+                  : isVisible(
+                      hidden,
+                      individual.id,
+                    )
               }
             />
           </Suspense>
         ))}
+
         {focusedId ? (
           <FocusGrid focusedId={focusedId} />
         ) : (
-          /* Scaled to the grave dimensions, but the axes are still in the
-             original order. */
           <gridHelper
-            args={[globalScale, 12, "#adb5bd", "#ced4da"]}
-            scale={graveDimensionsToGridScale(graveDimensions)}
+            args={[
+              globalScale,
+              12,
+              "#adb5bd",
+              "#ced4da",
+            ]}
+            scale={graveDimensionsToGridScale(
+              graveDimensions,
+            )}
           />
         )}
         <CameraControls controlsRef={controlsRef} />
@@ -352,3 +516,16 @@ const MainView = forwardRef(function MainView(
 });
 
 export default MainView;
+
+        <CameraControls
+          controlsRef={controlsRef}
+        />
+
+        <FocusCamera
+          focusedId={focusedId}
+          controlsRef={controlsRef}
+        />
+      </Canvas>
+    </main>
+  );
+}
