@@ -28,6 +28,58 @@ function start(list = [individual("ind-1")], groups = []) {
   return makeInitialHistory(makeDocument(list, groups));
 }
 
+test("offset updates all joint values, treats blanks as zero, and undoes as one change", () => {
+  const initial = start([
+    individual("ind-1", { coords: {
+      knee_l: { x: "0.1", y: "2", z: "" },
+      knee_r: { x: "", y: "", z: "3" },
+    } }),
+    individual("ind-2"),
+  ]);
+  const result = historyReducer(initial, {
+    type: "offset-coords", individualId: "ind-1",
+    offset: { x: "0.2", y: "", z: "-1" },
+  });
+  assert.deepEqual(result.present[0].coords, {
+    knee_l: { x: "0.3", y: "2", z: "-1" },
+    knee_r: { x: "0.2", y: "", z: "2" },
+  });
+  assert.equal(result.present[1], initial.present[1]);
+  assert.equal(result.past.length, 1);
+  const undone = historyReducer(result, { type: "undo" });
+  assert.deepEqual(undone.present, initial.present);
+  assert.deepEqual(historyReducer(undone, { type: "redo" }).present, result.present);
+});
+
+test("invalid offsets leave coordinates and history unchanged", () => {
+  const initial = start();
+  assert.equal(historyReducer(initial, {
+    type: "offset-coords", individualId: "ind-1",
+    offset: { x: "-", y: "", z: "" },
+  }), initial);
+});
+
+test("X-only addition preserves empty Y and Z in stored coordinates", () => {
+  const result = historyReducer(start(), {
+    type: "offset-coords", individualId: "ind-1",
+    offset: { x: "5", y: "", z: "" },
+  });
+  assert.deepEqual(result.present[0].coords.knee_l, { x: "5", y: "", z: "" });
+});
+
+test("empty offsets do nothing, while an explicit zero fills only its axis", () => {
+  const initial = start();
+  assert.equal(historyReducer(initial, {
+    type: "offset-coords", individualId: "ind-1",
+    offset: { x: "", y: "", z: "" },
+  }), initial);
+  const result = historyReducer(initial, {
+    type: "offset-coords", individualId: "ind-1",
+    offset: { x: "0", y: "", z: "" },
+  });
+  assert.deepEqual(result.present[0].coords.knee_l, { x: "0", y: "", z: "" });
+});
+
 // --- sessions -------------------------------------------------------------
 
 test("first coordinate edit opens a session and snapshots", () => {

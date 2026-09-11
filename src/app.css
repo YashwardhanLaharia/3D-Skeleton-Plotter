@@ -104,6 +104,13 @@
   font-size: 0.78rem;
 }
 
+.offset-add {
+  width: 10rem;
+  flex-shrink: 0;
+  background-color: #e9ecef;
+  font-size: 0.78rem;
+}
+
 .form-control.coord-input {
   width: 3.5rem;
   flex-shrink: 0;

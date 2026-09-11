@@ -30,6 +30,8 @@ import LayersPanel from "./components/LayersPanel";
 import FocusBar from "./components/FocusBar";
 import InspectionPanel from "./components/InspectionPanel";
 import NewProjectModal from "./components/NewProjectModal";
+import { importCsv } from "./csvimport";
+import { exportCsv } from "./csvexport";
 import "./app.css";
 
 const PALETTE = [
@@ -114,6 +116,11 @@ export default function App() {
   // history entry.
   function handleCommit() {
     dispatch({ type: "commit" });
+  }
+
+  function handleOffset(individualId, offset) {
+    dispatch({ type: "offset-coords", individualId, offset });
+    setIsDirty(true);
   }
 
   function handleColourChange(individualId, colour) {
@@ -280,6 +287,25 @@ export default function App() {
 
   function handleChangeGraveDimensions() {
     setIsNewProjectModalOpen(true);
+  }
+
+  async function handleImport() {
+    const result = await importCsv();
+
+    if (!result.ok) {
+      if (!result.canceled) setNotice(result.error);
+      return;
+    }
+
+    console.log("CSV columns:", result.columns);
+    console.log("CSV rows:", result.rows);
+    setNotice(
+      `Read ${result.rows.length} CSV rows and ${result.columns.length} columns`,
+    );
+  }
+
+  function handleExport() {
+    setNotice(exportCsv());
   }
 
   async function handleNew() {
@@ -454,6 +480,8 @@ export default function App() {
     handleUndo,
     handleRedo,
     handleChangeGraveDimensions,
+    handleImport,
+    handleExport,
   };
 
   useEffect(() => {
@@ -465,6 +493,8 @@ export default function App() {
       if (action === "menu-export-screenshot")
         actionsRef.current.handleExportScreenshot();
       if (action === "menu-export-glb") actionsRef.current.handleExportGLB();
+      if (action === "menu-import") actionsRef.current.handleImport();
+      if (action === "menu-export") actionsRef.current.handleExport();
       if (action === "menu-undo") actionsRef.current.handleUndo();
       if (action === "menu-redo") actionsRef.current.handleRedo();
       if (action === "menu-change-grave-dimensions")
@@ -550,6 +580,7 @@ export default function App() {
           groups={groups}
           openId={openId}
           onChange={handleChange}
+          onOffset={handleOffset}
           onCommit={handleCommit}
           onUndo={handleUndo}
           onRedo={handleRedo}

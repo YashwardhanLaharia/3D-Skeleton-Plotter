@@ -53,6 +53,37 @@ function mapIndividuals(present, mapFn) {
 
 export function historyReducer(state, action) {
   switch (action.type) {
+    case "offset-coords": {
+      const axes = ["x", "y", "z"];
+      const offset = axes.map((axis) => Number(action.offset[axis] || 0));
+      if (!offset.every(Number.isFinite)) return state;
+      let changed = false;
+      const next = state.present.map((individual) => {
+        if (individual.id !== action.individualId) return individual;
+        const coords = Object.fromEntries(
+          Object.entries(individual.coords).map(([id, position]) => [
+            id,
+            Object.fromEntries(axes.map((axis, index) => {
+              // An omitted offset leaves this axis untouched, including blanks.
+              if (action.offset[axis] === "" || action.offset[axis] == null) {
+                return [axis, position[axis]];
+              }
+              const value = Number(position[axis] || 0) + offset[index];
+              // Keep decimal additions readable in the coordinate inputs.
+              const formatted = String(Number(value.toPrecision(15)));
+              if (formatted !== position[axis]) changed = true;
+              return [axis, formatted];
+            })),
+          ]),
+        );
+        if (Object.values(coords).some((position) =>
+          axes.some((axis) => !Number.isFinite(Number(position[axis]))))) return individual;
+        return { ...individual, coords };
+      });
+      return changed && next.some((individual, index) => individual !== state.present[index])
+        ? withCommit(state, next) : state;
+    }
+
     case "set-coord": {
       const next = mapIndividuals(state.present, (individual) =>
         individual.id !== action.individualId

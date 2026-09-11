@@ -4,7 +4,7 @@
 import { JOINTS } from "../joints";
 import { useState, useEffect, useRef } from "react";
 
-const DECIMAL_PATTERN = /^\d*\.?\d*$/;
+const DECIMAL_PATTERN = /^-?\d*\.?\d*$/;
 
 // Data-entry grid navigation with keyboard arrows
 function moveFocus(input, rowDelta, colDelta) {
@@ -54,7 +54,7 @@ function JointRow({
           key={axis}
           type="text"
           inputMode="decimal"
-          pattern="[0-9]*[.]?[0-9]*"
+          pattern="-?[0-9]*[.]?[0-9]*"
           className={`form-control form-control-sm coord-input${
             highlightAxis === axis ? " coord-input-flash" : ""
           }`}
@@ -96,6 +96,7 @@ function IndividualSection({
   isOpen,
   onToggle,
   onChange,
+  onOffset,
   onCommit,
   onRemove,
   canRemove,
@@ -105,6 +106,8 @@ function IndividualSection({
   onSetGroup,
   highlight,
 }) {
+  const [offset, setOffset] = useState({ x: "", y: "", z: "" });
+  const offsetValid = Object.values(offset).every((value) => Number.isFinite(Number(value)));
   // A point counts as recorded only when all three axes are filled. Partial
   // entries are treated as not yet done.
   const filledCount = JOINTS.filter((joint) => {
@@ -186,6 +189,38 @@ function IndividualSection({
       </button>
       {isOpen && (
         <div className="px-2 pb-2">
+          <div className="d-flex align-items-center gap-1 mb-2 offset-row">
+            <button
+              type="button"
+              className="btn btn-light border btn-sm offset-add"
+              title="Add to every joint. Blank offset axes stay unchanged; blank joint values count as zero only for entered axes."
+              aria-label="Add coordinate offset to every joint"
+              disabled={!offsetValid}
+              onClick={() => {
+                onOffset(individual.id, offset);
+                setOffset({ x: "", y: "", z: "" });
+              }}
+            >
+              + Add
+            </button>
+            {["x", "y", "z"].map((axis) => (
+              <input
+                key={axis}
+                type="text"
+                inputMode="decimal"
+                className="form-control form-control-sm coord-input"
+                placeholder={axis.toUpperCase()}
+                aria-label={`Offset, ${axis.toUpperCase()}`}
+                value={offset[axis]}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  if (DECIMAL_PATTERN.test(value)) {
+                    setOffset((current) => ({ ...current, [axis]: value }));
+                  }
+                }}
+              />
+            ))}
+          </div>
           {JOINTS.map((joint) => (
             <JointRow
               key={joint.id}
@@ -345,6 +380,7 @@ export default function Sidebar({
   groups,
   openId,
   onChange,
+  onOffset,
   onCommit,
   onUndo,
   onRedo,
@@ -384,6 +420,7 @@ export default function Sidebar({
         isOpen={individual.id === openId}
         onToggle={onToggle}
         onChange={onChange}
+        onOffset={onOffset}
         onCommit={onCommit}
         onRemove={() => setPendingRemoval(individual)}
         canRemove={individuals.length > 1}
