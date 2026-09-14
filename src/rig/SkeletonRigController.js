@@ -158,7 +158,7 @@ export class SkeletonRigController {
     }
   }
 
-  // Independent-bone spawning for issue #43. Spawned groups are siblings of
+  // Independent-bone spawning for disarticulated remains. Spawned groups are siblings of
   // the master hierarchy (never reparented bones), so the articulated rig and
   // all existing pose/segment behaviour stays intact.
   spawnBone(boneId, superior, inferior, options = {}) {
