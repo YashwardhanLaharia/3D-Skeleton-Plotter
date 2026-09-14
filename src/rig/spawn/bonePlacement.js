@@ -9,18 +9,43 @@ export const SPAWN_SCALE_LIMITS = Object.freeze([0.5, 1.5]);
 
 const EPSILON_SQ = 1e-20;
 
+function isAmount(value) {
+  if (typeof value === "number") {
+    return Number.isFinite(value);
+  }
+  // Mirrors RigCommandValidator: numeric strings cross the IPC boundary, but
+  // blanks must stay missing rather than coercing to 0 via Number("").
+  return (
+    typeof value === "string" &&
+    value.trim().length > 0 &&
+    Number.isFinite(Number(value))
+  );
+}
+
 function isPosition(value) {
   return (
     value !== null &&
     typeof value === "object" &&
-    Number.isFinite(value.x) &&
-    Number.isFinite(value.y) &&
-    Number.isFinite(value.z)
+    isAmount(value.x) &&
+    isAmount(value.y) &&
+    isAmount(value.z)
   );
 }
 
 function toVector3(value) {
-  return new Vector3(value.x, value.y, value.z);
+  return new Vector3(Number(value.x), Number(value.y), Number(value.z));
+}
+
+function toPlainPoint(value) {
+  return { x: Number(value.x), y: Number(value.y), z: Number(value.z) };
+}
+
+/**
+ * Coerces an endpoint to finite numbers (accepting IPC numeric strings) or
+ * returns null when it is missing, blank, or non-numeric.
+ */
+export function normalizeEndpoint(value) {
+  return isPosition(value) ? toPlainPoint(value) : null;
 }
 
 /**
@@ -70,7 +95,7 @@ export function computeBonePlacement(superior, inferior, restLength) {
 
   return {
     ok: true,
-    position: { x: sup.x, y: sup.y, z: sup.z },
+    position: toPlainPoint(superior),
     quaternion: { x: quaternion.x, y: quaternion.y, z: quaternion.z, w: quaternion.w },
     measured,
     requested,

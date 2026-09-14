@@ -10,7 +10,7 @@ import { RigState } from "./state/RigState.js";
 import { Group } from "three";
 import { SEGMENT_GROUPS, SEGMENT_SCALES } from "./scaling/segmentConfig.js";
 import { getSpawnableBone, SPAWNABLE_BONES } from "./spawn/boneCatalog.js";
-import { computeBonePlacement } from "./spawn/bonePlacement.js";
+import { computeBonePlacement, normalizeEndpoint } from "./spawn/bonePlacement.js";
 import { SpawnedBoneStore } from "./spawn/SpawnedBoneStore.js";
 import { captureSpawnRest } from "./spawn/spawnRest.js";
 import {
@@ -35,6 +35,36 @@ function ownConfig(registry, id) {
   return typeof id === "string" && Object.hasOwn(registry, id)
     ? registry[id]
     : null;
+}
+
+// Restores a spawned clone to rest geometry. Master meshes are deformed in
+// place by segment and body-dimension transforms, so a clone taken after a
+// morphology change would otherwise inherit the deformation on top of its own
+// scale factor. Snapshots come from captureSpawnRest, taken before any
+// transform is applied.
+function restoreRestGeometry(clone, snapshot) {
+  if (!snapshot) return;
+  const position = clone.geometry.getAttribute("position");
+  position.array.set(snapshot.positions);
+  position.needsUpdate = true;
+  const normal = clone.geometry.getAttribute("normal");
+  if (normal && snapshot.normals) {
+    normal.array.set(snapshot.normals);
+    normal.needsUpdate = true;
+  }
+  clone.geometry.computeBoundingBox();
+  clone.geometry.computeBoundingSphere();
+}
+
+function disposeSpawnedGroup(group) {
+  for (const child of [...group.children]) {
+    child.geometry?.dispose?.();
+    if (Array.isArray(child.material)) {
+      child.material.forEach((material) => material.dispose?.());
+    } else {
+      child.material?.dispose?.();
+    }
+  }
 }
 
 /**
@@ -153,8 +183,10 @@ export class SkeletonRigController {
         return this.clearSpawnedBones();
       case "set-spawned-bone-visibility":
         return this.setSpawnedBoneVisibility(command.instanceId, command.visible);
-      default:
+      case "reset-all":
         return this.resetAll();
+      default:
+        return { ok: false, error: `Unknown command type: ${command.type}` };
     }
   }
 
@@ -168,6 +200,14 @@ export class SkeletonRigController {
       return { ok: false, error: `Unknown or unbound spawnable bone: ${boneId}` };
     }
 
+    // Normalize first so records always hold numbers, even for IPC callers
+    // sending numeric strings.
+    superior = normalizeEndpoint(superior);
+    inferior = normalizeEndpoint(inferior);
+    if (!superior || !inferior) {
+      return { ok: false, error: "Superior and inferior positions are required" };
+    }
+
     const placement = computeBonePlacement(superior, inferior, rest.restLength);
     if (!placement.ok) {
       return placement;
@@ -179,11 +219,12 @@ export class SkeletonRigController {
     for (const { name, offset } of rest.meshOffsets) {
       const master = this.scene.getObjectByName(name);
       if (!master) {
-        this.scene.remove(group);
+        disposeSpawnedGroup(group);
         return { ok: false, error: `Spawn mesh missing: ${name}` };
       }
       const clone = master.clone();
       clone.geometry = master.geometry.clone();
+      restoreRestGeometry(clone, rest.meshSnapshots[name]);
       clone.material = Array.isArray(master.material)
         ? master.material.map((material) => material.clone())
         : master.material.clone();
@@ -251,6 +292,12 @@ export class SkeletonRigController {
       return { ok: false, error: `Spawn rest missing for: ${record.boneId}` };
     }
 
+    superior = normalizeEndpoint(superior);
+    inferior = normalizeEndpoint(inferior);
+    if (!superior || !inferior) {
+      return { ok: false, error: "Superior and inferior positions are required" };
+    }
+
     const placement = computeBonePlacement(superior, inferior, rest.restLength);
     if (!placement.ok) {
       return placement;
@@ -297,14 +344,7 @@ export class SkeletonRigController {
     }
 
     this.scene.remove(group);
-    for (const child of [...group.children]) {
-      child.geometry?.dispose?.();
-      if (Array.isArray(child.material)) {
-        child.material.forEach((material) => material.dispose?.());
-      } else {
-        child.material?.dispose?.();
-      }
-    }
+    disposeSpawnedGroup(group);
     this.spawnedObjects.delete(instanceId);
     this.spawnedStore.remove(instanceId);
 

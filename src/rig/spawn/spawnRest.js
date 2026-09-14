@@ -43,6 +43,7 @@ export function captureSpawnRest(scene, segmentRest = {}) {
     }
 
     let meshOffsets = null;
+    let meshSnapshots = null;
     if (driver && masterMeshes.length === catalog.meshNames.length) {
       driver.updateWorldMatrix(true, false);
       const driverInverse = new Matrix4().copy(driver.matrixWorld).invert();
@@ -53,6 +54,20 @@ export function captureSpawnRest(scene, segmentRest = {}) {
           offset: new Matrix4().copy(driverInverse).multiply(mesh.matrixWorld).clone(),
         };
       });
+      // Geometry snapshots at rest. Segment and body-dimension transforms
+      // deform master geometry in place, so clones taken after a morphology
+      // change must be restored to rest or the spawn would inherit the
+      // deformation on top of its own scale factor. Captured here because the
+      // constructor runs before any transform is ever applied.
+      meshSnapshots = Object.fromEntries(
+        masterMeshes.map((mesh) => [
+          mesh.name,
+          {
+            positions: mesh.geometry.getAttribute("position").array.slice(),
+            normals: mesh.geometry.getAttribute("normal")?.array.slice() ?? null,
+          },
+        ])
+      );
     }
 
     rest[boneId] = {
@@ -61,11 +76,13 @@ export function captureSpawnRest(scene, segmentRest = {}) {
         driver &&
         masterMeshes.length === catalog.meshNames.length &&
         meshOffsets &&
+        meshSnapshots &&
         Number.isFinite(restLength) &&
         restLength > 0
       ),
       restLength,
       meshOffsets,
+      meshSnapshots,
       masterMeshes,
       driver,
     };

@@ -275,3 +275,201 @@ test("digits spawn with their full phalanx chains", async () => {
     "Proximal_Phalange_1_(foot)R__spawned",
   ]);
 });
+
+// ---- Error paths and IPC-boundary cases ----
+
+test("validator rejects malformed spawn commands before scene mutation", async () => {
+  const rig = createSkeletonRig(await loadScene());
+  const good = { x: 0, y: 0, z: 0 };
+  assert.equal(rig.execute({ type: "spawn-bone", boneId: "thigh_l", superior: good, inferior: null }).ok, false);
+  assert.equal(rig.execute({ type: "spawn-bone", boneId: "thigh_l", superior: good, inferior: { x: 0, y: "", z: 0 } }).ok, false);
+  assert.equal(rig.execute({ type: "spawn-bone", boneId: "", superior: good, inferior: good }).ok, false);
+  assert.equal(rig.execute({ type: "update-spawned-bone", instanceId: "", superior: good, inferior: good }).ok, false);
+  assert.equal(rig.execute({ type: "despawn-bone", instanceId: " " }).ok, false);
+  assert.equal(rig.execute({ type: "set-spawned-bone-visibility", instanceId: "x", visible: "yes" }).ok, false);
+  assert.equal(rig.getSpawnedBones().length, 0);
+});
+
+test("unknown instance ids fail cleanly on update, despawn and visibility", async () => {
+  const rig = createSkeletonRig(await loadScene());
+  const point = { x: 0, y: 0, z: 0 };
+  assert.match(rig.updateSpawnedBone("missing", point, { x: 0, y: 1, z: 0 }).error, /Unknown spawned bone/);
+  assert.match(rig.setSpawnedBoneVisibility("missing", true).error, /Unknown spawned bone/);
+  assert.match(rig.execute({ type: "update-spawned-bone", instanceId: "missing", superior: point, inferior: { x: 0, y: 1, z: 0 } }).error, /Unknown spawned bone/);
+});
+
+test("update with coincident endpoints fails without moving the instance", async () => {
+  const scene = await loadScene();
+  const rig = createSkeletonRig(scene);
+  const restLength = rig.getDiagnostics().spawnedBones.catalog.thigh_l.restLength;
+  const spawned = rig.spawnBone("thigh_l", { x: 0, y: 0, z: 0 }, { x: 0, y: -restLength, z: 0 });
+  const bad = rig.updateSpawnedBone(spawned.instanceId, { x: 1, y: 1, z: 1 }, { x: 1, y: 1, z: 1 });
+  assert.equal(bad.ok, false);
+  const group = scene.getObjectByName(`spawned-thigh_l-${spawned.instanceId.slice(0, 8)}`);
+  assert.ok(group.getWorldPosition(new Vector3()).distanceTo(new Vector3(0, 0, 0)) < 1e-9);
+});
+
+test("client-provided instance ids round-trip through execute", async () => {
+  const rig = createSkeletonRig(await loadScene());
+  const restLength = rig.getDiagnostics().spawnedBones.catalog.thigh_l.restLength;
+  const superior = { x: 0, y: 0, z: 0 };
+  const inferior = { x: 0, y: -restLength, z: 0 };
+  const result = rig.execute({
+    type: "spawn-bone",
+    boneId: "thigh_l",
+    superior,
+    inferior,
+    options: { instanceId: "test-window-id-1", hideMaster: true },
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.instanceId, "test-window-id-1");
+  assert.equal(rig.despawnBone("test-window-id-1").ok, true);
+});
+
+test("duplicate client ids fall back to generated ids", async () => {
+  const rig = createSkeletonRig(await loadScene());
+  const restLength = rig.getDiagnostics().spawnedBones.catalog.thigh_l.restLength;
+  const superior = { x: 0, y: 0, z: 0 };
+  const inferior = { x: 0, y: -restLength, z: 0 };
+  const first = rig.spawnBone("thigh_l", superior, inferior, { instanceId: "dupe" });
+  const second = rig.spawnBone("thigh_l", superior, inferior, { instanceId: "dupe" });
+  assert.equal(first.instanceId, "dupe");
+  assert.notEqual(second.instanceId, "dupe");
+  assert.equal(rig.getSpawnedBones().length, 2);
+});
+
+test("master meshes stay hidden until the last instance despawns", async () => {
+  const scene = await loadScene();
+  const rig = createSkeletonRig(scene);
+  const restLength = rig.getDiagnostics().spawnedBones.catalog.thigh_l.restLength;
+  const superior = { x: 0, y: 0, z: 0 };
+  const inferior = { x: 0, y: -restLength, z: 0 };
+  const first = rig.spawnBone("thigh_l", superior, inferior);
+  const second = rig.spawnBone("thigh_l", superior, inferior);
+  assert.equal(scene.getObjectByName("FemurL").visible, false);
+  assert.equal(rig.despawnBone(first.instanceId).ok, true);
+  assert.equal(scene.getObjectByName("FemurL").visible, false);
+  assert.equal(rig.despawnBone(second.instanceId).ok, true);
+  assert.equal(scene.getObjectByName("FemurL").visible, true);
+});
+
+test("hideMaster false leaves the master visible", async () => {
+  const scene = await loadScene();
+  const rig = createSkeletonRig(scene);
+  const restLength = rig.getDiagnostics().spawnedBones.catalog.thigh_l.restLength;
+  const result = rig.spawnBone(
+    "thigh_l",
+    { x: 0, y: 0, z: 0 },
+    { x: 0, y: -restLength, z: 0 },
+    { hideMaster: false }
+  );
+  assert.equal(result.ok, true);
+  assert.equal(scene.getObjectByName("FemurL").visible, true);
+  assert.equal(rig.despawnBone(result.instanceId).ok, true);
+  assert.equal(scene.getObjectByName("FemurL").visible, true);
+});
+
+test("clear reports removed ids and empties the store", async () => {
+  const rig = createSkeletonRig(await loadScene());
+  const restLength = rig.getDiagnostics().spawnedBones.catalog.thigh_l.restLength;
+  const superior = { x: 0, y: 0, z: 0 };
+  const inferior = { x: 0, y: -restLength, z: 0 };
+  const first = rig.spawnBone("thigh_l", superior, inferior);
+  const second = rig.spawnBone("forearm_l", superior, inferior);
+  const cleared = rig.clearSpawnedBones();
+  assert.equal(cleared.ok, true);
+  assert.deepEqual(cleared.removed.sort(), [first.instanceId, second.instanceId].sort());
+  assert.equal(rig.getSpawnedBones().length, 0);
+});
+
+test("update, visibility and clear work through execute", async () => {
+  const rig = createSkeletonRig(await loadScene());
+  const restLength = rig.getDiagnostics().spawnedBones.catalog.thigh_l.restLength;
+  const superior = { x: 0, y: 0, z: 0 };
+  const inferior = { x: 0, y: -restLength, z: 0 };
+  const spawned = rig.spawnBone("thigh_l", superior, inferior);
+  const updated = rig.execute({
+    type: "update-spawned-bone",
+    instanceId: spawned.instanceId,
+    superior,
+    inferior: { x: 0, y: -restLength * 0.9, z: 0 },
+  });
+  assert.equal(updated.ok, true);
+  assert.ok(Math.abs(updated.scaleFactor - 0.9) < 1e-9);
+  assert.equal(rig.execute({ type: "set-spawned-bone-visibility", instanceId: spawned.instanceId, visible: false }).ok, true);
+  assert.equal(rig.execute({ type: "clear-spawned-bones" }).ok, true);
+  assert.equal(rig.getSpawnedBones().length, 0);
+});
+
+test("spawn with a missing master mesh fails without side effects", async () => {
+  const scene = await loadScene();
+  const rig = createSkeletonRig(scene);
+  scene.getObjectByName("FemurL").parent.remove(scene.getObjectByName("FemurL"));
+  const restLength = rig.getDiagnostics().spawnedBones.catalog.thigh_l.restLength;
+  const result = rig.spawnBone("thigh_l", { x: 0, y: 0, z: 0 }, { x: 0, y: -restLength, z: 0 });
+  assert.equal(result.ok, false);
+  assert.match(result.error, /Spawn mesh missing/);
+  assert.equal(rig.getSpawnedBones().length, 0);
+});
+
+test("store counts instances per bone", async () => {
+  const { SpawnedBoneStore } = await import("../../src/rig/spawn/SpawnedBoneStore.js");
+  const store = new SpawnedBoneStore();
+  const point = { x: 0, y: 0, z: 0 };
+  const record = { boneId: "thigh_l", superior: point, inferior: point, scaleFactor: 1, requested: 1, measured: 1, clamped: false };
+  store.create(record);
+  store.create({ ...record, boneId: "forearm_l" });
+  assert.equal(store.countForBone("thigh_l"), 1);
+  assert.equal(store.countForBone("forearm_l"), 1);
+  assert.equal(store.countForBone("spine"), 0);
+  assert.equal(store.clear().length, 2);
+  assert.equal(store.list().length, 0);
+});
+
+test("spawn after morphology change uses rest geometry, not deformed", async () => {
+  const scene = await loadScene();
+  const rig = createSkeletonRig(scene);
+  const femurMaster = scene.getObjectByName("FemurL");
+  femurMaster.geometry.computeBoundingBox();
+  const restSize = femurMaster.geometry.boundingBox.getSize(new Vector3()).y;
+
+  assert.equal(rig.setSegmentScale("thigh_l", 0.7).ok, true);
+  femurMaster.geometry.computeBoundingBox();
+  const deformedSize = femurMaster.geometry.boundingBox.getSize(new Vector3()).y;
+  assert.ok(Math.abs(deformedSize - restSize) > 1e-6);
+
+  const restLength = rig.getDiagnostics().spawnedBones.catalog.thigh_l.restLength;
+  const result = rig.spawnBone("thigh_l", { x: 0, y: 0, z: 0 }, { x: 0, y: -restLength, z: 0 });
+  assert.equal(result.ok, true);
+  assert.ok(Math.abs(result.scaleFactor - 1) < 1e-9);
+  const clone = scene.getObjectByName("FemurL__spawned");
+  clone.geometry.computeBoundingBox();
+  const cloneSize = clone.geometry.boundingBox.getSize(new Vector3()).y;
+  assert.ok(Math.abs(cloneSize - restSize) < 1e-6);
+});
+
+test("numeric-string endpoints work and blanks are rejected", async () => {
+  const rig = createSkeletonRig(await loadScene());
+  const restLength = rig.getDiagnostics().spawnedBones.catalog.thigh_l.restLength;
+  const stringResult = rig.execute({
+    type: "spawn-bone",
+    boneId: "thigh_l",
+    superior: { x: "0", y: "0", z: "0" },
+    inferior: { x: "0", y: String(-restLength), z: "0" },
+  });
+  assert.equal(stringResult.ok, true);
+  assert.deepEqual(stringResult.position, { x: 0, y: 0, z: 0 });
+  const stored = rig.getSpawnedBones()[0];
+  assert.deepEqual(stored.superior, { x: 0, y: 0, z: 0 });
+
+  const blank = rig.spawnBone("thigh_l", { x: "", y: 0, z: 0 }, { x: 0, y: 1, z: 0 });
+  assert.equal(blank.ok, false);
+});
+
+test("reset-all executes explicitly and unknown types stay rejected", async () => {
+  const rig = createSkeletonRig(await loadScene());
+  rig.rotateJoint("knee_l", "x", 20);
+  assert.equal(rig.execute({ type: "reset-all" }).ok, true);
+  assert.equal(rig.getState().jointRotations.knee_l.x, 0);
+  assert.equal(rig.execute({ type: "bogus-command" }).ok, false);
+});
