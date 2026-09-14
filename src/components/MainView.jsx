@@ -183,8 +183,6 @@ function SkeletonModel({
       ref={groupRef}
       name={`skeleton-${id}`}
       userData={{ individualId: id, label }}
-      scale={transform.scale}
-      position={transform.position}
       visible={visible}
     >
       <primitive object={clonedScene} />
@@ -517,15 +515,3 @@ const MainView = forwardRef(function MainView(
 
 export default MainView;
 
-        <CameraControls
-          controlsRef={controlsRef}
-        />
-
-        <FocusCamera
-          focusedId={focusedId}
-          controlsRef={controlsRef}
-        />
-      </Canvas>
-    </main>
-  );
-}
