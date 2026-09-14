@@ -95,7 +95,47 @@ export function validateRigCommand(command) {
       : { ok: false, error: "Invalid digit rotation command" };
   }
 
+  if (command.type === "spawn-bone") {
+    return isIdentifier(command.boneId) &&
+      isPositionLike(command.superior) &&
+      isPositionLike(command.inferior)
+      ? { ok: true, command }
+      : { ok: false, error: "Invalid spawn bone command" };
+  }
+
+  if (command.type === "update-spawned-bone") {
+    return isIdentifier(command.instanceId) &&
+      isPositionLike(command.superior) &&
+      isPositionLike(command.inferior)
+      ? { ok: true, command }
+      : { ok: false, error: "Invalid update spawned bone command" };
+  }
+
+  if (command.type === "despawn-bone") {
+    return isIdentifier(command.instanceId)
+      ? { ok: true, command }
+      : { ok: false, error: "Invalid despawn bone command" };
+  }
+
+  if (command.type === "clear-spawned-bones") {
+    return { ok: true, command };
+  }
+
+  if (command.type === "set-spawned-bone-visibility") {
+    return isIdentifier(command.instanceId) && typeof command.visible === "boolean"
+      ? { ok: true, command }
+      : { ok: false, error: "Invalid spawned bone visibility command" };
+  }
+
   return { ok: false, error: `Unknown command type: ${command.type}` };
+}
+
+// Positions accept numeric strings per axis because IPC payloads may be serialized.
+function isPositionLike(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  return isAmount(value.x) && isAmount(value.y) && isAmount(value.z);
 }
 
 // Rotation commands accept numeric strings because IPC payloads may be serialized.

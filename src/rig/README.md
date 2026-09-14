@@ -215,6 +215,31 @@ console.log(RIG_ROTATION_AXES);
 console.log(RIG_SEGMENT_IDS);
 console.log(RIG_SEGMENT_GROUP_IDS);
 console.log(RIG_BODY_DIMENSION_IDS);
+console.log(RIG_SPAWNABLE_BONE_IDS);
 ```
 
 `getDiagnostics()` reports model binding health, and `getDisplayTransform()` returns the viewport framing transform.
+
+## Spawned Bones (issue #43, rig only)
+
+Independent per-bone instances for disarticulated remains. V1 covers limb
+long-bones (see `spawn/boneCatalog.js`); the articulated hierarchy is never
+reparented, so existing pose/segment behaviour is untouched.
+
+```js
+const rest = rig.getDiagnostics().spawnedBones.catalog.thigh_l.restLength;
+const spawned = rig.spawnBone("thigh_l", superior, inferior);
+rig.updateSpawnedBone(spawned.instanceId, superior2, inferior2);
+rig.setSpawnedBoneVisibility(spawned.instanceId, false);
+rig.despawnBone(spawned.instanceId);
+rig.clearSpawnedBones();
+console.log(rig.getSpawnedBones());
+```
+
+Placement is space-agnostic (caller converts grave-grid via `toSceneSpace`
+first): group origin lands on `superior`, local +Y maps onto
+`inferior - superior`, Y-scale carries `measured / restLength` clamped to
+`0.5–1.5` — same factor formula as `computeSegmentScales`, stored
+per-instance. Master meshes hide by refcount while spawned and restore on
+despawn. Instances are UUID-keyed (`SpawnedBoneStore`) so the same `boneId`
+can spawn multiple times for commingled cases.

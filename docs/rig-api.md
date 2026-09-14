@@ -25,3 +25,13 @@ secondRig.rotateJoint("knee_l", "x", -10);
 Joint IDs, axes, and rotation limits are defined by the rig configuration. `RIG_JOINT_IDS` and `RIG_ROTATION_AXES` expose the stable identifiers for UI or adapter code. The API returns `{ ok: true, ... }` for successful operations and `{ ok: false, error }` for invalid commands. `rotate()` remains as a compatibility alias for `rotateJoint()`.
 
 Pose updates are explicit: `patchPose(pose)` changes only the supplied joints, while `replacePose(pose)` resets the existing joint and digit state before applying the supplied joints. `setPose(pose)` remains as a compatibility alias for partial updates.
+
+## Spawned bones (issue #43)
+
+```js
+const spawned = rig.spawnBone("thigh_l", superior, inferior);
+rig.updateSpawnedBone(spawned.instanceId, superior2, inferior2);
+rig.despawnBone(spawned.instanceId);
+```
+
+`RIG_SPAWNABLE_BONE_IDS` lists the v1 limb bones. Endpoints are scene-space `{x,y,z}`; the rig stays space-agnostic. Scale factor is `measured / restLength` clamped to `0.5–1.5`, stored per UUID-keyed instance.
