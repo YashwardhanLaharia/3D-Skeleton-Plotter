@@ -188,3 +188,90 @@ test("visibility toggles only the spawned group", async () => {
   // Master stays hidden while the disjointed bone exists, even if hidden (absent).
   assert.equal(scene.getObjectByName("FemurL").visible, false);
 });
+
+// ---- Phase 2: axial, girdles, digits ----
+
+const PHASE2_BONE_IDS = [
+  "pelvis",
+  "sternum",
+  "spine",
+  "skull",
+  "jaw",
+  "clavicle_l",
+  "clavicle_r",
+  "scapula_l",
+  "scapula_r",
+  "patella_l",
+  "patella_r",
+  ...[1, 2, 3, 4, 5].flatMap((n) => [`finger_${n}_l`, `finger_${n}_r`, `toe_${n}_l`, `toe_${n}_r`]),
+];
+
+test("phase-2 bone ids are present in the spawn catalog", () => {
+  for (const boneId of PHASE2_BONE_IDS) {
+    assert.ok(getSpawnableBone(boneId), `missing catalog entry: ${boneId}`);
+  }
+  assert.ok(RIG_SPAWNABLE_BONE_IDS.includes("spine"));
+  assert.ok(RIG_SPAWNABLE_BONE_IDS.includes("finger_3_l"));
+  assert.ok(RIG_SPAWNABLE_BONE_IDS.includes("toe_1_r"));
+});
+
+test("every catalog entry binds against the real GLB with a rest length", async () => {
+  const rig = createSkeletonRig(await loadScene());
+  const catalog = rig.getDiagnostics().spawnedBones.catalog;
+  for (const [boneId, entry] of Object.entries(catalog)) {
+    assert.equal(entry.found, true, `unbound: ${boneId}`);
+    assert.ok(entry.restLength > 0, `no rest length: ${boneId}`);
+  }
+});
+
+test("every catalog mesh name resolves in the loaded scene", async () => {
+  const scene = await loadScene();
+  const { SPAWNABLE_BONES } = await import("../../src/rig/spawn/boneCatalog.js");
+  for (const [boneId, catalog] of Object.entries(SPAWNABLE_BONES)) {
+    for (const meshName of catalog.meshNames) {
+      assert.ok(scene.getObjectByName(meshName), `${boneId}: missing mesh ${meshName}`);
+    }
+    assert.ok(scene.getObjectByName(catalog.driverBoneName), `${boneId}: missing driver ${catalog.driverBoneName}`);
+  }
+});
+
+async function spawnAtRest(rig, boneId) {
+  const restLength = rig.getDiagnostics().spawnedBones.catalog[boneId].restLength;
+  assert.ok(restLength > 0, `no rest length: ${boneId}`);
+  return rig.spawnBone(boneId, { x: 0, y: 0, z: 0 }, { x: 0, y: -restLength, z: 0 });
+}
+
+test("axial and girdle bones spawn at unit scale from rest endpoints", async () => {
+  const scene = await loadScene();
+  const rig = createSkeletonRig(scene);
+  for (const boneId of ["pelvis", "sternum", "spine", "skull", "jaw", "clavicle_l", "scapula_r", "patella_l"]) {
+    const result = await spawnAtRest(rig, boneId);
+    assert.equal(result.ok, true, `spawn failed: ${boneId}`);
+    assert.ok(Math.abs(result.scaleFactor - 1) < 1e-9, `${boneId}: expected unit scale`);
+  }
+  assert.equal(rig.getSpawnedBones().length, 8);
+  assert.equal(scene.getObjectByName("Pelvis").visible, false);
+  assert.equal(scene.getObjectByName("Skull").visible, false);
+  rig.clearSpawnedBones();
+  assert.equal(scene.getObjectByName("Pelvis").visible, true);
+});
+
+test("digits spawn with their full phalanx chains", async () => {
+  const scene = await loadScene();
+  const rig = createSkeletonRig(scene);
+  const middle = await spawnAtRest(rig, "finger_3_l");
+  assert.equal(middle.ok, true);
+  assert.deepEqual(middle.meshes.sort(), [
+    "Distal_Phalanges_3L__spawned",
+    "Intermediate_Phalanges_3L__spawned",
+    "Metacarpel_3L__spawned",
+    "Proximal_Phalanges_3L__spawned",
+  ]);
+  const bigToe = await spawnAtRest(rig, "toe_1_r");
+  assert.equal(bigToe.ok, true);
+  assert.deepEqual(bigToe.meshes.sort(), [
+    "Distal_Phalange_1_(feet)R__spawned",
+    "Metatarsal_1R__spawned",
+    "Proximal_Phalange_1_(foot)R__spawned",
+  ]);
+});
