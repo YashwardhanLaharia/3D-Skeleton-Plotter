@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { SPAWNABLE_BONES, SPAWNABLE_BONE_IDS } from "./boneCatalog.js";
 
-// Manual testing window for the spawnBone rig API (issue #43).
+// Manual testing window for the spawnBone rig API.
 // Fire-and-forget like LimbRigControls: commands go through the preload
 // bridge to the targeted skeleton in the main view; results are observed in
 // the viewport. Instance IDs are client-generated so this window can track
@@ -22,6 +22,11 @@ function parsePoint({ x, y, z }) {
     return null;
   }
   return point;
+}
+
+// Fingers and toes drown out the dropdown; they stay testable behind the toggle.
+function isSignificantBone(boneId) {
+  return !/^(finger|toe)_[1-5]_[lr]$/.test(boneId);
 }
 
 function CoordInputs({ label, value, onChange }) {
@@ -55,6 +60,7 @@ export default function BoneSpawnControls() {
   const [superior, setSuperior] = useState({ x: "0", y: "0", z: "0" });
   const [inferior, setInferior] = useState({ x: "0", y: "-0.45", z: "0" });
   const [hideMaster, setHideMaster] = useState(true);
+  const [showAllBones, setShowAllBones] = useState(false);
   const [instances, setInstances] = useState([]);
   const [error, setError] = useState(null);
   const commandId = useRef(0);
@@ -160,12 +166,31 @@ export default function BoneSpawnControls() {
         value={boneId}
         onChange={(event) => setBoneId(event.target.value)}
       >
-        {SPAWNABLE_BONE_IDS.map((id) => (
+        {SPAWNABLE_BONE_IDS.filter((id) => showAllBones || isSignificantBone(id)).map((id) => (
           <option key={id} value={id}>
             {SPAWNABLE_BONES[id].label}
           </option>
         ))}
       </select>
+
+      <div className="form-check mt-1 mb-2">
+        <input
+          id="show-all-bones-check"
+          className="form-check-input"
+          type="checkbox"
+          checked={showAllBones}
+          onChange={(event) => {
+            const show = event.target.checked;
+            setShowAllBones(show);
+            if (!show && !isSignificantBone(boneId)) {
+              setBoneId("thigh_l");
+            }
+          }}
+        />
+        <label className="form-check-label small" htmlFor="show-all-bones-check">
+          Show finger/toe bones
+        </label>
+      </div>
 
       <div className="mt-2">
         <CoordInputs label="Superior (proximal)" value={superior} onChange={setPoint(setSuperior)} />
