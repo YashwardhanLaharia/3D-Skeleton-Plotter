@@ -147,7 +147,9 @@ space-agnostic, so callers convert grave-grid coordinates via `toSceneSpace`
 first (as `MainView` does for the solver). The spawned group's origin lands
 on `superior`, and its local +Y — the bone axis by model convention, see
 `solver/solveBone.js` — is rotated onto `inferior - superior`. Endpoints must
-be finite and must not coincide. Two points fix direction but not axial twist,
+be finite and must not coincide; numeric strings are coerced (blanks stay
+missing rather than becoming 0), and stored records always hold numbers. Two
+points fix direction but not axial twist,
 so roll is always the model's rest roll.
 
 ### Scaling
@@ -167,7 +169,9 @@ anchor bones. Limits mirror `scaling/segmentConfig.js`. The factor is applied
 as a rigid Y-scale on the spawned group, so length changes while
 cross-section is preserved. Results report `measured`, `requested`,
 `scaleFactor`, and `clamped`, and `updateSpawnedBone` recomputes from new
-endpoints. Scale never touches shared `segmentScales` state.
+endpoints. Scale never touches shared `segmentScales` state. Clones are
+restored to rest geometry at spawn, so spawning after a morphology change
+does not inherit the master's deformation on top of the spawn's own factor.
 
 ### Master hiding and instances
 
