@@ -41,8 +41,16 @@ export class RigState {
     return this.digitRotations[digitKey][axis];
   }
 
+  // Limits constrain the controls window, but a solved pose is set directly by
+  // setJointRotation and can legitimately land outside them — a recorded hip
+  // needed 86 degrees against an interactive limit of 45. Clamping the next
+  // nudge to the configured range would snap the limb back the moment the user
+  // touched it, so the range is widened to include wherever the joint already
+  // is. Within the configured limits this behaves exactly as before.
   increment(current, amount, [min, max]) {
-    return Math.min(Math.max(current + amount, min), max);
+    const low = Math.min(min, current);
+    const high = Math.max(max, current);
+    return Math.min(Math.max(current + amount, low), high);
   }
 
   setJointRotation(jointId, rotation) {

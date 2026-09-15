@@ -148,7 +148,35 @@ export function getDisplayTransform(scene) {
   };
 }
 
-/** Copies a driver's world-space delta onto an attached root bone. */
+/**
+ * Transform of an object relative to the model root, rather than to the world.
+ *
+ * The torso attachment has to be expressed in some frame, and the world is the
+ * wrong one: the model sits inside a wrapper that the solver rotates to lay the
+ * body in the position it was recorded in, and the viewport is free to move it
+ * again. Anchoring the sternum to a world-space rest transform pinned it to the
+ * orientation the model was imported in, so the whole shoulder girdle — and the
+ * arms hanging off it — ignored every rotation applied above the model. The
+ * model root is invariant under all of that.
+ */
+function relativeToScene(scene, object) {
+  return new Matrix4()
+    .copy(scene.matrixWorld)
+    .invert()
+    .multiply(object.matrixWorld);
+}
+
+/** Captures the torso attachment's rest transform in model-root space. */
+export function captureAttachmentRest({ scene, driver, attachment }) {
+  scene.updateMatrixWorld(true);
+
+  return {
+    driver: driver ? relativeToScene(scene, driver) : undefined,
+    attachment: attachment ? relativeToScene(scene, attachment) : undefined,
+  };
+}
+
+/** Copies a driver's rest-to-current delta onto an attached root bone. */
 export function syncAttachment({
   scene,
   driver,
@@ -161,38 +189,36 @@ export function syncAttachment({
   }
 
   scene.updateMatrixWorld(true);
-  // Convert the driver's rest-to-current delta into the attachment's local space.
-    // Follow the driver's translation but not its rotation. Applying the full
+
+  // Everything below is in model-root space, matching captureAttachmentRest.
+  //
+  // Follow the driver's translation but not its rotation. Applying the full
   // delta swings the sternum around the spine — at 15cm off-axis and a 61 deg
   // solver rotation, it lands on the opposite side of the vertebral column.
-  const driverPos = new Vector3().setFromMatrixPosition(driver.matrixWorld);
-  const restPos = new Vector3().setFromMatrixPosition(restDriver);
-  const translation = new Matrix4().makeTranslation(
-    driverPos.x - restPos.x,
-    driverPos.y - restPos.y,
-    driverPos.z - restPos.z,
+  const driverPosition = new Vector3().setFromMatrixPosition(
+    relativeToScene(scene, driver),
   );
-  const targetWorld = translation.multiply(restAttachment);
+  const restPosition = new Vector3().setFromMatrixPosition(restDriver);
+  const translation = new Matrix4().makeTranslation(
+    driverPosition.x - restPosition.x,
+    driverPosition.y - restPosition.y,
+    driverPosition.z - restPosition.z,
+  );
+  const target = translation.multiply(restAttachment);
   const targetLocal = new Matrix4();
 
   if (attachment.parent) {
     targetLocal
-      .copy(attachment.parent.matrixWorld)
+      .copy(relativeToScene(scene, attachment.parent))
       .invert()
-      .multiply(targetWorld);
+      .multiply(target);
   } else {
-    targetLocal.copy(targetWorld);
+    targetLocal.copy(target);
   }
 
   targetLocal.decompose(
     attachment.position,
     attachment.quaternion,
     attachment.scale
-  );
-    console.log(
-    "restAttachment position:",
-    new Vector3().setFromMatrixPosition(restAttachment).toArray().map((n) => n.toFixed(3)),
-    "| restDriver position:",
-    new Vector3().setFromMatrixPosition(restDriver).toArray().map((n) => n.toFixed(3)),
   );
 }

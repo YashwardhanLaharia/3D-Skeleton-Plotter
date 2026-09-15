@@ -36,10 +36,13 @@ function isPosition(value) {
 }
 
 /**
-/**
  * @param {Record<string, {x:number,y:number,z:number}>} joints  positions in scene space
  * @param {object} options
  * @param {Function} options.solveBone  (proximalPos, distalPos, bone) => {x,y,z}
+ * @param {Function} [options.applyBone]  (jointId, rotation, bone, poseSoFar) => void
+ *        Called after each bone is solved, before the next. Required in the
+ *        real pipeline; optional so tests can run without a scene.
+ * @returns {{
  *   pose: Record<string, {x:number,y:number,z:number}>,
  *   solved: string[],
  *   unsolved: string[],
@@ -48,9 +51,6 @@ function isPosition(value) {
  *   invalid: string[],
  *   failed: {boneId: string, reason: string}[],
  * }}
- * @param {Function} [options.applyBone]  (jointId, rotation, bone, poseSoFar) => void
- *        Called after each bone is solved, before the next. Required in the
- *        real pipeline; optional so tests can run without a scene.
  */
 export function solveSkeleton(joints = {}, { solveBone, applyBone } = {}) {
   const pose = {};

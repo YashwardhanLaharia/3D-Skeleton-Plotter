@@ -33,10 +33,12 @@
 
 /** @type {Bone[]} */
 export const BONES = [
+  // Left arm
   { id: "upper_arm_l", proximal: "shoulder_l", distal: "elbow_l", jointId: "shoulder_l", segmentId: "upper_arm_l", chain: "leftArm" },
   { id: "forearm_l", proximal: "elbow_l", distal: "wrist_l", jointId: "elbow_l", segmentId: "forearm_l", chain: "leftArm" },
   { id: "hand_l", proximal: "wrist_l", distal: "fingertips_l", jointId: "wrist_l", segmentId: null, chain: "leftArm" },
-  
+
+  // Right arm
   { id: "upper_arm_r", proximal: "shoulder_r", distal: "elbow_r", jointId: "shoulder_r", segmentId: "upper_arm_r", chain: "rightArm" },
   { id: "forearm_r", proximal: "elbow_r", distal: "wrist_r", jointId: "elbow_r", segmentId: "forearm_r", chain: "rightArm" },
   { id: "hand_r", proximal: "wrist_r", distal: "fingertips_r", jointId: "wrist_r", segmentId: null, chain: "rightArm" },
@@ -56,6 +58,11 @@ export const BONES = [
   // spread across every vertebra rather than hinging at one point.
   { id: "spine", proximal: "sacral_promontory", distal: "manubrium", jointId: "sacral_promontory", segmentId: null, chain: "axial" },
   { id: "head", proximal: "head_centre", distal: "head_proximal", jointId: "head_centre", segmentId: null, chain: "axial" },
+  // The one bone whose jointId is its DISTAL landmark rather than its proximal
+  // one. The rule above is about which rig joint drives the bone, and the rig
+  // joint bound to DEF-Mandible is named `chin`. Aiming works; only the naming
+  // differs, so do not "correct" this to head_centre — that joint drives the
+  // skull, and the jaw would stop moving.
   { id: "jaw", proximal: "head_centre", distal: "chin", jointId: "chin", segmentId: null, chain: "axial" },
 ];
 
