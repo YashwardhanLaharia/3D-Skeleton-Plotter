@@ -410,7 +410,7 @@ export default function Sidebar({
         {isOpen && (
           <div className="sidebar-content">
             <header className="sidebar-header bg-body-tertiary border-bottom px-2 py-2 d-flex align-items-center justify-content-between gap-2">
-              <h2 className="h6 mb-0">Individuals</h2>
+              <h2 className="h6 mb-0">{groups.length === 0 ? "Individuals" : "Groups"}</h2>
               <div className="d-flex align-items-center gap-1 flex-wrap justify-content-end">
                 <button
                   type="button"
