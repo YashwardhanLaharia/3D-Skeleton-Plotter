@@ -6,38 +6,49 @@
 // knowing its rest direction, and putting the measured direction into the frame
 // the rig expects.
 //
-// THREE MEASURED FACTS this module depends on. All were verified against the
-// loaded model rather than assumed, and verifyRestConvention() re-checks the
-// first at runtime so a replacement mesh fails loudly.
+// THE REST DIRECTION IS MEASURED PER BONE, NOT ASSUMED.
 //
-//   1. Every bone points along its own local +Y in the rest pose. The largest
-//      deviation found was 0.8 degrees on the carpals, which is modelling slop.
-//      Note this does NOT mean bones point up in the world — the femur's world
-//      direction at rest is roughly (0, -1, 0).
+// This module used to aim every bone's local +Y, on the grounds that the model
+// follows that convention. Most of it does, but "most" is not good enough: what
+// has to end up along the measured line is the line between the two objects the
+// two landmarks sit on, and that is only the same thing as +Y when the bone's
+// axis happens to run through its distal landmark. Measured against this model:
 //
-//   2. A bone's rest direction is stable when an ancestor rotates. Rotating the
+//   femur -> tibia        0.0 deg from +Y    aiming +Y was already right
+//   ulna  -> carpals      0.8 deg
+//   carpals -> fingertip  13.6 deg           aiming +Y left the hand visibly off
+//   L5 -> cervical1       25.6 deg           aiming +Y left the whole spine off
+//   skull -> cranial vertex 8.1 deg
+//   mandible -> chin      9.2 deg
+//
+// So each bone's rest direction is now measured once, from the model, as the
+// direction from the bone it rotates to the object its DISTAL landmark sits on.
+// REST_DIRECTION below is only the fallback for a bone whose distal reference
+// cannot be resolved.
+//
+// TWO REMAINING FACTS this module still depends on, both verified on the model:
+//
+//   1. A bone's rest direction is stable when an ancestor rotates. Rotating the
 //      femur, or the spine two levels above it, left the tibia's local rest
 //      direction unchanged. So rest directions are a property of the model, not
 //      of the current pose, and can be captured once.
 //
-//   3. A commanded rotation produces the same angular change in world space.
+//   2. A commanded rotation produces the same angular change in world space.
 //      Asking for 40 degrees about local Z moved the femur exactly 40 degrees.
 
-import { Matrix4, Quaternion, Vector3 } from "three";
+import { Box3, Quaternion, Vector3 } from "three";
 import { computeBoneRotation } from "../rig/solver/computeBoneRotation.js";
 import { BONES } from "./topology.js";
 
-// The model's convention. Fact 1 above.
+// Fallback for a bone whose distal reference is missing from the model. Kept
+// because it is the convention the model mostly follows, so it is the least
+// wrong guess available.
 export const REST_DIRECTION = Object.freeze({ x: 0, y: 1, z: 0 });
-
-// Bones deviating by more than this from local +Y mean the model no longer
-// follows the convention this module is built on.
-const CONVENTION_TOLERANCE_DEG = 5;
 
 // Maps topology bone ids to the GLB objects they rotate. Kept here rather than
 // in topology.js so that module stays free of model-specific names — topology
 // describes anatomy, this describes one particular mesh.
-const BONE_OBJECTS = {
+export const BONE_OBJECTS = {
   upper_arm_l: "DEF-HumerusL",
   forearm_l: "DEF-UlnaL",
   hand_l: "DEF-CarpalsL",
@@ -55,49 +66,138 @@ const BONE_OBJECTS = {
   jaw: "DEF-Mandible",
 };
 
-// Bone pairs used to check the model still follows the +Y convention.
-const CONVENTION_PAIRS = [
-  ["DEF-HumerusL", "DEF-UlnaL"],
-  ["DEF-UlnaL", "DEF-CarpalsL"],
-  ["DEF-FemurL", "DEF-TibiaL"],
-  ["DEF-TibiaL", "DEF-FootL"],
-  ["DEF-HumerusR", "DEF-UlnaR"],
-  ["DEF-FemurR", "DEF-TibiaR"],
-];
+// Where each bone's DISTAL landmark sits on the model. A string names a bone; a
+// {mesh, corner} names a point on a mesh's bounding box, for the two landmarks
+// that are surfaces rather than joints. Unnamed axes take the box centre.
+//
+// `spine` points at DEF-SpineCervical1 because that is the top of the chain
+// that actually moves when DEF-SpineLumbar5 rotates. Aiming at DEF-Sternum
+// instead would be closer to the manubrium anatomically but wrong mechanically:
+// the sternum is a detached root that follows the spine by translation only.
+export const BONE_DISTAL_REFERENCES = {
+  upper_arm_l: "DEF-UlnaL",
+  forearm_l: "DEF-CarpalsL",
+  hand_l: "DEF-Distal_Phalanges_3L",
+  upper_arm_r: "DEF-UlnaR",
+  forearm_r: "DEF-CarpalsR",
+  hand_r: "DEF-Distal_Phalanges_3R",
+  thigh_l: "DEF-TibiaL",
+  lower_leg_l: "DEF-FootL",
+  foot_l: "DEF-Distal_Phalange_3_(foot)L",
+  thigh_r: "DEF-TibiaR",
+  lower_leg_r: "DEF-FootR",
+  foot_r: "DEF-Distal_Phalange_3_(foot)R",
+  spine: "DEF-SpineCervical1",
+  // head_proximal is the crown of the skull, chin is the point of the jaw.
+  head: { mesh: "Skull", corner: { y: "max" } },
+  jaw: { mesh: "Mandible", corner: { y: "min", z: "max" } },
+};
+
+/** World position of a distal reference, or null when it cannot be resolved. */
+function referencePoint(scene, reference) {
+  if (!reference) return null;
+
+  if (typeof reference === "string") {
+    const object = scene.getObjectByName(reference);
+    return object ? object.getWorldPosition(new Vector3()) : null;
+  }
+
+  const mesh = scene.getObjectByName(reference.mesh);
+  if (!mesh) return null;
+
+  const box = new Box3().setFromObject(mesh);
+  if (box.isEmpty()) return null;
+
+  const centre = box.getCenter(new Vector3());
+  const pick = (axis) => {
+    const corner = reference.corner?.[axis];
+    if (corner === "min") return box.min[axis];
+    if (corner === "max") return box.max[axis];
+    return centre[axis];
+  };
+
+  return new Vector3(pick("x"), pick("y"), pick("z"));
+}
 
 /**
- * Checks the loaded model against the local +Y convention this module assumes.
- * Call once after load. A replacement mesh that breaks the convention would
- * otherwise produce a subtly wrong skeleton rather than an error.
+ * Each bone's rest direction, in that bone's own local frame, measured from the
+ * model. Call on a scene in its rest pose.
+ *
+ * @returns {Map<string, {direction: {x,y,z}, degreesFromY: number|null, resolved: boolean}>}
  */
-export function verifyRestConvention(scene) {
+export function measureRestDirections(scene) {
   const up = new Vector3(0, 1, 0);
-  const deviations = [];
+  const measurements = new Map();
 
   scene.updateMatrixWorld(true);
 
-  for (const [parentName, childName] of CONVENTION_PAIRS) {
-    const parent = scene.getObjectByName(parentName);
-    const child = scene.getObjectByName(childName);
-    if (!parent || !child) {
-      deviations.push({
-        pair: `${parentName}→${childName}`,
-        reason: "missing",
+  for (const bone of BONES) {
+    const object = scene.getObjectByName(BONE_OBJECTS[bone.id]);
+    if (!object) {
+      measurements.set(bone.id, {
+        direction: { ...REST_DIRECTION },
+        degreesFromY: null,
+        resolved: false,
       });
       continue;
     }
 
-    const direction = parent
-      .worldToLocal(child.getWorldPosition(new Vector3()))
-      .normalize();
+    const distal = referencePoint(scene, BONE_DISTAL_REFERENCES[bone.id]);
+    if (!distal) {
+      measurements.set(bone.id, {
+        direction: { ...REST_DIRECTION },
+        degreesFromY: null,
+        resolved: false,
+      });
+      continue;
+    }
 
-    const degrees = (direction.angleTo(up) * 180) / Math.PI;
-    if (degrees > CONVENTION_TOLERANCE_DEG) {
-      deviations.push({ pair: `${parentName}→${childName}`, degrees });
+    const local = object.worldToLocal(distal.clone());
+    if (local.lengthSq() === 0) {
+      measurements.set(bone.id, {
+        direction: { ...REST_DIRECTION },
+        degreesFromY: null,
+        resolved: false,
+      });
+      continue;
+    }
+
+    local.normalize();
+    measurements.set(bone.id, {
+      direction: { x: local.x, y: local.y, z: local.z },
+      degreesFromY: (local.angleTo(up) * 180) / Math.PI,
+      resolved: true,
+    });
+  }
+
+  return measurements;
+}
+
+/**
+ * Checks that every bone and every distal reference this module needs exists on
+ * the loaded model. Call once after load. A replacement mesh that renames or
+ * drops an object would otherwise fall back to +Y for that bone and produce a
+ * subtly wrong skeleton rather than a complaint.
+ *
+ * `deviations` is informational: a bone whose rest direction is far from +Y is
+ * not a fault, it is why the direction is measured rather than assumed.
+ */
+export function verifyRestConvention(scene) {
+  const measurements = measureRestDirections(scene);
+  const unresolved = [];
+  const deviations = [];
+
+  for (const [boneId, measurement] of measurements) {
+    if (!measurement.resolved) {
+      unresolved.push(boneId);
+      continue;
+    }
+    if (measurement.degreesFromY > 5) {
+      deviations.push({ boneId, degrees: measurement.degreesFromY });
     }
   }
 
-  return { ok: deviations.length === 0, deviations };
+  return { ok: unresolved.length === 0, unresolved, deviations };
 }
 
 /**
@@ -107,13 +207,15 @@ export function verifyRestConvention(scene) {
  * @returns {(proximal, distal, bone) => {x,y,z}|null}
  */
 export function createSolveBone(scene) {
-  // Resolved once. Bone objects don't change identity for the life of a scene.
+  // Resolved once. Bone objects don't change identity for the life of a scene,
+  // and rest directions are a property of the model rather than the pose.
   const objects = new Map();
   for (const bone of BONES) {
     const name = BONE_OBJECTS[bone.id];
     const object = name ? scene.getObjectByName(name) : null;
     if (object) objects.set(bone.id, object);
   }
+  const restDirections = measureRestDirections(scene);
 
   return function solveBone(proximalPosition, distalPosition, bone) {
     const object = objects.get(bone.id);
@@ -121,7 +223,7 @@ export function createSolveBone(scene) {
 
     // The rig applies rotations in the bone's LOCAL space, but the measured
     // positions are in scene space. Bring the measured direction into the
-    // bone's parent frame before comparing it to the rest direction.
+    // bone's own frame before comparing it to the rest direction.
     scene.updateMatrixWorld(true);
 
     const target = new Vector3(
@@ -140,13 +242,14 @@ export function createSolveBone(scene) {
       .copy(object.getWorldQuaternion(new Quaternion()))
       .invert();
     target.applyQuaternion(inverse);
-
     target.normalize();
+
+    const rest = restDirections.get(bone.id)?.direction ?? REST_DIRECTION;
 
     return computeBoneRotation(
       { x: 0, y: 0, z: 0 },
       { x: target.x, y: target.y, z: target.z },
-      REST_DIRECTION,
+      rest,
     );
   };
 }

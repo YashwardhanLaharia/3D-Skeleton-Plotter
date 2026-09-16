@@ -19,6 +19,7 @@ import {
 import {
   applyRotation,
   applySegmentScale,
+  captureAttachmentRest,
   captureSegmentRest,
   getDisplayTransform,
   syncAttachment,
@@ -87,10 +88,7 @@ export class SkeletonRigController {
 
   captureTorsoAttachment() {
     const { driver, attachment } = this.binding.attachments;
-    return {
-      driver: driver?.matrixWorld.clone(),
-      attachment: attachment?.matrixWorld.clone(),
-    };
+    return captureAttachmentRest({ scene: this.scene, driver, attachment });
   }
 
   // Validate protocol shape first; target-specific validation stays in the operation methods.

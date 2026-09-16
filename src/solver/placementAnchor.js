@@ -1,24 +1,47 @@
-export const PLACEMENT_ANCHORS = [
-  { jointId: "head_centre", boneName: "DEF-Skull" },
+// Which recorded landmark the whole skeleton is positioned by.
+//
+// Order is preference, best first. The anchor only decides which landmark lands
+// exactly and where the model's own proportional error accumulates — the
+// whole-body orientation is solved separately and does not depend on it.
+//
+// head_centre leads as a project requirement. Measured on the synthetic supine
+// set this costs about 5cm at the feet compared to anchoring mid-body on the
+// sacrum, because the residual then sits entirely at the far end.
+//
+// The bone each landmark sits on comes from LANDMARK_OBJECTS rather than being
+// repeated here, so this list and the solver cannot disagree about where a
+// landmark is on the model.
 
-  { jointId: "acetabulum_l", boneName: "DEF-FemurL" },
-  { jointId: "acetabulum_r", boneName: "DEF-FemurR" },
+import { LANDMARK_OBJECTS } from "./modelLandmarks.js";
 
-  { jointId: "shoulder_l", boneName: "DEF-HumerusL" },
-  { jointId: "shoulder_r", boneName: "DEF-HumerusR" },
+const ANCHOR_PREFERENCE = [
+  "head_centre",
 
-  { jointId: "knee_l", boneName: "DEF-TibiaL" },
-  { jointId: "knee_r", boneName: "DEF-TibiaR" },
+  "sacral_promontory",
 
-  { jointId: "elbow_l", boneName: "DEF-UlnaL" },
-  { jointId: "elbow_r", boneName: "DEF-UlnaR" },
+  "acetabulum_l",
+  "acetabulum_r",
 
-  { jointId: "wrist_l", boneName: "DEF-CarpalsL" },
-  { jointId: "wrist_r", boneName: "DEF-CarpalsR" },
+  "shoulder_l",
+  "shoulder_r",
 
-  { jointId: "ankle_l", boneName: "DEF-FootL" },
-  { jointId: "ankle_r", boneName: "DEF-FootR" },
+  "knee_l",
+  "knee_r",
+
+  "elbow_l",
+  "elbow_r",
+
+  "wrist_l",
+  "wrist_r",
+
+  "ankle_l",
+  "ankle_r",
 ];
+
+export const PLACEMENT_ANCHORS = ANCHOR_PREFERENCE.map((jointId) => ({
+  jointId,
+  boneName: LANDMARK_OBJECTS[jointId],
+}));
 
 export function findPlacementAnchor(sceneJoints = {}, scene) {
   for (const { jointId, boneName } of PLACEMENT_ANCHORS) {
@@ -26,7 +49,7 @@ export function findPlacementAnchor(sceneJoints = {}, scene) {
 
     if (!measuredAnchor) continue;
 
-    const modelAnchor = scene?.getObjectByName?.(boneName);
+    const modelAnchor = boneName ? scene?.getObjectByName?.(boneName) : null;
 
     if (!modelAnchor) continue;
 

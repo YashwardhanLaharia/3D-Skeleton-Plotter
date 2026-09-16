@@ -8,10 +8,8 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 let cached = null;
 
-export function loadTestScene() {
-  if (cached) return cached;
-
-  cached = new Promise((resolve, reject) => {
+function parseScene() {
+  return new Promise((resolve, reject) => {
     const buffer = readFileSync("./src/assets/models/skeleton-male.glb");
     const arrayBuffer = buffer.buffer.slice(
       buffer.byteOffset,
@@ -20,6 +18,19 @@ export function loadTestScene() {
 
     new GLTFLoader().parse(arrayBuffer, "", (gltf) => resolve(gltf.scene), reject);
   });
+}
 
+/** Shared scene. Fine for tests that only read, never pose. */
+export function loadTestScene() {
+  if (!cached) cached = parseScene();
   return cached;
+}
+
+/**
+ * A scene of this test's own. Required by anything that poses the model: a
+ * posed scene is not reusable, and a shared one makes tests depend on the order
+ * they happen to run in.
+ */
+export function loadFreshTestScene() {
+  return parseScene();
 }

@@ -15,6 +15,13 @@ const modelPath = new URL(
   import.meta.url
 );
 
+// Each case must rotate about an axis PERPENDICULAR to the bone. A bone's local
+// Y is its own long axis on this model, and the knee sits on the femur's Y axis
+// to within 1e-6 m, so rolling a femur about Y moves the knee by 1e-6 m and
+// nothing more. That is correct: an axial roll does not translate a child that
+// lies on the axis. The two leg cases used to ask for Y and passed only because
+// applyRotation added Euler components onto the rest rotation, which is not
+// rotation composition and quietly produced an off-axis rotation instead.
 const MOTION_CASES = [
   { jointId: "neck", descendantId: "head_centre", axis: "x" },
   { jointId: "manubrium", descendantId: "shoulder_l", axis: "y" },
@@ -24,10 +31,10 @@ const MOTION_CASES = [
   { jointId: "shoulder_r", descendantId: "elbow_r", axis: "z" },
   { jointId: "elbow_r", descendantId: "wrist_r", axis: "x" },
   { jointId: "wrist_r", descendantId: "fingertips_r", axis: "x" },
-  { jointId: "acetabulum_l", descendantId: "knee_l", axis: "y" },
+  { jointId: "acetabulum_l", descendantId: "knee_l", axis: "z" },
   { jointId: "knee_l", descendantId: "ankle_l", axis: "x" },
   { jointId: "ankle_l", descendantId: "toes_l", axis: "z" },
-  { jointId: "acetabulum_r", descendantId: "knee_r", axis: "y" },
+  { jointId: "acetabulum_r", descendantId: "knee_r", axis: "z" },
   { jointId: "knee_r", descendantId: "ankle_r", axis: "x" },
   { jointId: "ankle_r", descendantId: "toes_r", axis: "z" },
 ];
@@ -442,6 +449,34 @@ test("each adjacent joint moves its descendant without breaking attachment", asy
     assert.equal(result.ok, true, motion.jointId);
     assert.ok(distance(before, worldPosition(descendant)) > 0.0001, motion.jointId);
     assert.equal(rig.isDescendantOf(descendant, source), true, motion.jointId);
+  }
+});
+
+// The other half of the rule above: a rotation about a bone's own long axis is
+// a roll, and a roll must not translate a child sitting on that axis. This is
+// what the solver relies on when it reports that roll is unconstrained by two
+// landmarks — if an axial roll moved the chain, an arbitrary roll choice would
+// displace every bone below it.
+test("rolling a bone about its own long axis does not move a collinear child", async () => {
+  const scene = await loadScene();
+  const rig = new SkeletonRigController(scene);
+
+  for (const [jointId, childName] of [
+    ["acetabulum_l", "DEF-TibiaL"],
+    ["acetabulum_r", "DEF-TibiaR"],
+  ]) {
+    const child = scene.getObjectByName(childName);
+    const before = worldPosition(child);
+
+    assert.equal(
+      rig.execute({ type: "rotate-joint", jointId, axis: "y", amount: 30 }).ok,
+      true,
+    );
+
+    assert.ok(
+      distance(before, worldPosition(child)) < 1e-5,
+      `${jointId} roll displaced ${childName}`,
+    );
   }
 });
 

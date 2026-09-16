@@ -9,9 +9,13 @@
 // doesn't block the bones below it — the ankle still solves when the knee was
 // never recorded.
 //
-// Bones are nonetheless visited in BONES order, which is proximal-to-distal.
-// The rig applies rotations in local space, so a child's frame depends on where
-// its parent was placed. Do not reorder or parallelise this loop.
+// SOLVE AND APPLY MUST INTERLEAVE. Bones are visited in BONES order, which is
+// proximal-to-distal, and each one is applied to the rig before the next is
+// solved. This is not an optimisation — it is required. solveBone converts a
+// measured direction into the bone's own world frame, and that frame moves when
+// a parent is posed. Measured: a tibia solved in isolation came out 0.0 deg off;
+// the same tibia solved alongside a femur that had not yet been applied was
+// 89.0 deg off. Do not reorder this loop, and do not batch the application.
 
 import { BONES, UNUSED_JOINTS } from "./topology.js";
 import { JOINTS } from "../joints.js";
@@ -32,10 +36,12 @@ function isPosition(value) {
 }
 
 /**
-/**
  * @param {Record<string, {x:number,y:number,z:number}>} joints  positions in scene space
  * @param {object} options
  * @param {Function} options.solveBone  (proximalPos, distalPos, bone) => {x,y,z}
+ * @param {Function} [options.applyBone]  (jointId, rotation, bone, poseSoFar) => void
+ *        Called after each bone is solved, before the next. Required in the
+ *        real pipeline; optional so tests can run without a scene.
  * @returns {{
  *   pose: Record<string, {x:number,y:number,z:number}>,
  *   solved: string[],
@@ -46,7 +52,7 @@ function isPosition(value) {
  *   failed: {boneId: string, reason: string}[],
  * }}
  */
-export function solveSkeleton(joints = {}, { solveBone } = {}) {
+export function solveSkeleton(joints = {}, { solveBone, applyBone } = {}) {
   const pose = {};
   const solved = [];
   const unsolved = [];
@@ -95,6 +101,9 @@ export function solveSkeleton(joints = {}, { solveBone } = {}) {
 
     pose[bone.jointId] = rotation;
     solved.push(bone.id);
+
+    // Apply now, before the next bone is solved. See the header comment.
+    applyBone?.(bone.jointId, rotation, bone, pose);
   }
 
   return { pose, solved, unsolved, ignored, unknown, invalid, failed };
