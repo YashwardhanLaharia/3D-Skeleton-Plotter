@@ -49,10 +49,49 @@ export function normaliseIndividual(raw) {
     };
   }
 
+  const groupId =
+    raw.groupId == null || raw.groupId === "" ? null : String(raw.groupId);
+
   return {
     id: String(raw.id),
     label: String(raw.label ?? ""),
     colour: String(raw.colour ?? "#E69F00"),
+    groupId,
     coords,
   };
+}
+
+// Groups are additive: older projects simply have none. Drop malformed entries
+// and clear membership refs that point at groups that no longer exist.
+export function normaliseGroups(rawGroups) {
+  if (!Array.isArray(rawGroups)) return [];
+
+  const seen = new Set();
+  const groups = [];
+
+  for (const group of rawGroups) {
+    if (!group || typeof group.id !== "string" || group.id === "") continue;
+    if (seen.has(group.id)) continue;
+    seen.add(group.id);
+    groups.push({
+      id: String(group.id),
+      name: String(group.name ?? ""),
+    });
+  }
+
+  return groups;
+}
+
+export function normaliseProject(data) {
+  const groups = normaliseGroups(data.groups);
+  const groupIds = new Set(groups.map((group) => group.id));
+  const individuals = data.individuals.map((raw) => {
+    const individual = normaliseIndividual(raw);
+    if (individual.groupId && !groupIds.has(individual.groupId)) {
+      return { ...individual, groupId: null };
+    }
+    return individual;
+  });
+
+  return { individuals, groups };
 }

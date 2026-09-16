@@ -7,7 +7,11 @@
 // to be focusing on the viewport.
 
 import { useState } from "react";
-import { isVisible, isIsolated } from "../visibility";
+import {
+  isVisible,
+  isIsolated,
+  isGroupFullyHidden,
+} from "../visibility";
 
 function LayerRow({
   individual,
@@ -81,10 +85,48 @@ function LayerRow({
   );
 }
 
+function LayerGroup({
+  title,
+  memberIds,
+  hidden,
+  onToggleGroupVisibility,
+  children,
+}) {
+  const fullyHidden = isGroupFullyHidden(hidden, memberIds);
+  const hasMembers = memberIds.length > 0;
+
+  return (
+    <li className="layer-group">
+      <button
+        type="button"
+        className={`layer-group-header d-flex align-items-center gap-2 w-100 text-start ${
+          fullyHidden ? "layer-group-header-off" : ""
+        }`}
+        onClick={() => onToggleGroupVisibility(memberIds)}
+        disabled={!hasMembers}
+        aria-pressed={hasMembers ? !fullyHidden : undefined}
+        aria-label={`${title}, ${fullyHidden ? "hidden" : "visible"}`}
+      >
+        <span className="layer-eye" aria-hidden="true">
+          {fullyHidden ? "○" : "●"}
+        </span>
+        <span className="layer-group-name text-truncate">{title}</span>
+        <span className="layers-count ms-auto">
+          {memberIds.filter((id) => isVisible(hidden, id)).length}/
+          {memberIds.length}
+        </span>
+      </button>
+      <ul className="layer-group-list list-unstyled mb-0">{children}</ul>
+    </li>
+  );
+}
+
 export default function LayersPanel({
   individuals,
+  groups = [],
   hidden,
   onToggleVisibility,
+  onToggleGroupVisibility,
   onIsolate,
   onShowAll,
   focusedId,
@@ -97,6 +139,25 @@ export default function LayersPanel({
   const allIds = individuals.map((individual) => individual.id);
   const hiddenCount = hidden.length;
   const visibleCount = individuals.length - hiddenCount;
+  const knownGroupIds = new Set(groups.map((group) => group.id));
+  const ungrouped = individuals.filter(
+    (individual) => !individual.groupId || !knownGroupIds.has(individual.groupId),
+  );
+
+  function renderRow(individual) {
+    return (
+      <LayerRow
+        key={individual.id}
+        individual={individual}
+        visible={isVisible(hidden, individual.id)}
+        isolated={isIsolated(hidden, individual.id, allIds)}
+        onToggleVisibility={onToggleVisibility}
+        onIsolate={onIsolate}
+        focused={individual.id === focusedId}
+        onFocus={onFocus}
+      />
+    );
+  }
 
   return (
     <section
@@ -147,22 +208,45 @@ export default function LayersPanel({
             onMouseLeave={() => setHoveredId(null)}
             onMouseOver={() => setHoveredId(true)}
           >
-            {individuals.map((individual) => (
-              <LayerRow
-                key={individual.id}
-                individual={individual}
-                visible={isVisible(hidden, individual.id)}
-                isolated={isIsolated(hidden, individual.id, allIds)}
-                onToggleVisibility={onToggleVisibility}
-                onIsolate={onIsolate}
-                focused={individual.id === focusedId}
-                onFocus={onFocus}
-              />
-            ))}
+            {groups.length === 0 ? (
+              individuals.map(renderRow)
+            ) : (
+              <>
+                {groups.map((group) => {
+                  const members = individuals.filter(
+                    (individual) => individual.groupId === group.id,
+                  );
+                  return (
+                    <LayerGroup
+                      key={group.id}
+                      title={group.name.trim() || "Unnamed group"}
+                      memberIds={members.map((member) => member.id)}
+                      hidden={hidden}
+                      onToggleGroupVisibility={onToggleGroupVisibility}
+                    >
+                      {members.map(renderRow)}
+                    </LayerGroup>
+                  );
+                })}
+
+                {ungrouped.length > 0 && (
+                  <LayerGroup
+                    title="Ungrouped"
+                    memberIds={ungrouped.map((member) => member.id)}
+                    hidden={hidden}
+                    onToggleGroupVisibility={onToggleGroupVisibility}
+                  >
+                    {ungrouped.map(renderRow)}
+                  </LayerGroup>
+                )}
+              </>
+            )}
           </ul>
 
           <footer className="layers-hint px-2 py-1 border-top">
-            {hoveredId ? "Click to hide · Double-click to isolate" : "\u00A0"}
+            {hoveredId
+              ? "Click to hide · Group header hides all · Double-click to isolate"
+              : "\u00A0"}
           </footer>
         </>
       )}
