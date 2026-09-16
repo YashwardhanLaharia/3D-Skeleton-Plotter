@@ -1,6 +1,6 @@
 // The individuals panel. One collapsible section per body in the grave, each
 // containing a coordinate table: one row per survey point with number, label,
-// and three inputs for X, Y, Z.
+// and three inputs for X, Y, Z. Skeletons can be organised into named groups.
 import { JOINTS } from "../joints";
 import { useState, useEffect, useRef } from "react";
 
@@ -101,6 +101,8 @@ function IndividualSection({
   canRemove,
   onColourChange,
   onLabelChange,
+  groups,
+  onSetGroup,
   highlight,
 }) {
   // A point counts as recorded only when all three axes are filled. Partial
@@ -124,7 +126,7 @@ function IndividualSection({
           className={`form-control form-control-color${
             highlight?.field === "colour" ? " coord-input-flash" : ""
           }`}
-          id="colorPicker"
+          id={`colorPicker-${individual.id}`}
           value={individual.colour}
           title="Choose your color"
           style={{ height: "24px", width: "29px", padding: "5px", margin: "0" }}
@@ -144,6 +146,22 @@ function IndividualSection({
           onClick={(e) => e.stopPropagation()}
           onBlur={onCommit}
         />
+        <select
+          className="form-select form-select-sm individual-group-select"
+          aria-label="Group"
+          value={individual.groupId ?? ""}
+          onChange={(e) =>
+            onSetGroup(individual.id, e.target.value || null)
+          }
+          onClick={(e) => e.stopPropagation()}
+        >
+          <option value="">None</option>
+          {groups.map((group) => (
+            <option key={group.id} value={group.id}>
+              {group.name.trim() || "Unnamed group"}
+            </option>
+          ))}
+        </select>
         <small className="text-body-tertiary">
           {filledCount}/{JOINTS.length}
         </small>
@@ -192,9 +210,63 @@ function IndividualSection({
   );
 }
 
-function DeleteConfirmation({ individual, onCancel, onConfirm }) {
-  const name = individual.label.trim() || "this skeleton";
+function GroupBlock({
+  title,
+  nameValue,
+  onNameChange,
+  onCommit,
+  onRemove,
+  children,
+  empty,
+}) {
+  return (
+    <section className="sidebar-group mb-3">
+      <header className="sidebar-group-header d-flex align-items-center gap-2 mb-2">
+        {onNameChange ? (
+          <input
+            type="text"
+            className="form-control form-control-sm sidebar-group-name"
+            placeholder="Group name"
+            aria-label="Group name"
+            value={nameValue}
+            onChange={(e) => onNameChange(e.target.value)}
+            onBlur={onCommit}
+          />
+        ) : (
+          <h3 className="sidebar-group-title h6 mb-0 text-body-secondary">
+            {title}
+          </h3>
+        )}
+        {onRemove && (
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-secondary"
+            onClick={onRemove}
+            aria-label={`Delete ${nameValue.trim() || "group"}`}
+            title="Delete group"
+          >
+            ×
+          </button>
+        )}
+      </header>
+      {empty ? (
+        <p className="sidebar-group-empty small text-body-tertiary mb-0 px-1">
+          No skeletons in this group
+        </p>
+      ) : (
+        children
+      )}
+    </section>
+  );
+}
 
+function DeleteConfirmation({
+  title,
+  description,
+  confirmLabel = "Delete",
+  onCancel,
+  onConfirm,
+}) {
   return (
     <>
       <div
@@ -202,8 +274,8 @@ function DeleteConfirmation({ individual, onCancel, onConfirm }) {
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="delete-skeleton-title"
-        aria-describedby="delete-skeleton-description"
+        aria-labelledby="delete-confirmation-title"
+        aria-describedby="delete-confirmation-description"
         onKeyDown={(event) => {
           if (event.key === "Escape") {
             onCancel();
@@ -231,15 +303,15 @@ function DeleteConfirmation({ individual, onCancel, onConfirm }) {
               </div>
               <h2
                 className="delete-confirmation-title"
-                id="delete-skeleton-title"
+                id="delete-confirmation-title"
               >
-                Delete skeleton?
+                {title}
               </h2>
               <p
                 className="delete-confirmation-copy"
-                id="delete-skeleton-description"
+                id="delete-confirmation-description"
               >
-                Delete {name} and all of its coordinates?
+                {description}
               </p>
               <div className="d-flex gap-2 mt-4">
                 <button
@@ -255,7 +327,7 @@ function DeleteConfirmation({ individual, onCancel, onConfirm }) {
                   className="btn btn-danger flex-fill delete-confirmation-action"
                   onClick={onConfirm}
                 >
-                  Delete
+                  {confirmLabel}
                 </button>
               </div>
             </div>
@@ -270,6 +342,7 @@ function DeleteConfirmation({ individual, onCancel, onConfirm }) {
 // The panel itself: an add button and the list of sections.
 export default function Sidebar({
   individuals,
+  groups,
   openId,
   onChange,
   onCommit,
@@ -280,6 +353,10 @@ export default function Sidebar({
   onToggle,
   onAdd,
   onRemove,
+  onAddGroup,
+  onRenameGroup,
+  onRemoveGroup,
+  onSetGroup,
   onColourChange,
   onLabelChange,
   isOpen,
@@ -287,11 +364,41 @@ export default function Sidebar({
   notice,
 }) {
   const [pendingRemoval, setPendingRemoval] = useState(null);
+  const [pendingGroupRemoval, setPendingGroupRemoval] = useState(null);
 
   function confirmRemoval() {
     onRemove(pendingRemoval.id);
     setPendingRemoval(null);
   }
+
+  function confirmGroupRemoval() {
+    onRemoveGroup(pendingGroupRemoval.id);
+    setPendingGroupRemoval(null);
+  }
+
+  function renderIndividual(individual) {
+    return (
+      <IndividualSection
+        key={individual.id}
+        individual={individual}
+        isOpen={individual.id === openId}
+        onToggle={onToggle}
+        onChange={onChange}
+        onCommit={onCommit}
+        onRemove={() => setPendingRemoval(individual)}
+        canRemove={individuals.length > 1}
+        onColourChange={onColourChange}
+        onLabelChange={onLabelChange}
+        groups={groups}
+        onSetGroup={onSetGroup}
+        highlight={
+          highlight?.individualId === individual.id ? highlight : null
+        }
+      />
+    );
+  }
+
+  const ungrouped = individuals.filter((individual) => !individual.groupId);
 
   return (
     <>
@@ -302,9 +409,9 @@ export default function Sidebar({
       >
         {isOpen && (
           <div className="sidebar-content">
-            <header className="sidebar-header bg-body-tertiary border-bottom px-2 py-2 d-flex align-items-center justify-content-between">
+            <header className="sidebar-header bg-body-tertiary border-bottom px-2 py-2 d-flex align-items-center justify-content-between gap-2">
               <h2 className="h6 mb-0">Individuals</h2>
-              <div className="d-flex align-items-center gap-1">
+              <div className="d-flex align-items-center gap-1 flex-wrap justify-content-end">
                 <button
                   type="button"
                   className="btn btn-sm btn-outline-secondary history-btn"
@@ -327,6 +434,13 @@ export default function Sidebar({
                 </button>
                 <button
                   type="button"
+                  className="btn btn-sm btn-outline-secondary"
+                  onClick={onAddGroup}
+                >
+                  Add group
+                </button>
+                <button
+                  type="button"
                   className="btn btn-sm btn-primary"
                   onClick={onAdd}
                 >
@@ -345,23 +459,33 @@ export default function Sidebar({
             )}
 
             <div className="p-2">
-              {individuals.map((individual) => (
-                <IndividualSection
-                  key={individual.id}
-                  individual={individual}
-                  isOpen={individual.id === openId}
-                  onToggle={onToggle}
-                  onChange={onChange}
-                  onCommit={onCommit}
-                  onRemove={() => setPendingRemoval(individual)}
-                  canRemove={individuals.length > 1}
-                  onColourChange={onColourChange}
-                  onLabelChange={onLabelChange}
-                  highlight={
-                    highlight?.individualId === individual.id ? highlight : null
-                  }
-                />
-              ))}
+              {groups.length === 0 ? (
+                ungrouped.map(renderIndividual)
+              ) : (
+                <>
+                  {groups.map((group) => {
+                    const members = individuals.filter(
+                      (individual) => individual.groupId === group.id,
+                    );
+                    return (
+                      <GroupBlock
+                        key={group.id}
+                        nameValue={group.name}
+                        onNameChange={(name) => onRenameGroup(group.id, name)}
+                        onCommit={onCommit}
+                        onRemove={() => setPendingGroupRemoval(group)}
+                        empty={members.length === 0}
+                      >
+                        {members.map(renderIndividual)}
+                      </GroupBlock>
+                    );
+                  })}
+
+                  <GroupBlock title="Ungrouped" empty={ungrouped.length === 0}>
+                    {ungrouped.map(renderIndividual)}
+                  </GroupBlock>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -369,9 +493,19 @@ export default function Sidebar({
 
       {pendingRemoval && (
         <DeleteConfirmation
-          individual={pendingRemoval}
+          title="Delete skeleton?"
+          description={`Delete ${pendingRemoval.label.trim() || "this skeleton"} and all of its coordinates?`}
           onCancel={() => setPendingRemoval(null)}
           onConfirm={confirmRemoval}
+        />
+      )}
+
+      {pendingGroupRemoval && (
+        <DeleteConfirmation
+          title="Delete group?"
+          description={`Delete ${pendingGroupRemoval.name.trim() || "this group"}? Skeletons in it become ungrouped.`}
+          onCancel={() => setPendingGroupRemoval(null)}
+          onConfirm={confirmGroupRemoval}
         />
       )}
     </>
