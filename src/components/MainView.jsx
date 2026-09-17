@@ -46,6 +46,7 @@ function SkeletonModel({
   visible = true,
   command,
   isTarget,
+  onSolverIssue,
 }) {
   const groupRef = useRef(null);
 
@@ -101,7 +102,7 @@ function SkeletonModel({
   // Pose this individual from their coordinates. Every ordering constraint
   // lives in applySolvedPose; see the comment at the top of that module.
   useEffect(() => {
-    const { report } = applySolvedPose({
+    const { report, segmentScales } = applySolvedPose({
       scene: clonedScene,
       rig,
       root: groupRef.current,
@@ -109,18 +110,59 @@ function SkeletonModel({
       solveBone,
     });
 
-    if (
-      report.unknown.length ||
-      report.invalid.length ||
-      report.failed.length
-    ) {
+    const warnings = [];
+
+    if (Object.keys(sceneJoints).length > 0 && report.unsolved.length) {
+      warnings.push(
+        "some bones are missing the coordinates needed to position them",
+      );
+    }
+
+    if (report.unknown.length) {
+      warnings.push("some coordinates are not recognised");
+    }
+
+    if (report.invalid.length) {
+      warnings.push("some coordinates are invalid");
+    }
+
+    if (report.failed.length) {
+      warnings.push("some bones could not be positioned");
+    }
+
+    if (segmentScales.clamped.length) {
+      warnings.push(
+        "some bone lengths are outside the supported range and were limited",
+      );
+    }
+
+    if (segmentScales.degenerate.length) {
+      warnings.push(
+        "some bone endpoints are recorded at the same position",
+      );
+    }
+
+    if (warnings.length) {
       console.warn("solve issues", {
+        unsolved: report.unsolved,
         unknown: report.unknown,
         invalid: report.invalid,
         failed: report.failed,
+        clamped: segmentScales.clamped,
+        degenerate: segmentScales.degenerate,
       });
+
+      const name = label?.trim() || "Skeleton";
+      onSolverIssue?.(`${name}: ${warnings.join("; ")}.`);
     }
-  }, [sceneJoints, solveBone, rig, clonedScene]);
+  }, [
+    sceneJoints,
+    solveBone,
+    rig,
+    clonedScene,
+    label,
+    onSolverIssue,
+  ]);
 
   // Commands arrive one at a time from the Rig Controls window.
   const lastCommandRef = useRef(command ?? null);
@@ -365,6 +407,7 @@ const MainView = forwardRef(function MainView(
     targetId,
     hidden = [],
     focusedId = null,
+    onSolverIssue,
   },
   ref,
 ) {
@@ -396,6 +439,7 @@ const MainView = forwardRef(function MainView(
               graveDimensions={graveDimensions}
               command={command}
               isTarget={individual.id === targetId}
+          onSolverIssue={onSolverIssue}
               visible={
                 focusedId
                   ? individual.id === focusedId
