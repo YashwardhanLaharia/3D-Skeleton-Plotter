@@ -1,8 +1,8 @@
 # Rig API
 
-`SkeletonRigApi` controls a loaded skeleton through stable anatomical IDs. Callers do not need to know the bone or mesh names used by the GLB model.
-
-## Create a Rig
+`SkeletonRigApi` controls a loaded skeleton through stable anatomical IDs.
+Callers never touch GLB bone or mesh names; those live in the configuration
+and binding layers so the API survives a model swap.
 
 ```js
 import {
@@ -12,16 +12,29 @@ import {
   RIG_SEGMENT_IDS,
   RIG_SEGMENT_GROUP_IDS,
   RIG_BODY_DIMENSION_IDS,
+  RIG_SPAWNABLE_BONE_IDS,
 } from "./SkeletonRigApi.js";
 
 const rig = createSkeletonRig(scene);
 ```
 
-Create one rig for each cloned skeleton scene. Every instance owns its pose, morphology state, and deformable geometry, so changing one skeleton does not affect another.
+Create one rig per loaded skeleton scene. Each instance owns its pose,
+morphology state, spawned bones, and deformable geometry, so changing one
+skeleton never affects another.
 
-## Rotations
+The rig manages three independent areas, and resets never cross between them:
 
-Joint and digit rotations are incremental degree offsets clamped to their configured limits.
+- **Pose** — joint and digit rotations (`rotateJoint`, `patchPose`, …)
+- **Morphology** — segment scales and body dimensions (`setSegmentScale`, …)
+- **Spawned bones** — independent per-bone instances (`spawnBone`, …)
+
+Uniform resize (`setUniformScale`) sits outside all three: it scales the whole
+scene including geometry that morphology deliberately leaves alone.
+
+## Posing
+
+`rotateJoint` and `rotateDigit` apply *incremental* degree offsets, clamped to
+each joint's symmetric per-axis limits:
 
 ```js
 rig.rotateJoint("shoulder_l", "z", 10);
@@ -29,69 +42,73 @@ rig.rotateDigit("fingertips_r", "2", "y", 15);
 rig.rotate("knee_l", "x", -5); // Compatibility alias for rotateJoint().
 ```
 
-Pose methods accept absolute rotation offsets:
+Pose methods instead take *absolute* rotation offsets, rebuilt from the
+model's rest pose every time so repeated calls never compound rounding error:
 
 ```js
 rig.patchPose({ shoulder_l: { x: 0, y: 0, z: 20 } });
 rig.replacePose({ knee_l: { x: 30, y: 0, z: 0 } });
 ```
 
-`patchPose()` changes only supplied joints. `replacePose()` resets joint and digit rotations first. `setPose()` is a compatibility alias for `patchPose()`.
+`patchPose()` touches only the joints given. `replacePose()` resets joint and
+digit rotations first. `setPose()` is a compatibility alias for `patchPose()`.
 
-## Segment Scaling
+Some joints drive several bones at once: `neck` and the torso joints spread
+their rotation across a vertebral chain rather than hinging at one point (see
+`torso/torsoConfig.js`). Finger and toe commands address a whole digit chain
+through one representative joint — `fingertips_l` plus a digit number — with
+chains defined in `digits/digitsConfig.js`.
 
-Scale factors are absolute values relative to the imported model. A factor of `1` is the rest length, and configured factors are currently clamped from `0.5` through `1.5`.
+Reset pose without touching anything else:
+
+```js
+rig.resetJoint("shoulder_l");
+rig.resetDigit("fingertips_r", "2");
+rig.resetAll(); // Joints and digits only.
+```
+
+## Morphology
+
+Scale factors are absolute values relative to the imported model: `1` is the
+rest length, clamped to `0.5`–`1.5`. Every morphology control follows the same
+set / patch / replace / reset convention: `set` writes one value, `patch`
+updates only the entries given, `replace` resets everything first, and resets
+are independent of pose.
 
 ```js
 rig.setSegmentScale("thigh_l", 0.8);
 rig.setSegmentGroupScale("legs", 0.75);
 
-rig.patchSegmentScales({
-  upper_arm_l: 0.9,
-  upper_arm_r: 0.9,
-});
+rig.patchSegmentScales({ upper_arm_l: 0.9, upper_arm_r: 0.9 });
+rig.replaceSegmentScales({ thigh_l: 0.75, thigh_r: 0.75 });
 
-rig.replaceSegmentScales({
-  thigh_l: 0.75,
-  thigh_r: 0.75,
-  lower_leg_l: 0.7,
-  lower_leg_r: 0.7,
-});
+rig.resetSegmentScale("thigh_l");
+rig.resetAllSegmentScales();
 ```
 
-`patchSegmentScales()` preserves omitted segments. `replaceSegmentScales()` returns omitted segments to factor `1`.
-
-The segment API currently covers the left and right upper arms, forearms, thighs, and lower legs. It changes the geometry between joints while leaving joint-node scales unchanged.
-
-## Body Dimensions
-
-Body dimensions use the same absolute factor convention. Available controls are `torso_length`, `shoulder_width`, `pelvis_width`, and `pelvis_depth`.
+Segments cover the left and right upper arms, forearms, thighs, and lower
+legs. Scaling deforms the bone shaft between joints while translating the
+distal endcap rigidly, and joint nodes themselves keep their scale.
 
 ```js
 rig.setBodyDimension("torso_length", 0.8);
-rig.setBodyDimension("shoulder_width", 0.85);
-
-rig.patchBodyDimensions({
-  pelvis_width: 0.8,
-  pelvis_depth: 0.75,
-});
+rig.patchBodyDimensions({ pelvis_width: 0.8, pelvis_depth: 0.75 });
+rig.resetBodyDimension("pelvis_width");
+rig.resetAllBodyDimensions();
 ```
 
-`patchBodyDimensions()` preserves omitted dimensions. `replaceBodyDimensions()` returns omitted dimensions to factor `1`.
+Body dimensions are `torso_length`, `shoulder_width`, `pelvis_width`, and
+`pelvis_depth`, using the same factor convention and limits.
 
-## Whole Morphology
-
-Apply one factor to every configured segment and body dimension:
+One factor across all morphology at once:
 
 ```js
 rig.setSkeletonScale(0.7);
 ```
 
-This is an anatomical morphology operation, not a uniform Three.js root scale. It preserves joint-node scale and does not resize geometry without a morphology control, such as the skull, hands, or feet.
-
-## Uniform Resize
-
-Uniform resize scales the complete skeleton scene, including the skull, hands, feet, joint surfaces, and all other geometry. It is independent from pose and morphology controls.
+This is anatomical, not a scene scale: it preserves joint-node scale and
+leaves geometry without a morphology control — skull, hands, feet — at rest
+size. For a plain bigger-or-smaller skeleton, use uniform resize instead:
 
 ```js
 rig.setUniformScale(0.7);
@@ -99,34 +116,140 @@ rig.resize(0.7); // Compatibility shorthand.
 rig.resetUniformScale();
 ```
 
-Use `setSkeletonScale()` when changing anatomical proportions without scaling joint geometry. Use `setUniformScale()` when the entire model should simply become larger or smaller.
+## Spawned Bones
 
-## Resets
+Independent per-bone instances for disarticulated remains: when a bone is
+missing, displaced, or detached, callers spawn that bone on its own instead of
+posing the connected skeleton. The articulated hierarchy is never reparented,
+so pose and morphology behaviour is untouched.
 
-Pose, segment, and body-dimension resets are independent.
+The catalog (`spawn/boneCatalog.js`, IDs in `RIG_SPAWNABLE_BONE_IDS`) covers
+limb long-bones, axial (pelvis, sternum, spine, skull, mandible), shoulder
+girdles, patellae, and per-digit finger/toe units. Only ribs are deferred
+(they are skinned; every other mesh is rigidly parented to one bone).
 
 ```js
-rig.resetJoint("shoulder_l");
-rig.resetDigit("fingertips_r", "2");
-rig.resetAll();
+const rest = rig.getDiagnostics().spawnedBones.catalog.thigh_l.restLength;
+const spawned = rig.spawnBone("thigh_l", superior, inferior);
+if (!spawned.ok) console.error(spawned.error);
 
-rig.resetSegmentScale("thigh_l");
-rig.resetAllSegmentScales();
-
-rig.resetBodyDimension("pelvis_width");
-rig.resetAllBodyDimensions();
+rig.updateSpawnedBone(spawned.instanceId, superior2, inferior2);
+rig.setSpawnedBoneVisibility(spawned.instanceId, false);
+rig.despawnBone(spawned.instanceId);
+rig.clearSpawnedBones();
+console.log(rig.getSpawnedBones());
 ```
 
-`resetAll()` resets joint and digit rotations only.
+### Placement
 
-## Model Bone Names
+Endpoints are scene-space `{ x, y, z }` positions; the rig stays
+space-agnostic, so callers convert grave-grid coordinates via `toSceneSpace`
+first (as `MainView` does for the solver). The spawned group's origin lands
+on `superior`, and its local +Y — the bone axis by model convention, see
+`solver/solveBone.js` — is rotated onto `inferior - superior`. Endpoints must
+be finite and must not coincide; numeric strings are coerced (blanks stay
+missing rather than becoming 0), and stored records always hold numbers. Two
+points fix direction but not axial twist,
+so roll is always the model's rest roll.
 
-Public callers should use rig IDs rather than GLB object names. Model names belong in the configuration and binding layers so the API can remain stable if the model changes:
+### Scaling
 
-- Joint bindings: `rigConfig.js`, `head/headConfig.js`, and `torso/torsoConfig.js`
+Each spawn carries its own scale factor computed from its own endpoints:
+
+```
+measured  = distance(superior, inferior)
+requested = measured / restLength
+applied   = clamp(requested, 0.5, 1.5)
+```
+
+`restLength` is the model's rest length for that bone: the existing segment
+rest length for the 8 scalable long-bones (so spawned and articulated scaling
+agree), otherwise the rest distance between the catalog's proximal and distal
+anchor bones. Limits mirror `scaling/segmentConfig.js`. The factor is applied
+as a rigid Y-scale on the spawned group, so length changes while
+cross-section is preserved. Results report `measured`, `requested`,
+`scaleFactor`, and `clamped`, and `updateSpawnedBone` recomputes from new
+endpoints. Scale never touches shared `segmentScales` state. Clones are
+restored to rest geometry at spawn, so spawning after a morphology change
+does not inherit the master's deformation on top of the spawn's own factor.
+
+### Master hiding and instances
+
+Spawning hides the corresponding master meshes (refcounted per `boneId`) and
+`despawnBone` restores them once the last instance is gone; hiding an instance
+keeps its master meshes hidden, since the bone is still accounted for. Bones
+themselves are never hidden or moved, so unspawned downstream bones keep their
+articulated pose. Instances are UUID-keyed (`SpawnedBoneStore`) — pass
+`options.instanceId` to choose the ID, or one is generated — so the same
+`boneId` can spawn multiple times for commingled cases. Use
+`options.hideMaster` (default `true`) to opt out of master hiding.
+
+### Approximations
+
+Multi-mesh units reconstruct from per-mesh rest offsets relative to the
+driver bone, so split anatomies (Ulna+Radius, Tibia+Fibula) stay aligned.
+Hands/feet spawn their carpal/tarsal clusters while fingers/toes stay
+articulated unless spawned per digit. The spine is one rigid unit anchored
+Lumbar5→Thoracic010 with cervicals riding along. Compact bones (skull,
+pelvis, patella, scapula) use driver→child anchor distances, so their scale
+is approximate and orientation carries the placement.
+
+## Results and State
+
+Operations return `{ ok: true, ... }` on success or `{ ok: false, error }` for
+invalid requests — check `ok` before reading anything else:
+
+```js
+const result = rig.setSegmentScale("forearm_l", 0.85);
+if (!result.ok) console.error(result.error);
+```
+
+`getState()` returns defensive copies of `jointRotations`, `digitRotations`,
+`segmentScales`, `bodyDimensions`, and `uniformScale`. Spawned-bone records
+live outside it by design — use `getSpawnedBones()`. `getDiagnostics()`
+reports binding health for joints, digits, attachments, segments, dimensions,
+regions, and the spawned-bone catalog plus live instances. Use the exported
+identifier arrays to build controls without duplicating configuration:
+
+```js
+console.log(RIG_JOINT_IDS);
+console.log(RIG_ROTATION_AXES);
+console.log(RIG_SEGMENT_IDS);
+console.log(RIG_SEGMENT_GROUP_IDS);
+console.log(RIG_BODY_DIMENSION_IDS);
+console.log(RIG_SPAWNABLE_BONE_IDS);
+```
+
+`getDisplayTransform()` returns the viewport framing transform.
+
+## Commands
+
+`execute()` accepts the low-level command format used by the Electron control
+windows (Rig Controls, Bone Controls), which send commands over IPC to the
+targeted skeleton. `RigCommandValidator` checks shape first — unknown types
+and malformed payloads are rejected before touching the scene — and each
+command maps to the facade method of the same name:
+
+`rotate-joint`, `rotate-digit`, `reset-joint`, `reset-digit`, `reset-all`,
+`set-segment-scale`, `set-segment-group-scale`, `reset-segment-scale`,
+`reset-all-segment-scales`, `set-body-dimension`, `reset-body-dimension`,
+`reset-all-body-dimensions`, `set-skeleton-scale`, `set-uniform-scale`,
+`reset-uniform-scale`, `spawn-bone`, `update-spawned-bone`, `despawn-bone`,
+`clear-spawned-bones`, `set-spawned-bone-visibility`.
+
+Prefer the facade methods in-process; reach for `execute()` when crossing the
+IPC boundary or dispatching stored commands.
+
+## Model Bindings
+
+Public callers use rig IDs, never GLB object names. Model names belong in the
+configuration and binding layers so the API survives a model swap:
+
+- Joint bindings: `rigConfig.js`, `head/headConfig.js`, `torso/torsoConfig.js`
 - Finger and toe chains: `digits/digitsConfig.js`
 - Scalable segments: `scaling/segmentConfig.js`
 - Body dimensions: `scaling/dimensionConfig.js`
+- Spawnable bones: `spawn/boneCatalog.js`
 - Scene-object lookup: `binding/RigSceneBinding.js`
 
 The main prefixes are:
@@ -137,7 +260,9 @@ The main prefixes are:
 | `MECH-` | Internal mechanism or attachment bone | `MECH-WristL` |
 | `CTRL-` | Control-rig bone exported from Blender | `CTRL-ScapulaL` |
 
-Side suffixes are `L` and `R`. Blender source names commonly contain a dot before the side, such as `DEF-Humerus.L`; the exported GLB name is `DEF-HumerusL`.
+Side suffixes are `L` and `R`. Blender source names commonly contain a dot
+before the side, such as `DEF-Humerus.L`; the exported GLB name is
+`DEF-HumerusL`.
 
 ### Joint Bindings
 
@@ -157,11 +282,15 @@ Side suffixes are `L` and `R`. Blender source names commonly contain a dot befor
 | `ankle_l`, `ankle_r` | `DEF-FootL`, `DEF-FootR` |
 | `toes_l`, `toes_r` | `DEF-MetatarsalL3`, `DEF-MetatarsalR3` |
 
-Finger and toe operations resolve complete chains rather than only the representative fingertip or toe bone. Consult `digits/digitsConfig.js` before adding or changing a digit binding.
+Finger and toe operations resolve complete chains rather than only the
+representative fingertip or toe bone. Consult `digits/digitsConfig.js` before
+adding or changing a digit binding.
 
 ### Segment Bindings
 
-Each scalable segment has a driver bone, a distal boundary, and one or more visible meshes. The driver and distal objects define the joint-to-joint distance; only the listed meshes are deformed.
+Each scalable segment has a driver bone, a distal boundary, and one or more
+visible meshes. The driver and distal objects define the joint-to-joint
+distance; only the listed meshes are deformed.
 
 | Segment ID | Driver | Distal boundary | Deformed meshes |
 | --- | --- | --- | --- |
@@ -174,7 +303,12 @@ Each scalable segment has a driver bone, a distal boundary, and one or more visi
 | `lower_leg_l` | `DEF-TibiaL` | `DEF-FootL` | `TibiaL`, `FibulaL` |
 | `lower_leg_r` | `DEF-TibiaR` | `DEF-FootR` | `TibiaR`, `FibulaR` |
 
-Body-dimension controls additionally bind the `DEF-Pelvis`, `DEF-Sternum`, `DEF-ClavicleL`, and `DEF-ClavicleR` bones and the `Pelvis`, `Sternum`, `ClavicleL`, and `ClavicleR` meshes. Torso length uses the chain from `DEF-SpineLumbar5` through `DEF-SpineThoracic010`. The sternum attachment follows `DEF-SpineThoracic007`, which is deliberately below the cervical rotation chain.
+Body-dimension controls additionally bind the `DEF-Pelvis`, `DEF-Sternum`,
+`DEF-ClavicleL`, and `DEF-ClavicleR` bones and the `Pelvis`, `Sternum`,
+`ClavicleL`, and `ClavicleR` meshes. Torso length uses the chain from
+`DEF-SpineLumbar5` through `DEF-SpineThoracic010`. The sternum attachment
+follows `DEF-SpineThoracic007`, which is deliberately below the cervical
+rotation chain.
 
 ### Inspecting the Model
 
@@ -191,30 +325,12 @@ const bone = scene.getObjectByName("DEF-HumerusL");
 console.log(bone?.position, bone?.children.map((child) => child.name));
 ```
 
-Use `rig.getDiagnostics()` to check whether configured joints, segments, dimensions, digits, and attachments resolved successfully. Tests in `tests/rig/SkeletonRigController.test.mjs` also load the real GLB and fail when required bindings are missing.
+Use `rig.getDiagnostics()` to check whether configured joints, segments,
+dimensions, digits, attachments, and spawnable bones resolved successfully.
+Tests in `tests/rig/` load the real GLB and fail when required bindings are
+missing.
 
-When inspecting `tools/models/skeleton-male/skeleton-male.blend`, remember to verify the exported GLB name before adding it to JavaScript configuration. Avoid depending on generated names such as `Cube.001` when a stable anatomical name is available.
-
-## State and Results
-
-Operations return `{ ok: true, ... }` on success or `{ ok: false, error }` for invalid requests. `getState()` returns defensive copies of `jointRotations`, `digitRotations`, `segmentScales`, `bodyDimensions`, and `uniformScale`.
-
-```js
-const result = rig.setSegmentScale("forearm_l", 0.85);
-if (!result.ok) console.error(result.error);
-
-const state = rig.getState();
-console.log(state.segmentScales.forearm_l);
-```
-
-Use the exported identifier arrays to build controls without duplicating configuration:
-
-```js
-console.log(RIG_JOINT_IDS);
-console.log(RIG_ROTATION_AXES);
-console.log(RIG_SEGMENT_IDS);
-console.log(RIG_SEGMENT_GROUP_IDS);
-console.log(RIG_BODY_DIMENSION_IDS);
-```
-
-`getDiagnostics()` reports model binding health, and `getDisplayTransform()` returns the viewport framing transform.
+When inspecting `tools/models/skeleton-male/skeleton-male.blend`, verify the
+exported GLB name before adding it to JavaScript configuration. Avoid
+depending on generated names such as `Cube.001` when a stable anatomical name
+is available.

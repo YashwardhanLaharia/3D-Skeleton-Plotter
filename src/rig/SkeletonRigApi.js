@@ -2,12 +2,14 @@ import { JOINT_ROTATIONS } from "./rigConfig.js";
 import { SkeletonRigController } from "./SkeletonRigController.js";
 import { SEGMENT_GROUPS, SEGMENT_SCALES } from "./scaling/segmentConfig.js";
 import { BODY_DIMENSIONS } from "./scaling/dimensionConfig.js";
+import { SPAWNABLE_BONE_IDS } from "./spawn/boneCatalog.js";
 
 export const RIG_JOINT_IDS = Object.freeze(Object.keys(JOINT_ROTATIONS));
 export const RIG_ROTATION_AXES = Object.freeze(["x", "y", "z"]);
 export const RIG_SEGMENT_IDS = Object.freeze(Object.keys(SEGMENT_SCALES));
 export const RIG_SEGMENT_GROUP_IDS = Object.freeze(Object.keys(SEGMENT_GROUPS));
 export const RIG_BODY_DIMENSION_IDS = Object.freeze(Object.keys(BODY_DIMENSIONS));
+export const RIG_SPAWNABLE_BONE_IDS = SPAWNABLE_BONE_IDS;
 
 /**
  * Public model-control facade. Callers use rig joint IDs and never GLB bone names.
@@ -172,6 +174,40 @@ export class SkeletonRigApi {
   /** Returns a defensive snapshot of pose and morphology state. */
   getState() {
     return this.#controller.getState();
+  }
+
+  /**
+   * Spawns one independent bone instance from superior/inferior endpoints.
+   * Hides the corresponding master meshes by default; the articulated
+   * hierarchy itself is never reparented.
+   */
+  spawnBone(boneId, superior, inferior, options) {
+    return this.#controller.spawnBone(boneId, superior, inferior, options);
+  }
+
+  /** Recomputes placement for one spawned instance. */
+  updateSpawnedBone(instanceId, superior, inferior) {
+    return this.#controller.updateSpawnedBone(instanceId, superior, inferior);
+  }
+
+  /** Removes one spawned instance and restores master meshes when unreferenced. */
+  despawnBone(instanceId) {
+    return this.#controller.despawnBone(instanceId);
+  }
+
+  /** Removes every spawned instance for this skeleton. */
+  clearSpawnedBones() {
+    return this.#controller.clearSpawnedBones();
+  }
+
+  /** Lists spawned instance records. */
+  getSpawnedBones() {
+    return this.#controller.getSpawnedBones();
+  }
+
+  /** Toggles visibility of one spawned instance (master stays hidden). */
+  setSpawnedBoneVisibility(instanceId, visible) {
+    return this.#controller.setSpawnedBoneVisibility(instanceId, visible);
   }
 
   /** Returns model binding and attachment diagnostics for this instance. */

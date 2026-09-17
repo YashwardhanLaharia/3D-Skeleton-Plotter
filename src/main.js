@@ -10,6 +10,7 @@ if (started) {
 
 let mainWindow;
 let rigControlsWindow;
+let boneControlsWindow;
 let isQuitting = false;
 
 const loadWindow = (window, query = {}) => {
@@ -49,6 +50,30 @@ const createRigControlsWindow = () => {
   });
 
   loadWindow(rigControlsWindow, { window: "rig-controls" });
+};
+
+const createBoneControlsWindow = () => {
+  if (boneControlsWindow && !boneControlsWindow.isDestroyed()) {
+    boneControlsWindow.show();
+    boneControlsWindow.focus();
+    return;
+  }
+
+  boneControlsWindow = new BrowserWindow({
+    parent: mainWindow,
+    width: 420,
+    height: 640,
+    title: "Bone Controls",
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+    },
+  });
+
+  boneControlsWindow.on("closed", () => {
+    boneControlsWindow = null;
+  });
+
+  loadWindow(boneControlsWindow, { window: "bone-controls" });
 };
 
 ipcMain.on("rig-command", (_event, command) => {
@@ -234,7 +259,10 @@ const menuTemplate = [
   },
   {
     label: "Rig",
-    submenu: [{ label: "Open Rig Controls", click: createRigControlsWindow }],
+    submenu: [
+      { label: "Open Rig Controls", click: createRigControlsWindow },
+      { label: "Open Bone Controls", click: createBoneControlsWindow },
+    ],
   },
 ];
 

@@ -7,7 +7,12 @@ import { DIGITS, DIGIT_JOINT_TYPES } from "./digits/digitsConfig.js";
 import { RigSceneBinding } from "./binding/RigSceneBinding.js";
 import { validateRigCommand } from "./commands/RigCommandValidator.js";
 import { RigState } from "./state/RigState.js";
+import { Group } from "three";
 import { SEGMENT_GROUPS, SEGMENT_SCALES } from "./scaling/segmentConfig.js";
+import { getSpawnableBone, SPAWNABLE_BONES } from "./spawn/boneCatalog.js";
+import { computeBonePlacement, normalizeEndpoint } from "./spawn/bonePlacement.js";
+import { SpawnedBoneStore } from "./spawn/SpawnedBoneStore.js";
+import { captureSpawnRest } from "./spawn/spawnRest.js";
 import {
   BODY_DIMENSIONS,
   UNIFORM_SCALE_LIMITS,
@@ -31,6 +36,36 @@ function ownConfig(registry, id) {
   return typeof id === "string" && Object.hasOwn(registry, id)
     ? registry[id]
     : null;
+}
+
+// Restores a spawned clone to rest geometry. Master meshes are deformed in
+// place by segment and body-dimension transforms, so a clone taken after a
+// morphology change would otherwise inherit the deformation on top of its own
+// scale factor. Snapshots come from captureSpawnRest, taken before any
+// transform is applied.
+function restoreRestGeometry(clone, snapshot) {
+  if (!snapshot) return;
+  const position = clone.geometry.getAttribute("position");
+  position.array.set(snapshot.positions);
+  position.needsUpdate = true;
+  const normal = clone.geometry.getAttribute("normal");
+  if (normal && snapshot.normals) {
+    normal.array.set(snapshot.normals);
+    normal.needsUpdate = true;
+  }
+  clone.geometry.computeBoundingBox();
+  clone.geometry.computeBoundingSphere();
+}
+
+function disposeSpawnedGroup(group) {
+  for (const child of [...group.children]) {
+    child.geometry?.dispose?.();
+    if (Array.isArray(child.material)) {
+      child.material.forEach((material) => material.dispose?.());
+    } else {
+      child.material?.dispose?.();
+    }
+  }
 }
 
 /**
@@ -68,6 +103,15 @@ export class SkeletonRigController {
       Object.keys(this.digitBones),
       Object.keys(SEGMENT_SCALES),
       Object.keys(BODY_DIMENSIONS)
+    );
+    // Spawned-bone rest is captured after segment rest so scalable bones reuse
+    // the same rest length the articulated rig uses. Independent from pose and
+    // morphology state; existing behaviour is untouched.
+    this.spawnRest = captureSpawnRest(scene, this.segmentRest);
+    this.spawnedStore = new SpawnedBoneStore();
+    this.spawnedObjects = new Map();
+    this.masterHiddenCount = Object.fromEntries(
+      Object.keys(SPAWNABLE_BONES).map((boneId) => [boneId, 0])
     );
   }
 
@@ -127,9 +171,216 @@ export class SkeletonRigController {
         return this.setUniformScale(command.factor);
       case "reset-uniform-scale":
         return this.resetUniformScale();
-      default:
+      case "spawn-bone":
+        return this.spawnBone(command.boneId, command.superior, command.inferior, command.options);
+      case "update-spawned-bone":
+        return this.updateSpawnedBone(command.instanceId, command.superior, command.inferior);
+      case "despawn-bone":
+        return this.despawnBone(command.instanceId);
+      case "clear-spawned-bones":
+        return this.clearSpawnedBones();
+      case "set-spawned-bone-visibility":
+        return this.setSpawnedBoneVisibility(command.instanceId, command.visible);
+      case "reset-all":
         return this.resetAll();
+      default:
+        return { ok: false, error: `Unknown command type: ${command.type}` };
     }
+  }
+
+  // Independent-bone spawning for disarticulated remains. Spawned groups are siblings of
+  // the master hierarchy (never reparented bones), so the articulated rig and
+  // all existing pose/segment behaviour stays intact.
+  spawnBone(boneId, superior, inferior, options = {}) {
+    const catalog = getSpawnableBone(boneId);
+    const rest = catalog ? this.spawnRest[boneId] : null;
+    if (!catalog || !rest?.found || rest.restLength == null) {
+      return { ok: false, error: `Unknown or unbound spawnable bone: ${boneId}` };
+    }
+
+    // Normalize first so records always hold numbers, even for IPC callers
+    // sending numeric strings.
+    superior = normalizeEndpoint(superior);
+    inferior = normalizeEndpoint(inferior);
+    if (!superior || !inferior) {
+      return { ok: false, error: "Superior and inferior positions are required" };
+    }
+
+    const placement = computeBonePlacement(superior, inferior, rest.restLength);
+    if (!placement.ok) {
+      return placement;
+    }
+
+    const group = new Group();
+    // Suffix avoids collisions with master mesh names used by getObjectByName.
+    const clones = [];
+    for (const { name, offset } of rest.meshOffsets) {
+      const master = this.scene.getObjectByName(name);
+      if (!master) {
+        disposeSpawnedGroup(group);
+        return { ok: false, error: `Spawn mesh missing: ${name}` };
+      }
+      const clone = master.clone();
+      clone.geometry = master.geometry.clone();
+      restoreRestGeometry(clone, rest.meshSnapshots[name]);
+      clone.material = Array.isArray(master.material)
+        ? master.material.map((material) => material.clone())
+        : master.material.clone();
+      clone.name = `${name}__spawned`;
+      offset.decompose(clone.position, clone.quaternion, clone.scale);
+      group.add(clone);
+      clones.push(clone.name);
+    }
+
+    const record = this.spawnedStore.create({
+      boneId,
+      superior,
+      inferior,
+      scaleFactor: placement.scaleFactor,
+      requested: placement.requested,
+      measured: placement.measured,
+      clamped: placement.clamped,
+    }, options?.instanceId);
+    group.name = `spawned-${boneId}-${record.instanceId.slice(0, 8)}`;
+    group.position.set(placement.position.x, placement.position.y, placement.position.z);
+    group.quaternion.set(
+      placement.quaternion.x,
+      placement.quaternion.y,
+      placement.quaternion.z,
+      placement.quaternion.w
+    );
+    group.scale.set(1, placement.scaleFactor, 1);
+    this.scene.add(group);
+    this.spawnedObjects.set(record.instanceId, group);
+    this.scene.updateMatrixWorld(true);
+
+    const hideMaster = options?.hideMaster ?? true;
+    if (hideMaster) {
+      this.masterHiddenCount[boneId] += 1;
+      if (this.masterHiddenCount[boneId] === 1) {
+        for (const mesh of rest.masterMeshes) {
+          mesh.visible = false;
+        }
+      }
+    }
+
+    return {
+      ok: true,
+      type: "spawn-bone",
+      instanceId: record.instanceId,
+      boneId,
+      scaleFactor: placement.scaleFactor,
+      requested: placement.requested,
+      measured: placement.measured,
+      clamped: placement.clamped,
+      position: placement.position,
+      quaternion: placement.quaternion,
+      meshes: clones,
+    };
+  }
+
+  updateSpawnedBone(instanceId, superior, inferior) {
+    const record = this.spawnedStore.get(instanceId);
+    const group = this.spawnedObjects.get(instanceId);
+    if (!record || !group) {
+      return { ok: false, error: `Unknown spawned bone: ${instanceId}` };
+    }
+    const rest = this.spawnRest[record.boneId];
+    if (!rest?.found || rest.restLength == null) {
+      return { ok: false, error: `Spawn rest missing for: ${record.boneId}` };
+    }
+
+    superior = normalizeEndpoint(superior);
+    inferior = normalizeEndpoint(inferior);
+    if (!superior || !inferior) {
+      return { ok: false, error: "Superior and inferior positions are required" };
+    }
+
+    const placement = computeBonePlacement(superior, inferior, rest.restLength);
+    if (!placement.ok) {
+      return placement;
+    }
+
+    group.position.set(placement.position.x, placement.position.y, placement.position.z);
+    group.quaternion.set(
+      placement.quaternion.x,
+      placement.quaternion.y,
+      placement.quaternion.z,
+      placement.quaternion.w
+    );
+    group.scale.set(1, placement.scaleFactor, 1);
+    this.scene.updateMatrixWorld(true);
+
+    this.spawnedStore.update(instanceId, {
+      superior,
+      inferior,
+      scaleFactor: placement.scaleFactor,
+      requested: placement.requested,
+      measured: placement.measured,
+      clamped: placement.clamped,
+    });
+
+    return {
+      ok: true,
+      type: "update-spawned-bone",
+      instanceId,
+      boneId: record.boneId,
+      scaleFactor: placement.scaleFactor,
+      requested: placement.requested,
+      measured: placement.measured,
+      clamped: placement.clamped,
+      position: placement.position,
+      quaternion: placement.quaternion,
+    };
+  }
+
+  despawnBone(instanceId) {
+    const record = this.spawnedStore.get(instanceId);
+    const group = this.spawnedObjects.get(instanceId);
+    if (!record || !group) {
+      return { ok: false, error: `Unknown spawned bone: ${instanceId}` };
+    }
+
+    this.scene.remove(group);
+    disposeSpawnedGroup(group);
+    this.spawnedObjects.delete(instanceId);
+    this.spawnedStore.remove(instanceId);
+
+    const rest = this.spawnRest[record.boneId];
+    if (rest && this.masterHiddenCount[record.boneId] > 0) {
+      this.masterHiddenCount[record.boneId] -= 1;
+      if (this.masterHiddenCount[record.boneId] === 0) {
+        for (const mesh of rest.masterMeshes) {
+          mesh.visible = true;
+        }
+      }
+    }
+    this.scene.updateMatrixWorld(true);
+
+    return { ok: true, type: "despawn-bone", instanceId, boneId: record.boneId };
+  }
+
+  clearSpawnedBones() {
+    const removed = this.spawnedStore.list().map((record) => record.instanceId);
+    for (const instanceId of removed) {
+      this.despawnBone(instanceId);
+    }
+    return { ok: true, type: "clear-spawned-bones", removed };
+  }
+
+  getSpawnedBones() {
+    return this.spawnedStore.list();
+  }
+
+  setSpawnedBoneVisibility(instanceId, visible) {
+    const record = this.spawnedStore.get(instanceId);
+    const group = this.spawnedObjects.get(instanceId);
+    if (!record || !group) {
+      return { ok: false, error: `Unknown spawned bone: ${instanceId}` };
+    }
+    group.visible = Boolean(visible);
+    this.spawnedStore.setVisible(instanceId, visible);
+    return { ok: true, type: "set-spawned-bone-visibility", instanceId, visible: group.visible };
   }
 
   // A joint command stores accumulated degrees; applyAllRotations converts them to bone rotations.
@@ -716,6 +967,20 @@ export class SkeletonRigController {
           ];
         })
       ),
+      spawnedBones: {
+        catalog: Object.fromEntries(
+          Object.entries(SPAWNABLE_BONES).map(([boneId, catalog]) => {
+            const rest = this.spawnRest[boneId];
+            return [boneId, {
+              label: catalog.label,
+              found: Boolean(rest?.found),
+              restLength: rest?.restLength ?? null,
+              meshCount: catalog.meshNames.length,
+            }];
+          })
+        ),
+        instances: this.spawnedStore.list(),
+      },
     };
   }
 
