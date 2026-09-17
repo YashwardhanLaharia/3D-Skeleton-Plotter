@@ -40,3 +40,30 @@ export function isIsolated(hidden, id, allIds) {
 export function pruneHidden(hidden, existingIds) {
   return hidden.filter((id) => existingIds.includes(id));
 }
+
+export function isGroupFullyHidden(hidden, memberIds) {
+  return (
+    memberIds.length > 0 && memberIds.every((id) => hidden.includes(id))
+  );
+}
+
+export function setGroupHidden(hidden, memberIds, hide) {
+  if (memberIds.length === 0) return hidden;
+
+  if (hide) {
+    const next = new Set(hidden);
+    for (const id of memberIds) next.add(id);
+    return [...next];
+  }
+
+  return hidden.filter((id) => !memberIds.includes(id));
+}
+
+// Hide the whole group if any member is visible; show all members otherwise.
+export function toggleGroupHidden(hidden, memberIds) {
+  return setGroupHidden(
+    hidden,
+    memberIds,
+    !isGroupFullyHidden(hidden, memberIds),
+  );
+}

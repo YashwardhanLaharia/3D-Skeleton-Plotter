@@ -1,4 +1,4 @@
-// Undo/redo history for the individuals list.
+// Undo/redo history for the project document (individuals + groups).
 // Pure functions, easily testable without renders
 
 // Uses a common method called blur-commits
@@ -9,8 +9,16 @@
 
 export const HISTORY_LIMIT = 200; // Random number
 
-export function makeInitialHistory(individuals) {
-  return { past: [], present: individuals, future: [], sessionOpen: false };
+export function makeDocument(individuals, groups = []) {
+  return { individuals, groups };
+}
+
+export function makeInitialHistory(document) {
+  const present = Array.isArray(document)
+    ? makeDocument(document, [])
+    : makeDocument(document?.individuals ?? [], document?.groups ?? []);
+
+  return { past: [], present, future: [], sessionOpen: false };
 }
 
 // Live edits: snapshot only if no session is open.
@@ -36,10 +44,17 @@ function withCommit(state, nextPresent) {
   };
 }
 
+function mapIndividuals(present, mapFn) {
+  return {
+    ...present,
+    individuals: present.individuals.map(mapFn),
+  };
+}
+
 export function historyReducer(state, action) {
   switch (action.type) {
     case "set-coord": {
-      const next = state.present.map((individual) =>
+      const next = mapIndividuals(state.present, (individual) =>
         individual.id !== action.individualId
           ? individual
           : {
@@ -57,7 +72,7 @@ export function historyReducer(state, action) {
     }
 
     case "set-label": {
-      const next = state.present.map((individual) =>
+      const next = mapIndividuals(state.present, (individual) =>
         individual.id === action.individualId
           ? { ...individual, label: action.label }
           : individual,
@@ -68,7 +83,7 @@ export function historyReducer(state, action) {
     // Colour uses a session too: dragging in a colour picker fires change
     // events continuously, so committing per event would flood the history.
     case "set-colour": {
-      const next = state.present.map((individual) =>
+      const next = mapIndividuals(state.present, (individual) =>
         individual.id === action.individualId
           ? { ...individual, colour: action.colour }
           : individual,
@@ -76,17 +91,58 @@ export function historyReducer(state, action) {
       return withSession(state, next);
     }
 
+    case "rename-group": {
+      const next = {
+        ...state.present,
+        groups: state.present.groups.map((group) =>
+          group.id === action.groupId ? { ...group, name: action.name } : group,
+        ),
+      };
+      return withSession(state, next);
+    }
+
     case "commit":
       return state.sessionOpen ? { ...state, sessionOpen: false } : state;
 
     case "add":
-      return withCommit(state, [...state.present, action.individual]);
+      return withCommit(state, {
+        ...state.present,
+        individuals: [...state.present.individuals, action.individual],
+      });
 
     case "remove":
+      return withCommit(state, {
+        ...state.present,
+        individuals: state.present.individuals.filter(
+          (individual) => individual.id !== action.individualId,
+        ),
+      });
+
+    case "add-group":
+      return withCommit(state, {
+        ...state.present,
+        groups: [...state.present.groups, action.group],
+      });
+
+    case "remove-group":
+      return withCommit(state, {
+        individuals: state.present.individuals.map((individual) =>
+          individual.groupId === action.groupId
+            ? { ...individual, groupId: null }
+            : individual,
+        ),
+        groups: state.present.groups.filter(
+          (group) => group.id !== action.groupId,
+        ),
+      });
+
+    case "set-group":
       return withCommit(
         state,
-        state.present.filter(
-          (individual) => individual.id !== action.individualId,
+        mapIndividuals(state.present, (individual) =>
+          individual.id === action.individualId
+            ? { ...individual, groupId: action.groupId }
+            : individual,
         ),
       );
 
@@ -113,38 +169,51 @@ export function historyReducer(state, action) {
     }
 
     case "new":
-      return makeInitialHistory(action.individuals);
+      return makeInitialHistory({
+        individuals: action.individuals,
+        groups: action.groups ?? [],
+      });
 
     // Opening a project wipes history. Otherwise Ctrl+Z after a load would
     // undo into the previous project's data.
     case "load":
-      return makeInitialHistory(action.individuals);
+      return makeInitialHistory({
+        individuals: action.individuals,
+        groups: action.groups ?? [],
+      });
 
     default:
       return state;
   }
 }
 
-// Compares two snapshots and reports the first difference found. Used to reveal
-// the effect of an undo, since a change may sit inside a collapsed section
-// where the user would otherwise see nothing happen.
+// Compares two document snapshots and reports the first difference found. Used
+// to reveal the effect of an undo, since a change may sit inside a collapsed
+// section where the user would otherwise see nothing happen.
 //
 // Returns null when nothing changed, or when the difference is structural
 // (an individual added or removed) — those are visible without help.
 export function diffSnapshots(before, after) {
+  const beforeIndividuals = before.individuals ?? before;
+  const afterIndividuals = after.individuals ?? after;
+  const beforeGroups = before.groups ?? [];
+  const afterGroups = after.groups ?? [];
+
   // Structural changes get a text notice rather than a flash: adding or
   // removing a whole section is too large to highlight, and the two cases look
   // similar enough that the user needs telling which one just happened.
-  if (before.length !== after.length) {
-    if (after.length > before.length) {
-      const added = after.find(
-        (individual) => !before.some((other) => other.id === individual.id),
+  if (beforeIndividuals.length !== afterIndividuals.length) {
+    if (afterIndividuals.length > beforeIndividuals.length) {
+      const added = afterIndividuals.find(
+        (individual) =>
+          !beforeIndividuals.some((other) => other.id === individual.id),
       );
       return { field: "added", individualId: added?.id, label: added?.label };
     }
 
-    const removed = before.find(
-      (individual) => !after.some((other) => other.id === individual.id),
+    const removed = beforeIndividuals.find(
+      (individual) =>
+        !afterIndividuals.some((other) => other.id === individual.id),
     );
 
     return {
@@ -155,9 +224,19 @@ export function diffSnapshots(before, after) {
     };
   }
 
-  for (let i = 0; i < after.length; i += 1) {
-    const a = before[i];
-    const b = after[i];
+  if (
+    beforeGroups.length !== afterGroups.length ||
+    beforeGroups.some((group, index) => {
+      const other = afterGroups[index];
+      return !other || group.id !== other.id || group.name !== other.name;
+    })
+  ) {
+    return { field: "groups" };
+  }
+
+  for (let i = 0; i < afterIndividuals.length; i += 1) {
+    const a = beforeIndividuals[i];
+    const b = afterIndividuals[i];
     if (!a || !b || a.id !== b.id) return null;
 
     if (a.label !== b.label) {
@@ -166,6 +245,10 @@ export function diffSnapshots(before, after) {
 
     if (a.colour !== b.colour) {
       return { individualId: b.id, field: "colour" };
+    }
+
+    if ((a.groupId ?? null) !== (b.groupId ?? null)) {
+      return { individualId: b.id, field: "group" };
     }
 
     for (const jointId of Object.keys(b.coords)) {
@@ -191,7 +274,9 @@ export function findLastKnownLabel(history, individualId) {
   const timeline = [...history.past, history.present, ...history.future];
 
   for (let i = timeline.length - 1; i >= 0; i -= 1) {
-    const match = timeline[i].find(
+    const snapshot = timeline[i];
+    const individuals = snapshot.individuals ?? snapshot;
+    const match = individuals.find(
       (individual) => individual.id === individualId,
     );
     if (match?.label?.trim()) return match.label;

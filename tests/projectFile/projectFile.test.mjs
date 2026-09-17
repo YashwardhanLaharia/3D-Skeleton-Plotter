@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { JOINTS } from "../../src/joints.js";
 import {
   normaliseIndividual,
+  normaliseGroups,
+  normaliseProject,
   validateProject,
   SCHEMA_VERSION,
 } from "../../src/projectFile.js";
@@ -121,6 +123,17 @@ test("normaliseIndividual uses default metadata values", () => {
 
   assert.equal(individual.label, "");
   assert.equal(individual.colour, "#E69F00");
+  assert.equal(individual.groupId, null);
+});
+
+test("normaliseIndividual preserves a groupId", () => {
+  const individual = normaliseIndividual({
+    id: "ind-1",
+    groupId: "grp-1",
+    coords: {},
+  });
+
+  assert.equal(individual.groupId, "grp-1");
 });
 
 test("normaliseIndividual removes unknown joints", () => {
@@ -132,4 +145,40 @@ test("normaliseIndividual removes unknown joints", () => {
   });
 
   assert.equal(individual.coords.unknown_joint, undefined);
+});
+
+test("normaliseGroups defaults missing groups to an empty list", () => {
+  assert.deepEqual(normaliseGroups(undefined), []);
+  assert.deepEqual(normaliseGroups(null), []);
+});
+
+test("normaliseGroups drops malformed and duplicate entries", () => {
+  assert.deepEqual(
+    normaliseGroups([
+      { id: "grp-1", name: "A" },
+      null,
+      { id: "grp-1", name: "Dup" },
+      { name: "no-id" },
+      { id: "grp-2", name: 3 },
+    ]),
+    [
+      { id: "grp-1", name: "A" },
+      { id: "grp-2", name: "3" },
+    ],
+  );
+});
+
+test("normaliseProject clears groupIds that do not match a group", () => {
+  const result = normaliseProject({
+    schemaVersion: SCHEMA_VERSION,
+    groups: [{ id: "grp-1", name: "Cluster" }],
+    individuals: [
+      { id: "ind-1", coords: {}, groupId: "grp-1" },
+      { id: "ind-2", coords: {}, groupId: "missing" },
+    ],
+  });
+
+  assert.equal(result.individuals[0].groupId, "grp-1");
+  assert.equal(result.individuals[1].groupId, null);
+  assert.deepEqual(result.groups, [{ id: "grp-1", name: "Cluster" }]);
 });

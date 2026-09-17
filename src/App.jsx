@@ -3,7 +3,7 @@
 import { useEffect, useReducer, useRef, useState } from "react";
 import {
   validateProject,
-  normaliseIndividual,
+  normaliseProject,
   SCHEMA_VERSION,
 } from "./projectFile";
 
@@ -15,8 +15,8 @@ import {
 } from "./reducer";
 
 import {
-  isVisible,
   toggleHidden,
+  toggleGroupHidden,
   isolateOnly,
   showAll,
   pruneHidden,
@@ -47,6 +47,7 @@ const STARTING_STATE = [
     id: "ind-1",
     label: "",
     colour: "#E69F00",
+    groupId: null,
     coords: makeBlankCoords(),
   },
 ];
@@ -67,7 +68,8 @@ export default function App() {
     makeInitialHistory(STARTING_STATE),
   );
 
-  const individuals = history.present;
+  const individuals = history.present.individuals;
+  const groups = history.present.groups;
   const canUndo = history.past.length > 0;
   const canRedo = history.future.length > 0;
   // Which field to flash after an undo. Cleared after some time
@@ -90,6 +92,7 @@ export default function App() {
   const [rigCommand, setRigCommand] = useState(null);
   const viewportRef = useRef(null);
   const nextId = useRef(2);
+  const nextGroupId = useRef(1);
 
   useEffect(() => {
     const unsubscribe = window.electronAPI?.onRigCommand(setRigCommand);
@@ -134,10 +137,41 @@ export default function App() {
 
     dispatch({
       type: "add",
-      individual: { id, label: "", colour, coords: makeBlankCoords() },
+      individual: {
+        id,
+        label: "",
+        colour,
+        groupId: null,
+        coords: makeBlankCoords(),
+      },
     });
     setOpenId(id);
 
+    setIsDirty(true);
+  }
+
+  function handleAddGroup() {
+    const id = `grp-${nextGroupId.current}`;
+    nextGroupId.current += 1;
+    dispatch({
+      type: "add-group",
+      group: { id, name: "" },
+    });
+    setIsDirty(true);
+  }
+
+  function handleRenameGroup(groupId, name) {
+    dispatch({ type: "rename-group", groupId, name });
+    setIsDirty(true);
+  }
+
+  function handleRemoveGroup(groupId) {
+    dispatch({ type: "remove-group", groupId });
+    setIsDirty(true);
+  }
+
+  function handleSetGroup(individualId, groupId) {
+    dispatch({ type: "set-group", individualId, groupId });
     setIsDirty(true);
   }
 
@@ -159,6 +193,10 @@ export default function App() {
 
   function handleToggleVisibility(individualId) {
     setHidden((current) => toggleHidden(current, individualId));
+  }
+
+  function handleToggleGroupVisibility(memberIds) {
+    setHidden((current) => toggleGroupHidden(current, memberIds));
   }
 
   function handleIsolate(individualId) {
@@ -207,6 +245,17 @@ export default function App() {
       return;
     }
 
+    if (change.field === "groups") {
+      setNotice("Updated groups");
+      return;
+    }
+
+    if (change.field === "group") {
+      setOpenId(change.individualId);
+      setNotice("Updated group membership");
+      return;
+    }
+
     setOpenId(change.individualId);
     setHighlight(change);
   }
@@ -250,7 +299,8 @@ export default function App() {
       return;
     }
 
-    dispatch({ type: "new", individuals: STARTING_STATE });
+    dispatch({ type: "new", individuals: STARTING_STATE, groups: [] });
+    nextGroupId.current = 1;
 
     setIsNewProjectModalOpen(true);
     setFilePath(null);
@@ -280,15 +330,26 @@ export default function App() {
       return;
     }
 
-    const loaded = result.data.individuals.map(normaliseIndividual);
-    dispatch({ type: "load", individuals: loaded });
+    const loaded = normaliseProject(result.data);
+    dispatch({
+      type: "load",
+      individuals: loaded.individuals,
+      groups: loaded.groups,
+    });
 
-    const numbers = loaded
+    const numbers = loaded.individuals
       .map((individual) => Number(individual.id.replace("ind-", "")))
       .filter((value) => Number.isFinite(value));
     nextId.current = numbers.length ? Math.max(...numbers) + 1 : 1;
 
-    setOpenId(loaded[0]?.id ?? null);
+    const groupNumbers = loaded.groups
+      .map((group) => Number(group.id.replace("grp-", "")))
+      .filter((value) => Number.isFinite(value));
+    nextGroupId.current = groupNumbers.length
+      ? Math.max(...groupNumbers) + 1
+      : 1;
+
+    setOpenId(loaded.individuals[0]?.id ?? null);
 
     setFilePath(result.path);
 
@@ -303,10 +364,15 @@ export default function App() {
     return {
       schemaVersion: SCHEMA_VERSION,
       savedAt: new Date().toISOString(),
+      groups: groups.map((group) => ({
+        id: group.id,
+        name: group.name,
+      })),
       individuals: individuals.map((individual) => ({
         id: individual.id,
         label: individual.label,
         colour: individual.colour,
+        groupId: individual.groupId,
         coords: individual.coords,
       })),
     };
@@ -469,6 +535,7 @@ export default function App() {
       <div className="app-workspace d-flex flex-grow-1 overflow-hidden">
         <Sidebar
           individuals={individuals}
+          groups={groups}
           openId={openId}
           onChange={handleChange}
           onCommit={handleCommit}
@@ -478,13 +545,13 @@ export default function App() {
           canRedo={canRedo}
           highlight={highlight}
           notice={notice}
-          hidden={hidden}
-          onToggleVisibility={handleToggleVisibility}
-          onIsolate={handleIsolate}
-          onShowAll={handleShowAll}
           onToggle={handleToggle}
           onAdd={handleAdd}
           onRemove={handleRemove}
+          onAddGroup={handleAddGroup}
+          onRenameGroup={handleRenameGroup}
+          onRemoveGroup={handleRemoveGroup}
+          onSetGroup={handleSetGroup}
           onLabelChange={handleLabelChange}
           onColourChange={handleColourChange}
           isOpen={isSidebarOpen}
@@ -519,8 +586,10 @@ export default function App() {
           ) : (
             <LayersPanel
               individuals={individuals}
+              groups={groups}
               hidden={hidden}
               onToggleVisibility={handleToggleVisibility}
+              onToggleGroupVisibility={handleToggleGroupVisibility}
               onIsolate={handleIsolate}
               onShowAll={handleShowAll}
               focusedId={focusedId}
