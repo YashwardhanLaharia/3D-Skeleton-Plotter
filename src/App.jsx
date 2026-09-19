@@ -295,7 +295,10 @@ export default function App() {
     const result = await window.electronAPI.newProject();
 
     if (!result.ok) {
-      if (!result.canceled) console.error(result.error);
+      if (!result.canceled) {
+        console.error(result.error);
+        setNotice("Could not create a new project. Please try again.");
+      }
       return;
     }
 
@@ -320,13 +323,17 @@ export default function App() {
     const result = await window.electronAPI.openProject();
 
     if (!result.ok) {
-      if (!result.canceled) console.error(result.error);
+      if (!result.canceled) {
+        console.error(result.error);
+        setNotice("Could not open the project file.");
+      }
       return;
     }
 
     const check = validateProject(result.data);
     if (!check.ok) {
       console.error(check.issues.join("\n"));
+      setNotice("This project file is invalid or uses an unsupported format.");
       return;
     }
 
@@ -358,6 +365,7 @@ export default function App() {
     setHidden([]);
 
     setFocusedId(null);
+    setNotice("Project opened successfully.");
   }
 
   function buildProjectData() {
@@ -385,12 +393,16 @@ export default function App() {
     });
 
     if (!result.ok) {
-      if (!result.canceled) console.error(result.error);
+      if (!result.canceled) {
+        console.error(result.error);
+        setNotice("Could not save the project. Please try again.");
+      }
       return false;
     }
 
     setFilePath(result.path);
     setIsDirty(false);
+    setNotice("Project saved successfully.");
     return true;
   }
 
@@ -578,6 +590,7 @@ export default function App() {
             focusedId={focusedId}
             graveDimensions={graveDimensions}
             targetId={openId ?? individuals[0]?.id}
+            onSolverIssue={setNotice}
           />
           <FocusBar individual={focusedIndividual} onExit={handleExitFocus} />
 
