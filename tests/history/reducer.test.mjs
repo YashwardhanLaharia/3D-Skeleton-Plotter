@@ -40,11 +40,11 @@ test("offset updates all joint values, treats blanks as zero, and undoes as one 
     type: "offset-coords", individualId: "ind-1",
     offset: { x: "0.2", y: "", z: "-1" },
   });
-  assert.deepEqual(result.present[0].coords, {
+  assert.deepEqual(result.present.individuals[0].coords, {
     knee_l: { x: "0.3", y: "2", z: "-1" },
     knee_r: { x: "0.2", y: "", z: "2" },
   });
-  assert.equal(result.present[1], initial.present[1]);
+  assert.equal(result.present.individuals[1], initial.present.individuals[1]);
   assert.equal(result.past.length, 1);
   const undone = historyReducer(result, { type: "undo" });
   assert.deepEqual(undone.present, initial.present);
@@ -64,7 +64,7 @@ test("X-only addition preserves empty Y and Z in stored coordinates", () => {
     type: "offset-coords", individualId: "ind-1",
     offset: { x: "5", y: "", z: "" },
   });
-  assert.deepEqual(result.present[0].coords.knee_l, { x: "5", y: "", z: "" });
+  assert.deepEqual(result.present.individuals[0].coords.knee_l, { x: "5", y: "", z: "" });
 });
 
 test("empty offsets do nothing, while an explicit zero fills only its axis", () => {
@@ -77,7 +77,7 @@ test("empty offsets do nothing, while an explicit zero fills only its axis", () 
     type: "offset-coords", individualId: "ind-1",
     offset: { x: "0", y: "", z: "" },
   });
-  assert.deepEqual(result.present[0].coords.knee_l, { x: "0", y: "", z: "" });
+  assert.deepEqual(result.present.individuals[0].coords.knee_l, { x: "0", y: "", z: "" });
 });
 
 // --- sessions -------------------------------------------------------------
@@ -471,4 +471,27 @@ test("colour change resets after redo", () => {
   state = historyReducer(state, { type: "undo" });
   state = historyReducer(state, { type: "redo" });
   assert.equal(state.present.individuals[0].colour, "#000000");
+});
+
+test("bulk import preserves groups and undoes/redoes as one change", () => {
+  const initial = start([individual("ind-1", { groupId: "g-1" })], [group("g-1", "Burial")]);
+  const imported = [individual("ind-2"), individual("ind-3")];
+  const result = historyReducer(initial, { type: "add-many", individuals: imported });
+  assert.deepEqual(result.present.individuals, [...initial.present.individuals, ...imported]);
+  assert.equal(result.present.groups, initial.present.groups);
+  assert.equal(result.past.length, 1);
+  const undone = historyReducer(result, { type: "undo" });
+  assert.deepEqual(undone.present, initial.present);
+  assert.deepEqual(historyReducer(undone, { type: "redo" }).present, result.present);
+  assert.equal(historyReducer(initial, { type: "add-many", individuals: [] }), initial);
+});
+
+test("coordinate offsets preserve group membership and group definitions", () => {
+  const initial = start([individual("ind-1", { groupId: "g-1" })], [group("g-1", "Burial")]);
+  const result = historyReducer(initial, {
+    type: "offset-coords", individualId: "ind-1", offset: { x: "2", y: "", z: "" },
+  });
+  assert.equal(result.present.individuals[0].coords.knee_l.x, "2");
+  assert.equal(result.present.individuals[0].groupId, "g-1");
+  assert.equal(result.present.groups, initial.present.groups);
 });

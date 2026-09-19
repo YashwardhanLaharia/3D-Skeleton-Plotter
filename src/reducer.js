@@ -58,7 +58,7 @@ export function historyReducer(state, action) {
       const offset = axes.map((axis) => Number(action.offset[axis] || 0));
       if (!offset.every(Number.isFinite)) return state;
       let changed = false;
-      const next = state.present.map((individual) => {
+      const next = mapIndividuals(state.present, (individual) => {
         if (individual.id !== action.individualId) return individual;
         const coords = Object.fromEntries(
           Object.entries(individual.coords).map(([id, position]) => [
@@ -80,7 +80,7 @@ export function historyReducer(state, action) {
           axes.some((axis) => !Number.isFinite(Number(position[axis]))))) return individual;
         return { ...individual, coords };
       });
-      return changed && next.some((individual, index) => individual !== state.present[index])
+      return changed && next.individuals.some((individual, index) => individual !== state.present.individuals[index])
         ? withCommit(state, next) : state;
     }
 
@@ -140,6 +140,14 @@ export function historyReducer(state, action) {
         ...state.present,
         individuals: [...state.present.individuals, action.individual],
       });
+
+    case "add-many":
+      return action.individuals.length === 0
+        ? state
+        : withCommit(state, {
+            ...state.present,
+            individuals: [...state.present.individuals, ...action.individuals],
+          });
 
     case "remove":
       return withCommit(state, {

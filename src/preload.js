@@ -27,6 +27,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   importCsv() {
     return ipcRenderer.invoke('import-csv');
   },
+  exportCsv(text) {
+    return ipcRenderer.invoke('export-csv', text);
+  },
   confirmDiscard(context) {
     return ipcRenderer.invoke('confirm-discard', context);
   },

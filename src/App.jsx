@@ -30,7 +30,7 @@ import LayersPanel from "./components/LayersPanel";
 import FocusBar from "./components/FocusBar";
 import InspectionPanel from "./components/InspectionPanel";
 import NewProjectModal from "./components/NewProjectModal";
-import { importCsv } from "./csvimport";
+import { importCsv, rowsToIndividuals } from "./csvimport";
 import { exportCsv } from "./csvexport";
 import "./app.css";
 
@@ -297,15 +297,37 @@ export default function App() {
       return;
     }
 
-    console.log("CSV columns:", result.columns);
-    console.log("CSV rows:", result.rows);
-    setNotice(
-      `Read ${result.rows.length} CSV rows and ${result.columns.length} columns`,
+    const converted = rowsToIndividuals(
+      result.columns,
+      result.rows,
+      individuals.map(({ id }) => id),
+      PALETTE,
     );
+
+    if (!converted.ok) {
+      setNotice(converted.error);
+      return;
+    }
+
+    dispatch({ type: "add-many", individuals: converted.individuals });
+    setOpenId(converted.individuals[0]?.id ?? openId);
+    const usedNumbers = [...individuals, ...converted.individuals]
+      .map(({ id }) => Number(id.match(/^ind-(\d+)$/)?.[1]))
+      .filter(Number.isFinite);
+    nextId.current = usedNumbers.length ? Math.max(...usedNumbers) + 1 : 1;
+    setIsDirty(true);
+    setNotice(`Imported ${converted.individuals.length} individuals`);
   }
 
-  function handleExport() {
-    setNotice(exportCsv());
+  async function handleExport() {
+    const result = await exportCsv(individuals);
+
+    if (!result.ok) {
+      if (!result.canceled) setNotice(result.error);
+      return;
+    }
+
+    setNotice(`Exported ${individuals.length} individuals`);
   }
 
   async function handleNew() {
