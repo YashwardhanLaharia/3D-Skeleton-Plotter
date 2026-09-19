@@ -244,8 +244,9 @@ const ViewportExport = forwardRef(function ViewportExport(
 });
 
 // Moves the camera to frame one individual, and back again on exit.
+// Orthographic framing is zoom-based: distance only sets the view angle.
 function FocusCamera({ focusedId, controlsRef }) {
-  const { camera, scene } = useThree();
+  const { camera, scene, size: viewport } = useThree();
   const saved = useRef(null);
   const tween = useRef(null);
 
@@ -259,6 +260,7 @@ function FocusCamera({ focusedId, controlsRef }) {
         saved.current = {
           position: camera.position.clone(),
           target: controls.target.clone(),
+          zoom: camera.zoom,
         };
       }
 
@@ -271,21 +273,27 @@ function FocusCamera({ focusedId, controlsRef }) {
       if (box.isEmpty()) return;
 
       const centre = box.getCenter(new Vector3());
-      const size = box.getSize(new Vector3());
-      const extent = Math.max(size.x, size.y, size.z);
+      const boxSize = box.getSize(new Vector3());
+      const extent = Math.max(boxSize.x, boxSize.y, boxSize.z, 0.01);
 
-      const fov = (camera.fov * Math.PI) / 180;
+      // R3F ortho frustum is ±viewport/2; zoom shrinks that into world units.
+      const padding = 1.6;
+      const viewSpan = Math.min(viewport.width, viewport.height);
+      const zoom = viewSpan / (extent * padding);
 
-      const distance = (extent / 2 / Math.tan(fov / 2)) * 1.6;
+      // Distance does not affect ortho scale; keep a short offset for orbit feel.
+      const distance = Math.max(extent * 2, 2);
 
       tween.current = {
         from: {
           position: camera.position.clone(),
           target: controls.target.clone(),
+          zoom: camera.zoom,
         },
         to: {
           position: centre.clone().add(new Vector3(0, extent * 0.15, distance)),
           target: centre.clone(),
+          zoom,
         },
         start: performance.now(),
       };
@@ -294,6 +302,7 @@ function FocusCamera({ focusedId, controlsRef }) {
         from: {
           position: camera.position.clone(),
           target: controls.target.clone(),
+          zoom: camera.zoom,
         },
         to: saved.current,
         start: performance.now(),
@@ -301,7 +310,7 @@ function FocusCamera({ focusedId, controlsRef }) {
 
       saved.current = null;
     }
-  }, [focusedId, camera, scene, controlsRef]);
+  }, [focusedId, camera, scene, controlsRef, viewport.width, viewport.height]);
 
   useFrame(() => {
     const active = tween.current;
@@ -322,6 +331,9 @@ function FocusCamera({ focusedId, controlsRef }) {
     );
 
     controls.target.lerpVectors(active.from.target, active.to.target, eased);
+
+    camera.zoom = active.from.zoom + (active.to.zoom - active.from.zoom) * eased;
+    camera.updateProjectionMatrix();
 
     controls.update();
 
@@ -373,9 +385,12 @@ const MainView = forwardRef(function MainView(
   return (
     <main className="viewport flex-grow-1 bg-body-secondary">
       <Canvas
+        orthographic
         camera={{
-          position: [0, 1.4, 4],
-          fov: 45,
+          position: [0, 1.4, 40],
+          zoom: 100,
+          near: 0.1,
+          far: 1000
         }}
       >
         <color attach="background" args={[focusedId ? "#1b1f24" : "#e9ecef"]} />
