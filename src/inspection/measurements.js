@@ -8,10 +8,17 @@
 // Reads the sidebar's string coordinates directly rather than the solver's
 // numeric output, so the panel works before anything is solved.
 //
+// Endpoints come from planBones, not from the rows directly. A row can hold two
+// points: expanding it says the bone below starts somewhere other than where
+// the bone above ends. Measuring a row's first point for both bones spans the
+// gap between a displaced bone and the body it came from, and reports that as a
+// bone length. On the displaced-femur sample that read a 52.0cm femur against
+// its real 45.0cm, then flagged a 7.0cm asymmetry that does not exist.
+//
 // Pure functions. No React, no scene.
 
-import { BONES } from "../solver/topology.js";
 import { JOINTS } from "../joints.js";
+import { planBones } from "../solver/boneModes.js";
 
 // Below this, a left/right difference is measurement noise rather than a
 // finding. Real skeletal asymmetry in long bones is typically a few millimetres.
@@ -48,15 +55,21 @@ export function measureIndividual(coords = {}) {
     if (position) positions[joint.id] = position;
   }
 
-  const segments = BONES.map((bone) => {
-    const proximal = positions[bone.proximal];
-    const distal = positions[bone.distal];
-    return {
-      id: bone.id,
-      chain: bone.chain,
-      length: proximal && distal ? distance(proximal, distal) : null,
-    };
-  });
+  const segments = planBones(coords).map((bone) => ({
+    id: bone.id,
+    chain: bone.chain,
+    // Recorded somewhere other than where the skeleton would put it. The length
+    // is still the bone's own, but the panel should say so rather than let a
+    // displaced bone read as an ordinary one.
+    displaced: bone.mode === "independent",
+    length:
+      bone.proximal && bone.distal
+        ? distance(
+            [bone.proximal.x, bone.proximal.y, bone.proximal.z],
+            [bone.distal.x, bone.distal.y, bone.distal.z],
+          )
+        : null,
+  }));
 
   const byId = new Map(segments.map((segment) => [segment.id, segment]));
   const asymmetries = [];
@@ -78,6 +91,7 @@ export function measureIndividual(coords = {}) {
       left: segment.length,
       right: right.length,
       difference,
+      displaced: segment.displaced || right.displaced,
     });
   }
 
