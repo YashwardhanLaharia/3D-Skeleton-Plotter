@@ -54,6 +54,37 @@ function mapIndividuals(present, mapFn) {
 
 export function historyReducer(state, action) {
   switch (action.type) {
+    case "offset-coords": {
+      const axes = ["x", "y", "z"];
+      const offset = axes.map((axis) => Number(action.offset[axis] || 0));
+      if (!offset.every(Number.isFinite)) return state;
+      let changed = false;
+      const next = mapIndividuals(state.present, (individual) => {
+        if (individual.id !== action.individualId) return individual;
+        const coords = Object.fromEntries(
+          Object.entries(individual.coords).map(([id, position]) => [
+            id,
+            Object.fromEntries(axes.map((axis, index) => {
+              // An omitted offset leaves this axis untouched, including blanks.
+              if (action.offset[axis] === "" || action.offset[axis] == null) {
+                return [axis, position[axis]];
+              }
+              const value = Number(position[axis] || 0) + offset[index];
+              // Keep decimal additions readable in the coordinate inputs.
+              const formatted = String(Number(value.toPrecision(15)));
+              if (formatted !== position[axis]) changed = true;
+              return [axis, formatted];
+            })),
+          ]),
+        );
+        if (Object.values(coords).some((position) =>
+          axes.some((axis) => !Number.isFinite(Number(position[axis]))))) return individual;
+        return { ...individual, coords };
+      });
+      return changed && next.individuals.some((individual, index) => individual !== state.present.individuals[index])
+        ? withCommit(state, next) : state;
+    }
+
     case "set-coord": {
       const next = mapIndividuals(state.present, (individual) => {
         if (individual.id !== action.individualId) return individual;
@@ -138,6 +169,14 @@ export function historyReducer(state, action) {
         ...state.present,
         individuals: [...state.present.individuals, action.individual],
       });
+
+    case "add-many":
+      return action.individuals.length === 0
+        ? state
+        : withCommit(state, {
+            ...state.present,
+            individuals: [...state.present.individuals, ...action.individuals],
+          });
 
     case "remove":
       return withCommit(state, {

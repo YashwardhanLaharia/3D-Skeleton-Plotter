@@ -169,6 +169,46 @@ ipcMain.handle("open-project", async () => {
   }
 });
 
+ipcMain.handle("import-csv", async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: "Import skeleton CSV",
+    properties: ["openFile"],
+    filters: [{ name: "CSV files", extensions: ["csv"] }],
+  });
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return { ok: false, canceled: true };
+  }
+
+  const filePath = result.filePaths[0];
+
+  try {
+    const text = await fs.readFile(filePath, "utf-8");
+    return { ok: true, path: filePath, text };
+  } catch (error) {
+    return { ok: false, error: `Could not read CSV: ${error.message}` };
+  }
+});
+
+ipcMain.handle("export-csv", async (_event, text) => {
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: "Export skeleton CSV",
+    defaultPath: "skeletons.csv",
+    filters: [{ name: "CSV files", extensions: ["csv"] }],
+  });
+
+  if (result.canceled || !result.filePath) {
+    return { ok: false, canceled: true };
+  }
+
+  try {
+    await fs.writeFile(result.filePath, text, "utf-8");
+    return { ok: true, path: result.filePath };
+  } catch (error) {
+    return { ok: false, error: `Could not export CSV: ${error.message}` };
+  }
+});
+
 ipcMain.handle("confirm-discard", async (_event, context) => {
   const isClosing = context === "close";
   const isNew = context === "new";
@@ -230,8 +270,17 @@ const menuTemplate = [
         click: () => sendToRenderer("menu-save-as"),
       },
       {
+        label: "Import",
+        accelerator: "CmdOrCtrl+Shift+I",
+        click: () => sendToRenderer("menu-import"),
+      },
+      {
         label: "Export",
         submenu: [
+          {
+            label: "CSV",
+            click: () => sendToRenderer("menu-export"),
+          },
           {
             label: "Screenshot",
             accelerator: "CmdOrCtrl+Shift+E",

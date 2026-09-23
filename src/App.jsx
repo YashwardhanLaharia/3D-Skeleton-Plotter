@@ -30,6 +30,8 @@ import LayersPanel from "./components/LayersPanel";
 import FocusBar from "./components/FocusBar";
 import InspectionPanel from "./components/InspectionPanel";
 import NewProjectModal from "./components/NewProjectModal";
+import { importCsv, rowsToIndividuals } from "./csvimport";
+import { exportCsv } from "./csvexport";
 import "./app.css";
 
 const PALETTE = [
@@ -67,6 +69,28 @@ export default function App() {
   const [history, dispatch] = useReducer(historyReducer, undefined, () =>
     makeInitialHistory(STARTING_STATE),
   );
+
+  const [jointDetails, setJointDetails] = useState({});
+
+  function handleJointDetailChange(individualId, jointId, position, axis, value) {
+    setJointDetails((current) => {
+      const individualDetails = current[individualId] ?? {};
+      const details = individualDetails[jointId] ?? {
+        superior: { x: "", y: "", z: "" },
+        inferior: { x: "", y: "", z: "" },
+      };
+      return {
+        ...current,
+        [individualId]: {
+          ...individualDetails,
+          [jointId]: {
+            ...details,
+            [position]: { ...details[position], [axis]: value },
+          },
+        },
+      };
+    });
+  }
 
   const individuals = history.present.individuals;
   const groups = history.present.groups;
@@ -121,6 +145,11 @@ export default function App() {
   // history entry.
   function handleCommit() {
     dispatch({ type: "commit" });
+  }
+
+  function handleOffset(individualId, offset) {
+    dispatch({ type: "offset-coords", individualId, offset });
+    setIsDirty(true);
   }
 
   function handleColourChange(individualId, colour) {
@@ -289,6 +318,47 @@ export default function App() {
     setIsNewProjectModalOpen(true);
   }
 
+  async function handleImport() {
+    const result = await importCsv();
+
+    if (!result.ok) {
+      if (!result.canceled) setNotice(result.error);
+      return;
+    }
+
+    const converted = rowsToIndividuals(
+      result.columns,
+      result.rows,
+      individuals.map(({ id }) => id),
+      PALETTE,
+    );
+
+    if (!converted.ok) {
+      setNotice(converted.error);
+      return;
+    }
+
+    dispatch({ type: "add-many", individuals: converted.individuals });
+    setOpenId(converted.individuals[0]?.id ?? openId);
+    const usedNumbers = [...individuals, ...converted.individuals]
+      .map(({ id }) => Number(id.match(/^ind-(\d+)$/)?.[1]))
+      .filter(Number.isFinite);
+    nextId.current = usedNumbers.length ? Math.max(...usedNumbers) + 1 : 1;
+    setIsDirty(true);
+    setNotice(`Imported ${converted.individuals.length} individuals`);
+  }
+
+  async function handleExport() {
+    const result = await exportCsv(individuals);
+
+    if (!result.ok) {
+      if (!result.canceled) setNotice(result.error);
+      return;
+    }
+
+    setNotice(`Exported ${individuals.length} individuals`);
+  }
+
   async function handleNew() {
     if (isDirty) {
       const choice = await window.electronAPI.confirmDiscard("new");
@@ -309,6 +379,7 @@ export default function App() {
       return;
     }
 
+    setJointDetails({});
     dispatch({ type: "new", individuals: STARTING_STATE, groups: [] });
     nextGroupId.current = 1;
 
@@ -345,6 +416,7 @@ export default function App() {
     }
 
     const loaded = normaliseProject(result.data);
+    setJointDetails({});
     dispatch({
       type: "load",
       individuals: loaded.individuals,
@@ -465,6 +537,8 @@ export default function App() {
     handleUndo,
     handleRedo,
     handleChangeGraveDimensions,
+    handleImport,
+    handleExport,
   };
 
   useEffect(() => {
@@ -476,6 +550,8 @@ export default function App() {
       if (action === "menu-export-screenshot")
         actionsRef.current.handleExportScreenshot();
       if (action === "menu-export-glb") actionsRef.current.handleExportGLB();
+      if (action === "menu-import") actionsRef.current.handleImport();
+      if (action === "menu-export") actionsRef.current.handleExport();
       if (action === "menu-undo") actionsRef.current.handleUndo();
       if (action === "menu-redo") actionsRef.current.handleRedo();
       if (action === "menu-change-grave-dimensions")
@@ -562,6 +638,9 @@ export default function App() {
           openId={openId}
           onChange={handleChange}
           onToggleSplit={handleToggleSplit}
+          onOffset={handleOffset}
+          jointDetails={jointDetails}
+          onJointDetailChange={handleJointDetailChange}
           onCommit={handleCommit}
           onUndo={handleUndo}
           onRedo={handleRedo}

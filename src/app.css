@@ -104,6 +104,13 @@
   font-size: 0.78rem;
 }
 
+.offset-add {
+  width: 10rem;
+  flex-shrink: 0;
+  background-color: #e9ecef;
+  font-size: 0.78rem;
+}
+
 .form-control.coord-input {
   width: 3.5rem;
   flex-shrink: 0;
@@ -722,4 +729,21 @@
   color: var(--bs-secondary-color);
   font-size: 0.75em;
   font-style: italic;
+}
+
+.joint-expand {
+  flex: 0 0 16px;
+  width: 16px;
+  line-height: 24px;
+  text-align: right;
+}
+
+.joint-details {
+  border-left: 2px solid var(--bs-border-color);
+  margin-bottom: 6px;
+  background: var(--bs-tertiary-bg);
+}
+
+.joint-coordinate-row .joint-label {
+  width: 7rem;
 }
