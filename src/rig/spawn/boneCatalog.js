@@ -18,7 +18,11 @@
 //   "(feet)" while their bones use "(foot)"; the 5th finger distal mesh lives
 //   under DEF-Intermediate_Phalanges_5*001; big-toe distal bones carry 001.
 
-import { DIGIT_NUMBER_LABELS, TOE_NUMBER_LABELS } from "../digits/digitsConfig.js";
+import {
+  DIGIT_NUMBER_LABELS,
+  TOE_NUMBER_LABELS,
+} from "../digits/digitsConfig.js";
+import { footMeshNames, handMeshNames } from "../scaling/segmentConfig.js";
 
 const TOOTH_BASES = [
   "Canine",
@@ -90,10 +94,16 @@ function fingerEntry(n, side) {
   const S = side.toUpperCase();
   const id = `finger_${n}_${side}`;
   const distalBoneName =
-    n === 5 ? `DEF-Intermediate_Phalanges_5${S}001` : `DEF-Distal_Phalanges_${n}${S}`;
+    n === 5
+      ? `DEF-Intermediate_Phalanges_5${S}001`
+      : `DEF-Distal_Phalanges_${n}${S}`;
   const meshNames =
     n === 1
-      ? [`Metacarpel_1${S}`, `Proximal_Phalanges_1${S}`, `Distal_Phalanges_1${S}`]
+      ? [
+          `Metacarpel_1${S}`,
+          `Proximal_Phalanges_1${S}`,
+          `Distal_Phalanges_1${S}`,
+        ]
       : [
           `Metacarpel_${n}${S}`,
           `Proximal_Phalanges_${n}${S}`,
@@ -295,6 +305,52 @@ export const SPAWNABLE_BONES = Object.freeze({
     segmentId: null,
     proximalBoneName: "DEF-FootR",
     distalBoneName: "DEF-MetatarsalR3",
+  },
+  // The CFA form measures a foot from the ankle to the toes, which spans the
+  // tarsals, the metatarsals and the phalanges. foot_l above is the tarsal
+  // cluster alone, 8.1cm against that 15.1cm measurement, so placing a recorded
+  // foot with it stretches seven small bones to the length of a whole foot and
+  // leaves nineteen toe bones behind. This unit is the whole foot, anchored
+  // ankle to third-toe tip, 18.2cm, which is what the measurement describes.
+  foot_whole_l: {
+    id: "foot_whole_l",
+    label: "Left foot (complete)",
+    driverBoneName: "DEF-FootL",
+    meshNames: footMeshNames("L"),
+    segmentId: "foot_l",
+    proximalBoneName: "DEF-FootL",
+    distalBoneName: "DEF-Distal_Phalange_3_(foot)L",
+  },
+  foot_whole_r: {
+    id: "foot_whole_r",
+    label: "Right foot (complete)",
+    driverBoneName: "DEF-FootR",
+    meshNames: footMeshNames("R"),
+    segmentId: "foot_r",
+    proximalBoneName: "DEF-FootR",
+    distalBoneName: "DEF-Distal_Phalange_3_(foot)R",
+  },
+
+  // hand_l/hand_r above are the carpal cluster alone. The CFA form measures a
+  // hand from the wrist to the fingertips, which spans the metacarpals and
+  // phalanges too, so these are the units the solver places.
+  hand_whole_l: {
+    id: "hand_whole_l",
+    label: "Left hand (complete)",
+    driverBoneName: "DEF-CarpalsL",
+    meshNames: handMeshNames("L"),
+    segmentId: "hand_l",
+    proximalBoneName: "DEF-CarpalsL",
+    distalBoneName: "DEF-Distal_Phalanges_3L",
+  },
+  hand_whole_r: {
+    id: "hand_whole_r",
+    label: "Right hand (complete)",
+    driverBoneName: "DEF-CarpalsR",
+    meshNames: handMeshNames("R"),
+    segmentId: "hand_r",
+    proximalBoneName: "DEF-CarpalsR",
+    distalBoneName: "DEF-Distal_Phalanges_3R",
   },
 
   // ---- Phase 2: axial, girdles ----

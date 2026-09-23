@@ -123,16 +123,23 @@ export default function App() {
     return () => unsubscribe?.();
   }, []);
 
-  function handleChange(individualId, jointId, axis, rawValue) {
+  function handleChange(individualId, jointId, axis, rawValue, part = "point") {
     dispatch({
       type: "set-coord",
       individualId,
       jointId,
       axis,
       value: rawValue,
+      part,
     });
     setIsDirty(true);
   }
+
+  function handleToggleSplit(individualId, jointId) {
+    dispatch({ type: "toggle-joint-split", individualId, jointId });
+    setIsDirty(true);
+  }
+
 
   // Called on blur. Ends the current edit run so the next field starts a new
   // history entry.
@@ -416,6 +423,9 @@ export default function App() {
       groups: loaded.groups,
     });
 
+    // Before the grave itself, or the coordinates in it mean something else.
+    setGraveDimensions(loaded.graveDimensions);
+
     const numbers = loaded.individuals
       .map((individual) => Number(individual.id.replace("ind-", "")))
       .filter((value) => Number.isFinite(value));
@@ -444,6 +454,7 @@ export default function App() {
     return {
       schemaVersion: SCHEMA_VERSION,
       savedAt: new Date().toISOString(),
+      graveDimensions,
       groups: groups.map((group) => ({
         id: group.id,
         name: group.name,
@@ -626,6 +637,7 @@ export default function App() {
           groups={groups}
           openId={openId}
           onChange={handleChange}
+          onToggleSplit={handleToggleSplit}
           onOffset={handleOffset}
           jointDetails={jointDetails}
           onJointDetailChange={handleJointDetailChange}

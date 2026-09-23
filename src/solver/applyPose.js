@@ -28,6 +28,27 @@ import { computeSegmentScales } from "./segmentScales.js";
 import { computeBodyDimensions, solveRootRotation } from "./bodyFrame.js";
 import { findPlacementAnchor } from "./placementAnchor.js";
 
+// Segment ids and bone ids are the same string for all twelve scalable bones,
+// so an articulated-bone set can filter segment scales directly.
+function filterToArticulated(segmentScales, articulated) {
+  if (!articulated) return segmentScales;
+
+  const scales = {};
+  for (const [segmentId, factor] of Object.entries(segmentScales.scales)) {
+    if (articulated.has(segmentId)) scales[segmentId] = factor;
+  }
+
+  return {
+    scales,
+    clamped: segmentScales.clamped.filter((entry) =>
+      articulated.has(entry.segmentId),
+    ),
+    degenerate: segmentScales.degenerate.filter((segmentId) =>
+      articulated.has(segmentId),
+    ),
+  };
+}
+
 /**
  * Poses one skeleton from one individual's landmarks.
  *
@@ -39,10 +60,20 @@ import { findPlacementAnchor } from "./placementAnchor.js";
  *        there is nothing to put them on.
  * @param {Record<string, {x:number,y:number,z:number}>} options.joints  scene space
  * @param {Function} options.solveBone  from createSolveBone(scene)
+ * @param {Set<string>|null} [options.articulated]  bone ids being drawn as part
+ *        of the connected skeleton. Omit and every scalable bone is scaled,
+ *        which is only right when nothing is placed independently.
  * @returns {{report: object, segmentScales: object, bodyDimensions: object,
  *           rootRotation: object|null, anchor: object|null}}
  */
-export function applySolvedPose({ scene, rig, root, joints = {}, solveBone }) {
+export function applySolvedPose({
+  scene,
+  rig,
+  root,
+  joints = {},
+  solveBone,
+  articulated = null,
+}) {
   // 1. Reset, so a re-solve never composes onto the previous answer.
   if (root) {
     root.quaternion.identity();
@@ -65,9 +96,17 @@ export function applySolvedPose({ scene, rig, root, joints = {}, solveBone }) {
 
   // 3. Long-bone lengths. restLength comes from the binding, captured at
   //    construction, so this is independent of step 2.
-  const segmentScales = computeSegmentScales(
-    joints,
-    rig.getDiagnostics().segments,
+  //
+  //    Only bones being drawn articulated. computeSegmentScales measures
+  //    between a bone's two joint rows, and an expanded row means the bone
+  //    below it starts somewhere else entirely — so for those the measurement
+  //    is of a gap, not of a bone. The bone itself is placed independently and
+  //    carries its own scale, and its articulated copy is hidden. Left in, a
+  //    displaced hand measured 29.7cm against its own 18.0cm and raised a
+  //    "bone lengths outside the supported range" warning on a correct file.
+  const segmentScales = filterToArticulated(
+    computeSegmentScales(joints, rig.getDiagnostics().segments),
+    articulated,
   );
   rig.replaceSegmentScales(segmentScales.scales);
   scene.updateMatrixWorld(true);

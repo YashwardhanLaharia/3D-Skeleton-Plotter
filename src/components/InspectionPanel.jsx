@@ -59,8 +59,16 @@ export default function InspectionPanel({ individual }) {
                     className={`inspection-value ms-auto ${
                       row.length === null ? "inspection-missing" : ""
                     }`}
+                    title={
+                      row.displaced
+                        ? "Recorded away from the rest of the skeleton"
+                        : undefined
+                    }
                   >
                     {format(row.length)}
+                    {row.displaced && (
+                      <span className="inspection-displaced"> displaced</span>
+                    )}
                   </span>
                 </div>
               ))}
@@ -78,6 +86,12 @@ export default function InspectionPanel({ individual }) {
                 <span className="inspection-flag-delta">
                   Δ {(asym.difference * 100).toFixed(1)} cm
                 </span>
+                {asym.displaced && (
+                  <span className="inspection-displaced">
+                    {" "}
+                    one side was recorded displaced
+                  </span>
+                )}
               </div>
             ))}
           </section>

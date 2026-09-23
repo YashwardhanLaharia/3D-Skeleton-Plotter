@@ -31,6 +31,16 @@ export function applyRotation(bone, restRotation, rotation) {
   bone.quaternion.copy(restQuat).multiply(deltaQuat);
 }
 
+/** True when `object` is `ancestor` or sits below it in the scene graph. */
+function isUnder(object, ancestor) {
+  let current = object;
+  while (current) {
+    if (current === ancestor) return true;
+    current = current.parent;
+  }
+  return false;
+}
+
 /** Captures private geometry and rest transforms for one independently scalable segment. */
 export function captureSegmentRest(binding) {
   const { driver, distal, meshes } = binding;
@@ -49,20 +59,27 @@ export function captureSegmentRest(binding) {
     endpoint,
     length: endpoint.length(),
     appliedFactor: null,
-    meshes: meshes.map((mesh) => {
-      mesh.geometry = mesh.geometry.clone();
-      mesh.updateWorldMatrix(true, false);
-      const meshToDriver = new Matrix4()
-        .copy(worldToDriver)
-        .multiply(mesh.matrixWorld);
-      return {
-        mesh,
-        positions: mesh.geometry.getAttribute("position").array.slice(),
-        normals: mesh.geometry.getAttribute("normal")?.array.slice() ?? null,
-        meshToDriver,
-        driverToMesh: meshToDriver.clone().invert(),
-      };
-    }),
+    // Meshes hanging off the distal bone are carried by the bone move below and
+    // must not also be deformed, or they travel twice. This never arose while
+    // segments were single long bones, whose distal bone belongs to the NEXT
+    // segment. A hand or a foot contains its own distal bone, and the middle
+    // finger stuck out 1.9cm past the rest of the hand until this filtered it.
+    meshes: meshes
+      .filter((mesh) => !isUnder(mesh, distal))
+      .map((mesh) => {
+        mesh.geometry = mesh.geometry.clone();
+        mesh.updateWorldMatrix(true, false);
+        const meshToDriver = new Matrix4()
+          .copy(worldToDriver)
+          .multiply(mesh.matrixWorld);
+        return {
+          mesh,
+          positions: mesh.geometry.getAttribute("position").array.slice(),
+          normals: mesh.geometry.getAttribute("normal")?.array.slice() ?? null,
+          meshToDriver,
+          driverToMesh: meshToDriver.clone().invert(),
+        };
+      }),
   };
 }
 

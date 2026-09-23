@@ -7,10 +7,13 @@ import { DIGITS, DIGIT_JOINT_TYPES } from "./digits/digitsConfig.js";
 import { RigSceneBinding } from "./binding/RigSceneBinding.js";
 import { validateRigCommand } from "./commands/RigCommandValidator.js";
 import { RigState } from "./state/RigState.js";
-import { Group } from "three";
+import { Group, Vector3 } from "three";
 import { SEGMENT_GROUPS, SEGMENT_SCALES } from "./scaling/segmentConfig.js";
 import { getSpawnableBone, SPAWNABLE_BONES } from "./spawn/boneCatalog.js";
-import { computeBonePlacement, normalizeEndpoint } from "./spawn/bonePlacement.js";
+import {
+  computeBonePlacement,
+  normalizeEndpoint,
+} from "./spawn/bonePlacement.js";
 import { SpawnedBoneStore } from "./spawn/SpawnedBoneStore.js";
 import { captureSpawnRest } from "./spawn/spawnRest.js";
 import {
@@ -30,7 +33,11 @@ import {
   syncAttachment,
 } from "./rigTransforms.js";
 
-export { BODY_REGIONS, JOINT_ROTATIONS, RIGHT_ARM_JOINTS } from "./rigConfig.js";
+export {
+  BODY_REGIONS,
+  JOINT_ROTATIONS,
+  RIGHT_ARM_JOINTS,
+} from "./rigConfig.js";
 
 function ownConfig(registry, id) {
   return typeof id === "string" && Object.hasOwn(registry, id)
@@ -93,16 +100,16 @@ export class SkeletonRigController {
       Object.entries(this.binding.segments).map(([segmentId, binding]) => [
         segmentId,
         captureSegmentRest(binding),
-      ])
+      ]),
     );
     this.bodyDimensionRest = captureBodyDimensionRest(
-      this.binding.bodyDimensions
+      this.binding.bodyDimensions,
     );
     this.state = new RigState(
       Object.keys(JOINT_ROTATIONS),
       Object.keys(this.digitBones),
       Object.keys(SEGMENT_SCALES),
-      Object.keys(BODY_DIMENSIONS)
+      Object.keys(BODY_DIMENSIONS),
     );
     // Spawned-bone rest is captured after segment rest so scalable bones reuse
     // the same rest length the articulated rig uses. Independent from pose and
@@ -111,7 +118,7 @@ export class SkeletonRigController {
     this.spawnedStore = new SpawnedBoneStore();
     this.spawnedObjects = new Map();
     this.masterHiddenCount = Object.fromEntries(
-      Object.keys(SPAWNABLE_BONES).map((boneId) => [boneId, 0])
+      Object.keys(SPAWNABLE_BONES).map((boneId) => [boneId, 0]),
     );
   }
 
@@ -126,7 +133,7 @@ export class SkeletonRigController {
       Object.values(bones)
         .flat()
         .filter(Boolean)
-        .map((bone) => [bone.name, bone.rotation.clone()])
+        .map((bone) => [bone.name, bone.rotation.clone()]),
     );
   }
 
@@ -148,7 +155,12 @@ export class SkeletonRigController {
       case "reset-joint":
         return this.resetJoint(command.jointId);
       case "rotate-digit":
-        return this.rotateDigit(command.jointId, command.digit, command.axis, command.amount);
+        return this.rotateDigit(
+          command.jointId,
+          command.digit,
+          command.axis,
+          command.amount,
+        );
       case "reset-digit":
         return this.resetDigit(command.jointId, command.digit);
       case "set-segment-scale":
@@ -172,20 +184,44 @@ export class SkeletonRigController {
       case "reset-uniform-scale":
         return this.resetUniformScale();
       case "spawn-bone":
-        return this.spawnBone(command.boneId, command.superior, command.inferior, command.options);
+        return this.spawnBone(
+          command.boneId,
+          command.superior,
+          command.inferior,
+          command.options,
+        );
       case "update-spawned-bone":
-        return this.updateSpawnedBone(command.instanceId, command.superior, command.inferior);
+        return this.updateSpawnedBone(
+          command.instanceId,
+          command.superior,
+          command.inferior,
+        );
       case "despawn-bone":
         return this.despawnBone(command.instanceId);
       case "clear-spawned-bones":
         return this.clearSpawnedBones();
       case "set-spawned-bone-visibility":
-        return this.setSpawnedBoneVisibility(command.instanceId, command.visible);
+        return this.setSpawnedBoneVisibility(
+          command.instanceId,
+          command.visible,
+        );
       case "reset-all":
         return this.resetAll();
       default:
         return { ok: false, error: `Unknown command type: ${command.type}` };
     }
+  }
+  // Endpoints arrive in scene space, which is what a caller measures in. The
+  // spawned group is added inside the model, and the model is routinely rotated
+  // and moved by the solver and the viewport, so the same numbers have to be
+  // brought into the model's own frame or that transform is applied twice.
+  // Identity when nothing sits above the model, as in the tests.
+  toModelSpace(point) {
+    this.scene.updateMatrixWorld(true);
+    const local = this.scene.worldToLocal(
+      new Vector3(point.x, point.y, point.z),
+    );
+    return { x: local.x, y: local.y, z: local.z };
   }
 
   // Independent-bone spawning for disarticulated remains. Spawned groups are siblings of
@@ -195,7 +231,10 @@ export class SkeletonRigController {
     const catalog = getSpawnableBone(boneId);
     const rest = catalog ? this.spawnRest[boneId] : null;
     if (!catalog || !rest?.found || rest.restLength == null) {
-      return { ok: false, error: `Unknown or unbound spawnable bone: ${boneId}` };
+      return {
+        ok: false,
+        error: `Unknown or unbound spawnable bone: ${boneId}`,
+      };
     }
 
     // Normalize first so records always hold numbers, even for IPC callers
@@ -203,10 +242,19 @@ export class SkeletonRigController {
     superior = normalizeEndpoint(superior);
     inferior = normalizeEndpoint(inferior);
     if (!superior || !inferior) {
-      return { ok: false, error: "Superior and inferior positions are required" };
+      return {
+        ok: false,
+        error: "Superior and inferior positions are required",
+      };
     }
 
-    const placement = computeBonePlacement(superior, inferior, rest.restLength);
+    const placement = computeBonePlacement(
+      this.toModelSpace(superior),
+      this.toModelSpace(inferior),
+      rest.restLength,
+      rest.restOrientation,
+    );
+
     if (!placement.ok) {
       return placement;
     }
@@ -227,27 +275,41 @@ export class SkeletonRigController {
         ? master.material.map((material) => material.clone())
         : master.material.clone();
       clone.name = `${name}__spawned`;
+      // Object3D.clone() copies `visible`, and the master is routinely hidden:
+      // by a previous spawn, or by a caller marking the bone missing. A spawned
+      // instance is a new object, so it starts visible and its visibility is
+      // owned by setSpawnedBoneVisibility. Without this, the first spawn after
+      // the master was hidden produces an invisible bone, and solving again
+      // silently fixes it.
+      clone.visible = true;
       offset.decompose(clone.position, clone.quaternion, clone.scale);
       group.add(clone);
       clones.push(clone.name);
     }
 
-    const record = this.spawnedStore.create({
-      boneId,
-      superior,
-      inferior,
-      scaleFactor: placement.scaleFactor,
-      requested: placement.requested,
-      measured: placement.measured,
-      clamped: placement.clamped,
-    }, options?.instanceId);
+    const record = this.spawnedStore.create(
+      {
+        boneId,
+        superior,
+        inferior,
+        scaleFactor: placement.scaleFactor,
+        requested: placement.requested,
+        measured: placement.measured,
+        clamped: placement.clamped,
+      },
+      options?.instanceId,
+    );
     group.name = `spawned-${boneId}-${record.instanceId.slice(0, 8)}`;
-    group.position.set(placement.position.x, placement.position.y, placement.position.z);
+    group.position.set(
+      placement.position.x,
+      placement.position.y,
+      placement.position.z,
+    );
     group.quaternion.set(
       placement.quaternion.x,
       placement.quaternion.y,
       placement.quaternion.z,
-      placement.quaternion.w
+      placement.quaternion.w,
     );
     group.scale.set(1, placement.scaleFactor, 1);
     this.scene.add(group);
@@ -293,20 +355,33 @@ export class SkeletonRigController {
     superior = normalizeEndpoint(superior);
     inferior = normalizeEndpoint(inferior);
     if (!superior || !inferior) {
-      return { ok: false, error: "Superior and inferior positions are required" };
+      return {
+        ok: false,
+        error: "Superior and inferior positions are required",
+      };
     }
 
-    const placement = computeBonePlacement(superior, inferior, rest.restLength);
+    const placement = computeBonePlacement(
+      this.toModelSpace(superior),
+      this.toModelSpace(inferior),
+      rest.restLength,
+      rest.restOrientation,
+    );
+
     if (!placement.ok) {
       return placement;
     }
 
-    group.position.set(placement.position.x, placement.position.y, placement.position.z);
+    group.position.set(
+      placement.position.x,
+      placement.position.y,
+      placement.position.z,
+    );
     group.quaternion.set(
       placement.quaternion.x,
       placement.quaternion.y,
       placement.quaternion.z,
-      placement.quaternion.w
+      placement.quaternion.w,
     );
     group.scale.set(1, placement.scaleFactor, 1);
     this.scene.updateMatrixWorld(true);
@@ -357,7 +432,12 @@ export class SkeletonRigController {
     }
     this.scene.updateMatrixWorld(true);
 
-    return { ok: true, type: "despawn-bone", instanceId, boneId: record.boneId };
+    return {
+      ok: true,
+      type: "despawn-bone",
+      instanceId,
+      boneId: record.boneId,
+    };
   }
 
   clearSpawnedBones() {
@@ -380,7 +460,36 @@ export class SkeletonRigController {
     }
     group.visible = Boolean(visible);
     this.spawnedStore.setVisible(instanceId, visible);
-    return { ok: true, type: "set-spawned-bone-visibility", instanceId, visible: group.visible };
+    return {
+      ok: true,
+      type: "set-spawned-bone-visibility",
+      instanceId,
+      visible: group.visible,
+    };
+  }
+
+  // Shows or hides the model's own meshes for one catalog bone, without
+  // spawning anything. For a bone the researcher recorded as absent: the
+  // articulated hierarchy keeps the bone (so nothing below it moves), only the
+  // geometry goes. Not refcounted: spawnBone/despawnBone manage their own
+  // hiding, so callers that use both should clear spawns first.
+  setMasterBoneVisibility(boneId, visible) {
+    const rest = this.spawnRest[boneId];
+    if (!rest?.found) {
+      return {
+        ok: false,
+        error: `Unknown or unbound spawnable bone: ${boneId}`,
+      };
+    }
+    for (const mesh of rest.masterMeshes) {
+      mesh.visible = Boolean(visible);
+    }
+    return {
+      ok: true,
+      type: "set-master-bone-visibility",
+      boneId,
+      visible: Boolean(visible),
+    };
   }
 
   // A joint command stores accumulated degrees; applyAllRotations converts them to bone rotations.
@@ -424,7 +533,13 @@ export class SkeletonRigController {
     const degrees = Number(amount);
     const limits = config?.limits;
 
-    if (!config || !bones || bones.length === 0 || !limits?.[axis] || !Number.isFinite(degrees)) {
+    if (
+      !config ||
+      !bones ||
+      bones.length === 0 ||
+      !limits?.[axis] ||
+      !Number.isFinite(degrees)
+    ) {
       return { ok: false, error: "Invalid digit rotation command" };
     }
 
@@ -477,7 +592,7 @@ export class SkeletonRigController {
     const value = this.state.setSegmentScale(
       segmentId,
       numericFactor,
-      config.limits
+      config.limits,
     );
     this.applyAllTransforms();
     return { ok: true, type: "set-segment-scale", segmentId, value };
@@ -498,7 +613,7 @@ export class SkeletonRigController {
       values[segmentId] = this.state.setSegmentScale(
         segmentId,
         numericFactor,
-        SEGMENT_SCALES[segmentId].limits
+        SEGMENT_SCALES[segmentId].limits,
       );
     }
     this.applyAllTransforms();
@@ -527,11 +642,15 @@ export class SkeletonRigController {
       this.state.setSegmentScale(
         segmentId,
         Number(factor),
-        ownConfig(SEGMENT_SCALES, segmentId).limits
+        ownConfig(SEGMENT_SCALES, segmentId).limits,
       );
     }
     this.applyAllTransforms();
-    return { ok: true, type: "patch-segment-scales", segmentScales: this.getState().segmentScales };
+    return {
+      ok: true,
+      type: "patch-segment-scales",
+      segmentScales: this.getState().segmentScales,
+    };
   }
 
   replaceSegmentScales(scales = {}) {
@@ -575,7 +694,7 @@ export class SkeletonRigController {
     const value = this.state.setBodyDimension(
       dimensionId,
       numericFactor,
-      config.limits
+      config.limits,
     );
     this.applyAllTransforms();
     return { ok: true, type: "set-body-dimension", dimensionId, value };
@@ -611,7 +730,7 @@ export class SkeletonRigController {
       numericFactor <= 0 ||
       !this.bodyDimensionRest ||
       Object.keys(SEGMENT_SCALES).some(
-        (segmentId) => !this.isSegmentBound(segmentId)
+        (segmentId) => !this.isSegmentBound(segmentId),
       )
     ) {
       return { ok: false, error: "Invalid skeleton scale command" };
@@ -643,7 +762,7 @@ export class SkeletonRigController {
 
     const value = this.state.setUniformScale(
       numericFactor,
-      UNIFORM_SCALE_LIMITS
+      UNIFORM_SCALE_LIMITS,
     );
     this.applyAllTransforms();
     return { ok: true, type: "set-uniform-scale", value };
@@ -662,7 +781,7 @@ export class SkeletonRigController {
       this.state.setBodyDimension(
         dimensionId,
         Number(factor),
-        ownConfig(BODY_DIMENSIONS, dimensionId).limits
+        ownConfig(BODY_DIMENSIONS, dimensionId).limits,
       );
     }
     this.applyAllTransforms();
@@ -682,11 +801,18 @@ export class SkeletonRigController {
   }
 
   validateBodyDimensions(dimensions) {
-    if (!dimensions || typeof dimensions !== "object" || Array.isArray(dimensions)) {
+    if (
+      !dimensions ||
+      typeof dimensions !== "object" ||
+      Array.isArray(dimensions)
+    ) {
       return { ok: false, error: "A body dimensions object is required" };
     }
     if (!this.bodyDimensionRest) {
-      return { ok: false, error: "Body dimensions are not bound to this model" };
+      return {
+        ok: false,
+        error: "Body dimensions are not bound to this model",
+      };
     }
     for (const [dimensionId, factor] of Object.entries(dimensions)) {
       const numericFactor = Number(factor);
@@ -711,7 +837,7 @@ export class SkeletonRigController {
       binding?.driver &&
       binding?.distal &&
       binding.meshes.length === config.meshNames.length &&
-      this.segmentRest[segmentId]
+      this.segmentRest[segmentId],
     );
   }
 
@@ -800,7 +926,7 @@ export class SkeletonRigController {
         rotations,
         config.boneNames,
         this.state.jointRotations[jointId],
-        factor
+        factor,
       );
     }
     for (const [key, bones] of Object.entries(this.digitBones)) {
@@ -808,7 +934,7 @@ export class SkeletonRigController {
         rotations,
         bones.map((bone) => bone.name),
         this.state.digitRotations[key],
-        1
+        1,
       );
     }
 
@@ -824,7 +950,7 @@ export class SkeletonRigController {
     applyBodyDimensions(
       this.binding.bodyDimensions,
       this.bodyDimensionRest,
-      this.state.bodyDimensions
+      this.state.bodyDimensions,
     );
     this.scene.updateMatrixWorld(true);
     for (const [segmentId, config] of Object.entries(SEGMENT_SCALES)) {
@@ -896,7 +1022,7 @@ export class SkeletonRigController {
             region: config.region,
             limits: config.limits,
           },
-        ])
+        ]),
       ),
       digits: Object.fromEntries(
         Object.entries(this.digitBones).map(([digitKey, bones]) => [
@@ -905,7 +1031,7 @@ export class SkeletonRigController {
             found: bones.length > 0,
             foundBones: bones.map((bone) => bone.name),
           },
-        ])
+        ]),
       ),
       attachments: {
         driver: {
@@ -921,16 +1047,19 @@ export class SkeletonRigController {
         Object.entries(SEGMENT_SCALES).map(([segmentId, config]) => {
           const binding = this.binding.segments[segmentId];
           const rest = this.segmentRest[segmentId];
-          return [segmentId, {
-            label: config.label,
-            found:
-              Boolean(binding.driver) &&
-              Boolean(binding.distal) &&
-              binding.meshes.length === config.meshNames.length,
-            restLength: rest?.length ?? null,
-            limits: config.limits,
-          }];
-        })
+          return [
+            segmentId,
+            {
+              label: config.label,
+              found:
+                Boolean(binding.driver) &&
+                Boolean(binding.distal) &&
+                binding.meshes.length === config.meshNames.length,
+              restLength: rest?.length ?? null,
+              limits: config.limits,
+            },
+          ];
+        }),
       ),
       bodyDimensions: {
         found: this.binding.bodyDimensions.found,
@@ -938,7 +1067,7 @@ export class SkeletonRigController {
           Object.entries(BODY_DIMENSIONS).map(([dimensionId, config]) => [
             dimensionId,
             { label: config.label, limits: config.limits },
-          ])
+          ]),
         ),
       },
       regions: Object.fromEntries(
@@ -948,7 +1077,7 @@ export class SkeletonRigController {
             label: config.label,
             foundBones: this.regionBones[region].map((bone) => bone.name),
           },
-        ])
+        ]),
       ),
       regionChains: Object.fromEntries(
         Object.entries(BODY_REGIONS).map(([region, config]) => {
@@ -960,24 +1089,29 @@ export class SkeletonRigController {
               roots: roots.map((bone) => bone.name),
               attached:
                 roots.length > 0 &&
-                joints.every((bone) =>
-                  bone && roots.some((root) => this.isDescendantOf(bone, root))
+                joints.every(
+                  (bone) =>
+                    bone &&
+                    roots.some((root) => this.isDescendantOf(bone, root)),
                 ),
             },
           ];
-        })
+        }),
       ),
       spawnedBones: {
         catalog: Object.fromEntries(
           Object.entries(SPAWNABLE_BONES).map(([boneId, catalog]) => {
             const rest = this.spawnRest[boneId];
-            return [boneId, {
-              label: catalog.label,
-              found: Boolean(rest?.found),
-              restLength: rest?.restLength ?? null,
-              meshCount: catalog.meshNames.length,
-            }];
-          })
+            return [
+              boneId,
+              {
+                label: catalog.label,
+                found: Boolean(rest?.found),
+                restLength: rest?.restLength ?? null,
+                meshCount: catalog.meshNames.length,
+              },
+            ];
+          }),
         ),
         instances: this.spawnedStore.list(),
       },

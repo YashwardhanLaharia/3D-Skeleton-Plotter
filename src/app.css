@@ -723,6 +723,14 @@
   opacity: 1 !important;
 }
 
+/* A bone recorded away from the rest of the skeleton. Muted, because it
+   qualifies a measurement rather than being one. */
+.inspection-displaced {
+  color: var(--bs-secondary-color);
+  font-size: 0.75em;
+  font-style: italic;
+}
+
 .joint-expand {
   flex: 0 0 16px;
   width: 16px;

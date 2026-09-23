@@ -62,9 +62,18 @@ export function normalizeEndpoint(value) {
  * @param {{x,y,z}} superior proximal endpoint in scene space
  * @param {{x,y,z}} inferior distal endpoint in scene space
  * @param {number} restLength model rest length (> 0, same space as endpoints)
+ * @param {{x,y,z,w}|null} restOrientation the bone's rest orientation, used to
+ *        carry its twist across; omit and the twist falls back to a bare
+ *        shortest-arc rotation from +Y.
+
  * @returns {{ok:true, position, quaternion, measured, requested, scaleFactor}|{ok:false,error}}
  */
-export function computeBonePlacement(superior, inferior, restLength) {
+export function computeBonePlacement(
+  superior,
+  inferior,
+  restLength,
+  restOrientation = null,
+) {
   if (!isPosition(superior) || !isPosition(inferior)) {
     return { ok: false, error: "Superior and inferior positions are required" };
   }
@@ -86,8 +95,32 @@ export function computeBonePlacement(superior, inferior, restLength) {
     return { ok: false, error: "Superior and inferior must not coincide" };
   }
 
-  const rest_dir = new Vector3(REST_DIRECTION.x, REST_DIRECTION.y, REST_DIRECTION.z).normalize();
-  const quaternion = new Quaternion().setFromUnitVectors(rest_dir, direction);
+  // Two points give a direction, never a twist. Rotating a bare +Y onto the
+  // measured direction picks whatever twist the shortest arc happens to land
+  // on, which left a spawned tibia lying 88.6 degrees on its side next to its
+  // articulated twin. Starting from the bone's rest orientation and swinging
+  // only its axis onto the measured direction keeps the model's own twist,
+  // which is the same thing the articulated solver does.
+  let quaternion;
+  if (restOrientation) {
+    const rest = new Quaternion(
+      restOrientation.x,
+      restOrientation.y,
+      restOrientation.z,
+      restOrientation.w,
+    ).normalize();
+    const restAxis = new Vector3(0, 1, 0).applyQuaternion(rest);
+    quaternion = new Quaternion()
+      .setFromUnitVectors(restAxis, direction)
+      .multiply(rest);
+  } else {
+    const rest_dir = new Vector3(
+      REST_DIRECTION.x,
+      REST_DIRECTION.y,
+      REST_DIRECTION.z,
+    ).normalize();
+    quaternion = new Quaternion().setFromUnitVectors(rest_dir, direction);
+  }
 
   const requested = measured / rest;
   const [min, max] = SPAWN_SCALE_LIMITS;
@@ -96,7 +129,12 @@ export function computeBonePlacement(superior, inferior, restLength) {
   return {
     ok: true,
     position: toPlainPoint(superior),
-    quaternion: { x: quaternion.x, y: quaternion.y, z: quaternion.z, w: quaternion.w },
+    quaternion: {
+      x: quaternion.x,
+      y: quaternion.y,
+      z: quaternion.z,
+      w: quaternion.w,
+    },
     measured,
     requested,
     scaleFactor,

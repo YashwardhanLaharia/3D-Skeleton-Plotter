@@ -1,4 +1,9 @@
-import { Matrix4, Vector3 } from "three";
+import { Matrix4, Quaternion, Vector3 } from "three";
+
+// A tenth of a millimetre. Below this, a "direction" is floating-point noise
+// from a bone measured against itself, not an axis.
+const AXIS_EPSILON = 1e-4;
+
 import { SPAWNABLE_BONES } from "./boneCatalog.js";
 
 // Captures per-bone rest data once per rig instance (mirrors captureSegmentRest
@@ -20,22 +25,46 @@ export function captureSpawnRest(scene, segmentRest = {}) {
 
   for (const [boneId, catalog] of Object.entries(SPAWNABLE_BONES)) {
     const driver = scene.getObjectByName(catalog.driverBoneName);
+    const distalBone = scene.getObjectByName(catalog.distalBoneName);
     const masterMeshes = catalog.meshNames
       .map((name) => scene.getObjectByName(name))
       .filter(Boolean);
 
+    // The bone's own axis, in the driver's frame. Most bones run along the
+    // driver's +Y, but not all: the lumbar-to-thoracic span is 27.6 degrees off
+    // it, so assuming +Y aims those bones wrongly and stretches them along the
+    // wrong direction.
+    //
+    // The compact bones (skull, mandible, scapulae, patellae, sternum) name
+    // their own driver as their distal anchor, so they have no axis to measure.
+    // They keep the +Y assumption, which is no worse than before.
+    let axis = null;
+    if (driver && distalBone && distalBone !== driver) {
+      driver.updateWorldMatrix(true, false);
+      distalBone.updateWorldMatrix(true, false);
+      const local = driver.worldToLocal(
+        distalBone.getWorldPosition(new Vector3()),
+      );
+      if (local.length() > AXIS_EPSILON) axis = local;
+    }
+
     let restLength = null;
     if (catalog.segmentId && segmentRest[catalog.segmentId]?.length) {
       restLength = segmentRest[catalog.segmentId].length;
+    } else if (axis) {
+      // driver -> distal, not proximal -> distal: the spawned group's origin is
+      // the driver, so the length that gets scaled has to start there too.
+      restLength = axis.length();
     } else {
+      // No axis. Fall back to the anchor pair the catalog names, which is what
+      // this did before there was an axis at all.
       const proximal = scene.getObjectByName(catalog.proximalBoneName);
-      const distal = scene.getObjectByName(catalog.distalBoneName);
-      if (proximal && distal) {
+      if (proximal && distalBone) {
         proximal.updateWorldMatrix(true, false);
-        distal.updateWorldMatrix(true, false);
-        const a = proximal.getWorldPosition(new Vector3());
-        const b = distal.getWorldPosition(new Vector3());
-        const distance = a.distanceTo(b);
+        distalBone.updateWorldMatrix(true, false);
+        const distance = proximal
+          .getWorldPosition(new Vector3())
+          .distanceTo(distalBone.getWorldPosition(new Vector3()));
         if (distance > 0 && Number.isFinite(distance)) {
           restLength = distance;
         }
@@ -47,13 +76,29 @@ export function captureSpawnRest(scene, segmentRest = {}) {
     if (driver && masterMeshes.length === catalog.meshNames.length) {
       driver.updateWorldMatrix(true, false);
       const driverInverse = new Matrix4().copy(driver.matrixWorld).invert();
+      // Offsets are stored in a frame whose +Y IS the bone axis, so the spawned
+      // group can aim and stretch along plain +Y and have both land on the bone
+      // rather than on the driver's arbitrary orientation.
+      const toAxisFrame = new Matrix4();
+      if (axis) {
+        toAxisFrame.makeRotationFromQuaternion(
+          new Quaternion().setFromUnitVectors(
+            axis.clone().normalize(),
+            new Vector3(0, 1, 0),
+          ),
+        );
+      }
       meshOffsets = masterMeshes.map((mesh) => {
         mesh.updateWorldMatrix(true, false);
         return {
           name: mesh.name,
-          offset: new Matrix4().copy(driverInverse).multiply(mesh.matrixWorld).clone(),
+          offset: new Matrix4()
+            .copy(toAxisFrame)
+            .multiply(driverInverse)
+            .multiply(mesh.matrixWorld),
         };
       });
+
       // Geometry snapshots at rest. Segment and body-dimension transforms
       // deform master geometry in place, so clones taken after a morphology
       // change must be restored to rest or the spawn would inherit the
@@ -64,21 +109,45 @@ export function captureSpawnRest(scene, segmentRest = {}) {
           mesh.name,
           {
             positions: mesh.geometry.getAttribute("position").array.slice(),
-            normals: mesh.geometry.getAttribute("normal")?.array.slice() ?? null,
+            normals:
+              mesh.geometry.getAttribute("normal")?.array.slice() ?? null,
           },
-        ])
+        ]),
       );
+    }
+
+    // The orientation the bone sits at in the model at rest, expressed for the
+    // axis-aligned frame the offsets are stored in. Two points fix a bone's
+    // direction but say nothing about its twist, so the twist is taken from
+    // here instead of being left to whatever a shortest-arc rotation picks.
+    let restOrientation = null;
+    if (driver) {
+      driver.updateWorldMatrix(true, false);
+      const inScene = new Matrix4()
+        .copy(scene.matrixWorld)
+        .invert()
+        .multiply(driver.matrixWorld);
+      const driverRotation = new Quaternion();
+      inScene.decompose(new Vector3(), driverRotation, new Vector3());
+      const align = axis
+        ? new Quaternion()
+            .setFromUnitVectors(axis.clone().normalize(), new Vector3(0, 1, 0))
+            .invert()
+        : new Quaternion();
+      restOrientation = driverRotation.multiply(align);
     }
 
     rest[boneId] = {
       boneId,
+      restOrientation,
+
       found: Boolean(
         driver &&
         masterMeshes.length === catalog.meshNames.length &&
         meshOffsets &&
         meshSnapshots &&
         Number.isFinite(restLength) &&
-        restLength > 0
+        restLength > 0,
       ),
       restLength,
       meshOffsets,

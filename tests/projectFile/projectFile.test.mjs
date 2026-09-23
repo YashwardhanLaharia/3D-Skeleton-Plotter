@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { JOINTS } from "../../src/joints.js";
 import {
+  DEFAULT_GRAVE_DIMENSIONS,
+  normaliseGraveDimensions,
   normaliseIndividual,
   normaliseGroups,
   normaliseProject,
@@ -181,4 +183,52 @@ test("normaliseProject clears groupIds that do not match a group", () => {
   assert.equal(result.individuals[0].groupId, "grp-1");
   assert.equal(result.individuals[1].groupId, null);
   assert.deepEqual(result.groups, [{ id: "grp-1", name: "Cluster" }]);
+});
+
+// The grave is not decoration. graveOrigin puts the site-grid origin at the
+// grave's left-front-floor corner, so the same coordinates land metres apart in
+// different graves: head_centre at (1.5, 5.71, 0.39) is 1.36m from the grid
+// centre in a 3x9x1 grave and 5.34m from it in a 1x1x1 one. A file that did not
+// carry its grave was reopened against whatever happened to be set.
+test("normaliseGraveDimensions keeps a valid grave", () => {
+  assert.deepEqual(normaliseGraveDimensions([3, 9, 1]), [3, 9, 1]);
+});
+
+test("normaliseGraveDimensions accepts the numeric strings the modal produces", () => {
+  assert.deepEqual(normaliseGraveDimensions(["3", "9", "1"]), [3, 9, 1]);
+});
+
+test("a project saved before graves were stored opens at the default", () => {
+  for (const missing of [undefined, null, "3x9x1", [], [3, 9]]) {
+    assert.deepEqual(
+      normaliseGraveDimensions(missing),
+      DEFAULT_GRAVE_DIMENSIONS,
+    );
+  }
+});
+
+test("normaliseGraveDimensions replaces only the unusable axes", () => {
+  // A zero or negative grave would put the origin on top of the skeleton.
+  assert.deepEqual(normaliseGraveDimensions([3, 0, 1]), [3, 1, 1]);
+  assert.deepEqual(normaliseGraveDimensions([-2, 9, "x"]), [1, 9, 1]);
+});
+
+test("normaliseProject returns the grave alongside the individuals", () => {
+  const project = normaliseProject({
+    schemaVersion: SCHEMA_VERSION,
+    graveDimensions: [3, 9, 1],
+    individuals: [{ id: "ind-1", coords: {} }],
+  });
+
+  assert.deepEqual(project.graveDimensions, [3, 9, 1]);
+  assert.equal(project.individuals.length, 1);
+});
+
+test("normaliseProject defaults the grave when a file omits it", () => {
+  const project = normaliseProject({
+    schemaVersion: SCHEMA_VERSION,
+    individuals: [{ id: "ind-1", coords: {} }],
+  });
+
+  assert.deepEqual(project.graveDimensions, DEFAULT_GRAVE_DIMENSIONS);
 });

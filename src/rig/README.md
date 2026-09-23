@@ -86,9 +86,16 @@ rig.resetSegmentScale("thigh_l");
 rig.resetAllSegmentScales();
 ```
 
-Segments cover the left and right upper arms, forearms, thighs, and lower
-legs. Scaling deforms the bone shaft between joints while translating the
-distal endcap rigidly, and joint nodes themselves keep their scale.
+Twelve segments: the left and right upper arms, forearms, hands, thighs, lower
+legs, and feet. Scaling deforms the bone shaft between joints while translating
+the distal endcap rigidly, and joint nodes themselves keep their scale.
+
+Hands and feet are whole clusters rather than the carpals or tarsals alone,
+because the CFA form measures a hand wrist-to-fingertip and a foot
+ankle-to-toes. They were added because the two rendering paths disagreed: a
+spawned foot was resized to its measurement while its articulated twin on the
+other side of the same body kept the model's own 18.2cm, so identical
+measurements rendered 3.1cm apart.
 
 ```js
 rig.setBodyDimension("torso_length", 0.8);
@@ -142,15 +149,29 @@ console.log(rig.getSpawnedBones());
 
 ### Placement
 
-Endpoints are scene-space `{ x, y, z }` positions; the rig stays
-space-agnostic, so callers convert grave-grid coordinates via `toSceneSpace`
-first (as `MainView` does for the solver). The spawned group's origin lands
-on `superior`, and its local +Y — the bone axis by model convention, see
-`solver/solveBone.js` — is rotated onto `inferior - superior`. Endpoints must
-be finite and must not coincide; numeric strings are coerced (blanks stay
-missing rather than becoming 0), and stored records always hold numbers. Two
-points fix direction but not axial twist,
-so roll is always the model's rest roll.
+Endpoints are scene-space `{ x, y, z }` positions; callers convert grave-grid
+coordinates via `toSceneSpace` first (as `MainView` does for the solver). The
+rig then brings them into the model's own frame itself, because the model is
+routinely rotated and moved by the solver and the viewport, and applying that
+transform twice threw a spawned femur 2.2m out of the grave.
+
+The spawned group's origin lands on `superior`, and the bone's axis is rotated
+onto `inferior - superior`. **The axis is measured, not assumed.** Most bones
+run along their driver's local +Y but not all: the lumbar-to-thoracic span is
+27.6 degrees off it and the carpals-to-fingertip 13.6, so aiming a bare +Y
+pointed those bones wrongly and stretched them along the wrong direction.
+`spawnRest.js` measures each bone's axis from driver to distal anchor and
+stores the mesh offsets in a frame whose +Y is that axis.
+
+Endpoints must be finite and must not coincide; numeric strings are coerced
+(blanks stay missing rather than becoming 0), and stored records always hold
+numbers.
+
+Two points fix a direction but never a twist. The placement starts from the
+bone's rest orientation and swings only its axis onto the measured direction,
+so the model's own twist carries across. Rotating a bare +Y instead picked
+whatever twist the shortest arc landed on, which left a spawned tibia lying
+88.6 degrees on its side next to its articulated twin.
 
 ### Scaling
 
@@ -163,9 +184,11 @@ applied   = clamp(requested, 0.5, 1.5)
 ```
 
 `restLength` is the model's rest length for that bone: the existing segment
-rest length for the 8 scalable long-bones (so spawned and articulated scaling
-agree), otherwise the rest distance between the catalog's proximal and distal
-anchor bones. Limits mirror `scaling/segmentConfig.js`. The factor is applied
+rest length where the catalog names one (so spawned and articulated scaling
+agree), otherwise the distance from the driver to its distal anchor. Bones
+whose catalog entry names their own driver as their distal anchor — skull,
+mandible, scapulae, patellae, sternum — have no axis and no length of their
+own, and fall back to the catalog's proximal-to-distal pair. Limits mirror `scaling/segmentConfig.js`. The factor is applied
 as a rigid Y-scale on the spawned group, so length changes while
 cross-section is preserved. Results report `measured`, `requested`,
 `scaleFactor`, and `clamped`, and `updateSpawnedBone` recomputes from new
@@ -184,12 +207,20 @@ articulated pose. Instances are UUID-keyed (`SpawnedBoneStore`) — pass
 `boneId` can spawn multiple times for commingled cases. Use
 `options.hideMaster` (default `true`) to opt out of master hiding.
 
+Spawned clones are always created visible. `Object3D.clone()` copies `visible`,
+and the master is routinely hidden — by an earlier spawn, or by a caller
+marking the bone missing — so without that reset the first spawn after a hide
+was born invisible and then fixed itself on the next solve.
+
 ### Approximations
 
 Multi-mesh units reconstruct from per-mesh rest offsets relative to the
 driver bone, so split anatomies (Ulna+Radius, Tibia+Fibula) stay aligned.
-Hands/feet spawn their carpal/tarsal clusters while fingers/toes stay
-articulated unless spawned per digit. The spine is one rigid unit anchored
+`hand_whole_*` and `foot_whole_*` are the units the solver places: the CFA form
+measures a hand wrist-to-fingertip and a foot ankle-to-toes, which spans the
+metacarpals and phalanges too. The bare `hand_*`/`foot_*` entries are the
+carpal and tarsal clusters alone and are 8.1cm against a 15.1cm foot, so
+placing a recorded foot with one leaves nineteen toe bones behind. The spine is one rigid unit anchored
 Lumbar5→Thoracic010 with cervicals riding along. Compact bones (skull,
 pelvis, patella, scapula) use driver→child anchor distances, so their scale
 is approximate and orientation carries the placement.
@@ -302,6 +333,20 @@ distance; only the listed meshes are deformed.
 | `thigh_r` | `DEF-FemurR` | `DEF-TibiaR` | `FemurR` |
 | `lower_leg_l` | `DEF-TibiaL` | `DEF-FootL` | `TibiaL`, `FibulaL` |
 | `lower_leg_r` | `DEF-TibiaR` | `DEF-FootR` | `TibiaR`, `FibulaR` |
+| `hand_l` | `DEF-CarpalsL` | `DEF-Distal_Phalanges_3L` | 26: carpals, metacarpals, phalanges |
+| `hand_r` | `DEF-CarpalsR` | `DEF-Distal_Phalanges_3R` | 26: carpals, metacarpals, phalanges |
+| `foot_l` | `DEF-FootL` | `DEF-Distal_Phalange_3_(foot)L` | 26: tarsals, metatarsals, phalanges |
+| `foot_r` | `DEF-FootR` | `DEF-Distal_Phalange_3_(foot)R` | 26: tarsals, metatarsals, phalanges |
+
+Hand and foot mesh lists come from `handMeshNames`/`footMeshNames` in
+`scaling/segmentConfig.js`, which `spawn/boneCatalog.js` imports too, so an
+independently placed hand and an articulated one are always the same set of
+bones.
+
+A hand or a foot is the one case where a segment contains its own distal bone.
+Meshes hanging off that bone are carried by the bone move and are excluded from
+the vertex deformation, or they travel twice — the middle finger stuck out
+1.9cm past the rest of the hand until `captureSegmentRest` filtered them.
 
 Body-dimension controls additionally bind the `DEF-Pelvis`, `DEF-Sternum`,
 `DEF-ClavicleL`, and `DEF-ClavicleR` bones and the `Pelvis`, `Sternum`,

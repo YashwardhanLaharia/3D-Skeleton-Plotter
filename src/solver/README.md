@@ -1,15 +1,24 @@
 ## Scope
 
-This covers issue #18
+Landmark coordinates in, posed skeleton out. This module decides, per bone,
+whether to pose it as part of the connected skeleton, to place it on its own
+from its two endpoints, or not to render it at all, and it owns the order those
+steps run in.
 
-| Stage | Owner | Module |
-|---|---|---|
-| Site-grid coordinates → scene space | #16 | elsewhere |
-| One bone's rotation from two positions | #17 | `rig/solver/computeBoneRotation.js` |
-| **Bone topology, traversal, segment lengths** | **#18** | **this module** |
-| Wiring into the rig, live re-solve | #19 | elsewhere |
+| File | Responsibility |
+|---|---|
+| `topology.js` | which bone spans which two survey points |
+| `boneModes.js` | articulated, independent, or absent |
+| `solveSkeleton.js` | traversal, proximal to distal |
+| `solveBone.js` | one bone's rotation, against the loaded model |
+| `segmentScales.js` | bone lengths from measured distances |
+| `bodyFrame.js` | whole-body orientation and torso proportions |
+| `modelLandmarks.js` | which model object each landmark sits on |
+| `placementAnchor.js` | which landmark the skeleton is positioned by |
+| `applyPose.js` | the composition, in the order that matters |
 
-`solveBone` is injected rather than imported, so the traversal is testable against a stub and integrates without editing this module. 
+`solveBone` is injected rather than imported, so the traversal is testable
+against a stub and integrates without editing this module.
 
 ## The Off-By-One
 
@@ -29,7 +38,8 @@ differs.
 
 ## Topology
 
-`topology.js` is the authoritative list of which bone spans which two survey points.
+`topology.js` is the authoritative list of which bone spans which two survey
+points.
 
 ```js
 import { BONES, getBone, bonesForJoint } from "./topology.js";
@@ -39,11 +49,40 @@ getBone("thigh_l");
 //   jointId: "acetabulum_l", segmentId: "thigh_l", chain: "leftLeg" }
 ```
 
-Fifteen bones across five chains: `leftArm`, `rightArm`, `leftLeg`, `rightLeg`, `axial`.
+Fifteen bones across five chains: `leftArm`, `rightArm`, `leftLeg`, `rightLeg`,
+`axial`. Twelve carry a `segmentId` and can be lengthened; the spine, head and
+jaw cannot.
 
-**Order is load-bearing.** Bones appear proximal-to-distal within each chain, and a test asserts it. See *Coordinate Spaces* below.
+**Order is load-bearing.** Bones appear proximal-to-distal within each chain,
+and a test asserts it.
 
-Four of the twenty-five CFA points drive no bone and are listed in `UNUSED_JOINTS`. `ilium_superior_l/r` and `ischium_l/r` are positional landmarks rather than rotatable joints, the pelvis is solid in the current model.
+Four of the twenty-five CFA points drive no bone and are listed in
+`UNUSED_JOINTS`. `ilium_superior_l/r` and `ischium_l/r` are positional
+landmarks rather than rotatable joints; the pelvis is solid in the current
+model.
+
+## Three Ways to Render a Bone
+
+`planBones` in `boneModes.js` reads the sidebar coordinates and returns one of
+three modes per bone. This is what makes disarticulated remains representable.
+
+| Mode | When | What happens |
+|---|---|---|
+| `articulated` | both landmarks recorded on unexpanded rows | posed as part of the connected skeleton |
+| `independent` | either row expanded, or a bone above it in the chain is not articulated | placed on its own via `rig.spawnBone` |
+| `absent` | either endpoint missing | not rendered, so the gap is visible |
+
+Expanding a joint row is how a researcher says "this bone was not where the
+skeleton says it should be". The row's own X/Y/Z is the end of the bone ABOVE
+that joint; the second line is the end of the bone BELOW it.
+
+The chain rule is not optional. An articulated foot hangs off the model's
+tibia, so if that tibia was placed somewhere else the foot has to be placed too
+or it renders attached to a bone that is no longer there.
+
+`absent` means not drawn. That is deliberate: rendering a bone at the
+articulated position when the researcher recorded it as missing would claim
+something the coordinates do not say.
 
 ## Solving a Skeleton
 
@@ -152,7 +191,16 @@ const { scales, clamped, degenerate } = computeSegmentScales(
 );
 ```
 
-Eight bones are scalable: upper arms, forearms, thighs, lower legs. Everything else is aimed but not lengthened, so a measured distance that disagrees with the model is absorbed as positional drift down the chain.
+Twelve bones are scalable: upper arms, forearms, hands, thighs, lower legs and
+feet. The spine, head and jaw are aimed but not lengthened, so a measured
+distance that disagrees with the model is absorbed as positional drift down the
+chain.
+
+Hands and feet are whole clusters, not the carpals or tarsals alone: the form
+measures a hand wrist-to-fingertip and a foot ankle-to-toes. They were added
+because the two rendering paths disagreed — a spawned foot was resized to its
+measurement while its articulated twin on the other side of the same body kept
+the model's own 18.2cm, so identical measurements rendered 3.1cm apart.
 
 ### Clamped and Degenerate
 
@@ -164,7 +212,9 @@ clamped;  // [{ segmentId: "thigh_l", requested: 5, applied: 1.5 }]
 
 `degenerate` lists segments whose two joints were recorded at the same point.
 
-`solveBone` must receive both directions in the same space: Measured directions arrive in scene space; the rig thinks in local space. The caller is responsible for converting before calling, and for supplying a `restDirection` in that same space.
+`solveBone` converts the measured direction into the bone's own frame itself,
+so callers pass scene-space positions and nothing else. `rig.spawnBone` does
+the same for independently placed bones.
 
 ## solveBone
 
@@ -218,17 +268,41 @@ describes anatomy, this describes one particular mesh. Where each *landmark*
 sits on the model is a separate map, `modelLandmarks.js`, because the distal end
 of every chain is a recorded point that rotates nothing.
 
+## Independent Placement
+
+A bone in `independent` mode is placed by `rig.spawnBone(id, superior,
+inferior)`, which draws a private copy from the two endpoints and hides the
+model's own meshes for that bone. `SPAWN_BONE_IDS` maps topology ids to catalog
+ids; they agree except that the head is the catalog's `skull`, and hands and
+feet map to the whole-cluster units rather than the carpals or tarsals alone.
+
+Endpoints are scene-space positions. The rig converts them into the model's own
+frame, which matters because the whole-body rotation has already moved that
+frame.
+
+`UNSCALABLE_SPAWN_IDS` holds the bones that cannot be placed independently yet.
+The skull and the jaw name their own driver as their distal anchor in the
+catalog, so they have no axis and no length of their own; spawning them clamps
+to 1.5x and renders them visibly stretched. A bone in that set is hidden and
+reported instead, because drawing it at the articulated position would claim it
+is where the body is, which is the opposite of what was recorded.
+
+`FOLLOWER_BONE_IDS` covers model parts with no landmarks that hang off a bone
+that moved — the patellae follow the thighs. A patella left hanging in the air
+after its thigh was hidden reads as a bug.
+
 ## What Is Still Approximate
 
-- **Roll.** Two landmarks give a direction, not a twist. Unconstrained by
-  design.
-- **Parts with no scalable segment.** Hands, feet, skull and the spine render at
-  the model's own size, so a recorded foot longer than the model's cannot reach
-  its toe landmark. On the synthetic set this leaves a residual of up to 11cm at
-  the toes and 8cm at the head, against 1-2cm through the arms.
-- **The spine.** `sacral_promontory` distributes one rotation across the lumbar
-  chain, so the chain points along the recorded sacrum-to-manubrium line but
-  does not reproduce the curve between them.
+- **Roll.** Two landmarks give a direction, not a twist. Independent placement
+  swings the bone's rest orientation onto the measured direction and keeps the
+  model's own twist, which is what the articulated path does too.
+- **The spine, head and jaw.** No scalable segment, so they render at the
+  model's own size. `sacral_promontory` also distributes one rotation across the
+  lumbar chain, so the spine points along the recorded sacrum-to-manubrium line
+  but does not reproduce the curve between them.
+- **Cluster stretch.** A spawned hand or foot scales rigidly; an articulated one
+  stretches with a 15% endcap blend at each end. Both measure the same end to
+  end, which is what is read off the screen, but they are not pixel-identical.
 - **The depth axis.** `sceneSpace.js` treats the third recorded value as height
   above the grave floor. If the survey records depth increasing downwards, the
   conversion is a reflection and flexed limbs will render mirrored. Not yet
