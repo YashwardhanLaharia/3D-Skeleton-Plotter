@@ -102,7 +102,7 @@ function SkeletonModel({
     if (!check.ok) {
       console.warn(
         "skeleton model is missing objects the solver aims by",
-        check.unresolved,
+        check.unresolved, 
       );
     }
   }, [clonedScene]);
@@ -134,6 +134,7 @@ function SkeletonModel({
       root: groupRef.current,
       joints: sceneJoints,
       solveBone: gatedSolveBone,
+      articulated,
     });
 
     const origin = graveOrigin(graveDimensions);
