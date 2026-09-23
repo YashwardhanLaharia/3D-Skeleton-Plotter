@@ -351,6 +351,9 @@ export default function App() {
       groups: loaded.groups,
     });
 
+    // Before the grave itself, or the coordinates in it mean something else.
+    setGraveDimensions(loaded.graveDimensions);
+
     const numbers = loaded.individuals
       .map((individual) => Number(individual.id.replace("ind-", "")))
       .filter((value) => Number.isFinite(value));
@@ -379,6 +382,7 @@ export default function App() {
     return {
       schemaVersion: SCHEMA_VERSION,
       savedAt: new Date().toISOString(),
+      graveDimensions,
       groups: groups.map((group) => ({
         id: group.id,
         name: group.name,
