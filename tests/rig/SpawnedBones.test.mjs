@@ -473,3 +473,69 @@ test("reset-all executes explicitly and unknown types stay rejected", async () =
   assert.equal(rig.getState().jointRotations.knee_l.x, 0);
   assert.equal(rig.execute({ type: "bogus-command" }).ok, false);
 });
+
+// A spawned bone is a new object. Object3D.clone() copies `visible`, and the
+// master is routinely hidden — by an earlier spawn, or by a caller marking the
+// bone missing — so without an explicit reset the first spawn after a hide is
+// born invisible. It then fixes itself on the next solve, which is what made
+// this so confusing to see: the bone was absent on load and present after
+// touching anything else.
+test("a bone spawned while its master is hidden is still visible", async () => {
+  const scene = await loadScene();
+  const rig = createSkeletonRig(scene);
+  const restLength =
+    rig.getDiagnostics().spawnedBones.catalog.thigh_l.restLength;
+
+  const meshes = getSpawnableBone("thigh_l").meshNames.map((name) =>
+    scene.getObjectByName(name)
+  );
+  for (const mesh of meshes) mesh.visible = false;
+
+  const spawned = rig.spawnBone(
+    "thigh_l",
+    { x: 0, y: 0, z: 0 },
+    { x: 0, y: -restLength, z: 0 }
+  );
+  assert.equal(spawned.ok, true);
+
+  const group = scene.getObjectByName(
+    `spawned-thigh_l-${spawned.instanceId.slice(0, 8)}`
+  );
+  assert.ok(group, "the spawned group should be in the scene");
+  assert.equal(group.children.length > 0, true);
+  for (const clone of group.children) {
+    assert.equal(clone.visible, true, `${clone.name} spawned invisible`);
+  }
+});
+
+// The sequence that actually happens: the app opens with no coordinates, so
+// every bone reads as missing and every master is hidden, and only then is a
+// file loaded that places one of those bones on its own.
+test("hiding a master then spawning it twice gives the same visible result", async () => {
+  const scene = await loadScene();
+  const rig = createSkeletonRig(scene);
+  const restLength =
+    rig.getDiagnostics().spawnedBones.catalog.lower_leg_l.restLength;
+
+  const endpoints = [
+    { x: 0, y: 0, z: 0 },
+    { x: 0, y: -restLength, z: 0 },
+  ];
+  const visibleCounts = [];
+
+  for (let pass = 0; pass < 2; pass += 1) {
+    rig.clearSpawnedBones();
+    rig.setMasterBoneVisibility("lower_leg_l", false);
+
+    const spawned = rig.spawnBone("lower_leg_l", ...endpoints);
+    assert.equal(spawned.ok, true);
+
+    const group = scene.getObjectByName(
+      `spawned-lower_leg_l-${spawned.instanceId.slice(0, 8)}`
+    );
+    visibleCounts.push(group.children.filter((clone) => clone.visible).length);
+  }
+
+  assert.equal(visibleCounts[0], visibleCounts[1]);
+  assert.equal(visibleCounts[0] > 0, true);
+});
