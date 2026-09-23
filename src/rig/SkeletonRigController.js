@@ -7,7 +7,7 @@ import { DIGITS, DIGIT_JOINT_TYPES } from "./digits/digitsConfig.js";
 import { RigSceneBinding } from "./binding/RigSceneBinding.js";
 import { validateRigCommand } from "./commands/RigCommandValidator.js";
 import { RigState } from "./state/RigState.js";
-import { Group } from "three";
+import { Group, Vector3 } from "three";
 import { SEGMENT_GROUPS, SEGMENT_SCALES } from "./scaling/segmentConfig.js";
 import { getSpawnableBone, SPAWNABLE_BONES } from "./spawn/boneCatalog.js";
 import {
@@ -211,6 +211,18 @@ export class SkeletonRigController {
         return { ok: false, error: `Unknown command type: ${command.type}` };
     }
   }
+  // Endpoints arrive in scene space, which is what a caller measures in. The
+  // spawned group is added inside the model, and the model is routinely rotated
+  // and moved by the solver and the viewport, so the same numbers have to be
+  // brought into the model's own frame or that transform is applied twice.
+  // Identity when nothing sits above the model, as in the tests.
+  toModelSpace(point) {
+    this.scene.updateMatrixWorld(true);
+    const local = this.scene.worldToLocal(
+      new Vector3(point.x, point.y, point.z),
+    );
+    return { x: local.x, y: local.y, z: local.z };
+  }
 
   // Independent-bone spawning for disarticulated remains. Spawned groups are siblings of
   // the master hierarchy (never reparented bones), so the articulated rig and
@@ -236,7 +248,12 @@ export class SkeletonRigController {
       };
     }
 
-    const placement = computeBonePlacement(superior, inferior, rest.restLength);
+    const placement = computeBonePlacement(
+      this.toModelSpace(superior),
+      this.toModelSpace(inferior),
+      rest.restLength,
+    );
+
     if (!placement.ok) {
       return placement;
     }
@@ -336,7 +353,12 @@ export class SkeletonRigController {
       };
     }
 
-    const placement = computeBonePlacement(superior, inferior, rest.restLength);
+    const placement = computeBonePlacement(
+      this.toModelSpace(superior),
+      this.toModelSpace(inferior),
+      rest.restLength,
+    );
+
     if (!placement.ok) {
       return placement;
     }

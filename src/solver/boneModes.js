@@ -27,6 +27,23 @@ export const FOLLOWER_BONE_IDS = Object.freeze({
   thigh_r: ["patella_r"],
 });
 
+// Bones the catalog cannot yet scale correctly. spawnBone sizes a bone by
+// measured / restLength, so this only works where the catalog's rest anchors
+// span the same thing the two landmarks span. Measured against the model and a
+// synthetic adult:
+//
+//   upper arm  34.0cm rest / 33.2cm measured   forearm  25.2 / 26.1
+//   hand       16.0 / 18.0                     thigh    44.2 / 45.0
+//   lower leg  42.1 / 37.0                     spine    49.0 / 47.0
+//
+//   foot       18.2 / 15.1   via foot_whole_*, the tarsal-only unit is 8.1cm
+
+//   skull       1.1 /  9.0   anchored neck-to-skull, not skull height
+//   jaw         2.6 /  7.9   anchored skull-to-mandible, not chin length
+//
+// The last three clamp to 1.5x and render visibly stretched, so they are not
+// placed independently. Delete an id from here once its anchors are fixed.
+export const UNSCALABLE_SPAWN_IDS = Object.freeze(new Set(["skull", "jaw"]));
 
 // Topology bone id -> spawn catalog id (src/rig/spawn/boneCatalog.js). They
 // agree except for the head, which the catalog calls the skull.
@@ -39,10 +56,10 @@ export const SPAWN_BONE_IDS = Object.freeze({
   hand_r: "hand_r",
   thigh_l: "thigh_l",
   lower_leg_l: "lower_leg_l",
-  foot_l: "foot_l",
+  foot_l: "foot_whole_l",
   thigh_r: "thigh_r",
   lower_leg_r: "lower_leg_r",
-  foot_r: "foot_r",
+  foot_r: "foot_whole_r",
   spine: "spine",
   head: "skull",
   jaw: "jaw",

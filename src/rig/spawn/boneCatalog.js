@@ -18,7 +18,10 @@
 //   "(feet)" while their bones use "(foot)"; the 5th finger distal mesh lives
 //   under DEF-Intermediate_Phalanges_5*001; big-toe distal bones carry 001.
 
-import { DIGIT_NUMBER_LABELS, TOE_NUMBER_LABELS } from "../digits/digitsConfig.js";
+import {
+  DIGIT_NUMBER_LABELS,
+  TOE_NUMBER_LABELS,
+} from "../digits/digitsConfig.js";
 
 const TOOTH_BASES = [
   "Canine",
@@ -90,10 +93,16 @@ function fingerEntry(n, side) {
   const S = side.toUpperCase();
   const id = `finger_${n}_${side}`;
   const distalBoneName =
-    n === 5 ? `DEF-Intermediate_Phalanges_5${S}001` : `DEF-Distal_Phalanges_${n}${S}`;
+    n === 5
+      ? `DEF-Intermediate_Phalanges_5${S}001`
+      : `DEF-Distal_Phalanges_${n}${S}`;
   const meshNames =
     n === 1
-      ? [`Metacarpel_1${S}`, `Proximal_Phalanges_1${S}`, `Distal_Phalanges_1${S}`]
+      ? [
+          `Metacarpel_1${S}`,
+          `Proximal_Phalanges_1${S}`,
+          `Distal_Phalanges_1${S}`,
+        ]
       : [
           `Metacarpel_${n}${S}`,
           `Proximal_Phalanges_${n}${S}`,
@@ -295,6 +304,84 @@ export const SPAWNABLE_BONES = Object.freeze({
     segmentId: null,
     proximalBoneName: "DEF-FootR",
     distalBoneName: "DEF-MetatarsalR3",
+  },
+  // The CFA form measures a foot from the ankle to the toes, which spans the
+  // tarsals, the metatarsals and the phalanges. foot_l above is the tarsal
+  // cluster alone, 8.1cm against that 15.1cm measurement, so placing a recorded
+  // foot with it stretches seven small bones to the length of a whole foot and
+  // leaves nineteen toe bones behind. This unit is the whole foot, anchored
+  // ankle to third-toe tip, 18.2cm, which is what the measurement describes.
+  foot_whole_l: {
+    id: "foot_whole_l",
+    label: "Left foot (complete)",
+    driverBoneName: "DEF-FootL",
+    meshNames: [
+      "CalcaneusL",
+      "CuboidL",
+      "Intermediate_CuneiformL",
+      "Lateral_CuneiformL",
+      "Medial_CuneiformL",
+      "NavicularL",
+      "TalusL",
+      "Metatarsal_1L",
+      "Metatarsal_2L",
+      "Metatarsal_3L",
+      "Metatarsal_4L",
+      "Metatarsal_5L",
+      "Distal_Phalange_1_(feet)L",
+      "Distal_Phalange_2_(feet)L",
+      "Distal_Phalange_3_(feet)L",
+      "Distal_Phalange_4_(feet)L",
+      "Distal_Phalange_5_(feet)L",
+      "Intermediate_Phalange_2_(foot)L",
+      "Intermediate_Phalange_3_(foot)L",
+      "Intermediate_Phalange_4_(foot)L",
+      "Intermediate_Phalange_5_(foot)L",
+      "Proximal_Phalange_1_(foot)L",
+      "Proximal_Phalange_2_(foot)L",
+      "Proximal_Phalange_3_(foot)L",
+      "Proximal_Phalange_4_(foot)L",
+      "Proximal_Phalange_5_(foot)L",
+    ],
+    segmentId: null,
+    proximalBoneName: "DEF-FootL",
+    distalBoneName: "DEF-Distal_Phalange_3_(foot)L",
+  },
+  foot_whole_r: {
+    id: "foot_whole_r",
+    label: "Right foot (complete)",
+    driverBoneName: "DEF-FootR",
+    meshNames: [
+      "CalcaneusR",
+      "CuboidR",
+      "Intermediate_CuneiformR",
+      "Lateral_CuneiformR",
+      "Medial_CuneiformR",
+      "NavicularR",
+      "TalusR",
+      "Metatarsal_1R",
+      "Metatarsal_2R",
+      "Metatarsal_3R",
+      "Metatarsal_4R",
+      "Metatarsal_5R",
+      "Distal_Phalange_1_(feet)R",
+      "Distal_Phalange_2_(feet)R",
+      "Distal_Phalange_3_(feet)R",
+      "Distal_Phalange_4_(feet)R",
+      "Distal_Phalange_5_(feet)R",
+      "Intermediate_Phalange_2_(foot)R",
+      "Intermediate_Phalange_3_(foot)R",
+      "Intermediate_Phalange_4_(foot)R",
+      "Intermediate_Phalange_5_(foot)R",
+      "Proximal_Phalange_1_(foot)R",
+      "Proximal_Phalange_2_(foot)R",
+      "Proximal_Phalange_3_(foot)R",
+      "Proximal_Phalange_4_(foot)R",
+      "Proximal_Phalange_5_(foot)R",
+    ],
+    segmentId: null,
+    proximalBoneName: "DEF-FootR",
+    distalBoneName: "DEF-Distal_Phalange_3_(foot)R",
   },
 
   // ---- Phase 2: axial, girdles ----

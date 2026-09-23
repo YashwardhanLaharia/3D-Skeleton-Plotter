@@ -31,6 +31,7 @@ import {
   planBones,
   FOLLOWER_BONE_IDS,
   SPAWN_BONE_IDS,
+  UNSCALABLE_SPAWN_IDS,
 } from "../solver/boneModes.js";
 
 
@@ -157,19 +158,25 @@ function SkeletonModel({
         continue;
       }
 
-      // Spawned bones are added inside the model scene, which the solver has
-      // already rotated and moved. Scene-space coordinates would get that
-      // transform applied a second time, so convert them into the model's own
-      // frame first. worldToLocal mutates its argument, hence the fresh
-      // vectors.
-      const superior = clonedScene.worldToLocal(
-        new Vector3().copy(toSceneSpace(bone.proximal, origin, globalScale)),
-      );
-      const inferior = clonedScene.worldToLocal(
-        new Vector3().copy(toSceneSpace(bone.distal, origin, globalScale)),
+      // See UNSCALABLE_SPAWN_IDS. Drawing it at the articulated position would
+      // claim the bone is where the body is, which is the opposite of what the
+      // researcher recorded, so it is left out and reported instead.
+      if (UNSCALABLE_SPAWN_IDS.has(spawnId)) {
+        rig.setMasterBoneVisibility(spawnId, false);
+        unplaced.push({
+          boneId: bone.id,
+          error: "this bone cannot be placed on its own yet",
+        });
+        continue;
+      }
+
+
+      const placed = rig.spawnBone(
+        spawnId,
+        toSceneSpace(bone.proximal, origin, globalScale),
+        toSceneSpace(bone.distal, origin, globalScale),
       );
 
-      const placed = rig.spawnBone(spawnId, superior, inferior);
 
 
       if (!placed.ok) {
