@@ -171,13 +171,24 @@ export function historyReducer(state, action) {
         individuals: [...state.present.individuals, action.individual],
       });
 
-    case "add-many":
-      return action.individuals.length === 0
-        ? state
-        : withCommit(state, {
-            ...state.present,
-            individuals: [...state.present.individuals, ...action.individuals],
-          });
+    case "add-many": {
+      const addedIndividuals = action.individuals ?? [];
+      const addedGroups = action.groups ?? [];
+      if (addedIndividuals.length === 0 && addedGroups.length === 0) {
+        return state;
+      }
+      return withCommit(state, {
+        ...state.present,
+        individuals: [
+          ...state.present.individuals,
+          ...addedIndividuals,
+        ],
+        groups:
+          addedGroups.length === 0
+            ? state.present.groups
+            : [...state.present.groups, ...addedGroups],
+      });
+    }
 
     case "remove":
       return withCommit(state, {

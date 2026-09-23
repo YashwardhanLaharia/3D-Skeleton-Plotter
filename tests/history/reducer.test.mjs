@@ -486,6 +486,18 @@ test("bulk import preserves groups and undoes/redoes as one change", () => {
   assert.equal(historyReducer(initial, { type: "add-many", individuals: [] }), initial);
 });
 
+test("bulk import can add groups alongside individuals in one history entry", () => {
+  const initial = start([individual("ind-1")], []);
+  const result = historyReducer(initial, {
+    type: "add-many",
+    individuals: [individual("ind-2", { groupId: "g-2" })],
+    groups: [group("g-2", "Imported")],
+  });
+  assert.deepEqual(result.present.groups, [group("g-2", "Imported")]);
+  assert.equal(result.present.individuals.length, 2);
+  assert.equal(result.past.length, 1);
+});
+
 test("coordinate offsets preserve group membership and group definitions", () => {
   const initial = start([individual("ind-1", { groupId: "g-1" })], [group("g-1", "Burial")]);
   const result = historyReducer(initial, {

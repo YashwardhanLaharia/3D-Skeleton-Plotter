@@ -2,12 +2,6 @@
 
 import { useEffect, useReducer, useRef, useState } from "react";
 import {
-  validateProject,
-  normaliseProject,
-  SCHEMA_VERSION,
-} from "./projectFile";
-
-import {
   historyReducer,
   makeInitialHistory,
   diffSnapshots,
@@ -30,8 +24,8 @@ import LayersPanel from "./components/LayersPanel";
 import FocusBar from "./components/FocusBar";
 import InspectionPanel from "./components/InspectionPanel";
 import NewProjectModal from "./components/NewProjectModal";
-import { importCsv, rowsToIndividuals } from "./csvimport";
-import { exportCsv } from "./csvexport";
+import { csvToProject, importCsv, rowsToIndividuals } from "./csvimport";
+import { createCsv, exportCsv } from "./csvexport";
 import "./app.css";
 
 const PALETTE = [
@@ -331,6 +325,7 @@ export default function App() {
       result.rows,
       individuals.map(({ id }) => id),
       PALETTE,
+      groups.map(({ id }) => id),
     );
 
     if (!converted.ok) {
@@ -338,18 +333,30 @@ export default function App() {
       return;
     }
 
-    dispatch({ type: "add-many", individuals: converted.individuals });
+    dispatch({
+      type: "add-many",
+      individuals: converted.individuals,
+      groups: converted.groups,
+    });
     setOpenId(converted.individuals[0]?.id ?? openId);
     const usedNumbers = [...individuals, ...converted.individuals]
       .map(({ id }) => Number(id.match(/^ind-(\d+)$/)?.[1]))
       .filter(Number.isFinite);
     nextId.current = usedNumbers.length ? Math.max(...usedNumbers) + 1 : 1;
+
+    const groupNumbers = [...groups, ...converted.groups]
+      .map(({ id }) => Number(id.match(/^grp-(\d+)$/)?.[1]))
+      .filter(Number.isFinite);
+    nextGroupId.current = groupNumbers.length
+      ? Math.max(...groupNumbers) + 1
+      : nextGroupId.current;
+
     setIsDirty(true);
     setNotice(`Imported ${converted.individuals.length} individuals`);
   }
 
   async function handleExport() {
-    const result = await exportCsv(individuals);
+    const result = await exportCsv(individuals, graveDimensions, groups);
 
     if (!result.ok) {
       if (!result.canceled) setNotice(result.error);
@@ -408,14 +415,16 @@ export default function App() {
       return;
     }
 
-    const check = validateProject(result.data);
-    if (!check.ok) {
-      console.error(check.issues.join("\n"));
-      setNotice("This project file is invalid or uses an unsupported format.");
+    const loaded = csvToProject(result.text);
+    if (!loaded.ok) {
+      console.error(loaded.error);
+      setNotice(
+        loaded.error ||
+          "This project file is invalid or uses an unsupported format.",
+      );
       return;
     }
 
-    const loaded = normaliseProject(result.data);
     setJointDetails({});
     dispatch({
       type: "load",
@@ -450,28 +459,9 @@ export default function App() {
     setNotice("Project opened successfully.");
   }
 
-  function buildProjectData() {
-    return {
-      schemaVersion: SCHEMA_VERSION,
-      savedAt: new Date().toISOString(),
-      graveDimensions,
-      groups: groups.map((group) => ({
-        id: group.id,
-        name: group.name,
-      })),
-      individuals: individuals.map((individual) => ({
-        id: individual.id,
-        label: individual.label,
-        colour: individual.colour,
-        groupId: individual.groupId,
-        coords: individual.coords,
-      })),
-    };
-  }
-
   async function handleSave(forcePrompt) {
     const result = await window.electronAPI.saveProject({
-      payload: buildProjectData(),
+      payload: createCsv(individuals, graveDimensions, groups),
       filePath: forcePrompt ? null : filePath,
     });
 

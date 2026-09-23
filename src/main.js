@@ -88,8 +88,8 @@ ipcMain.handle("save-project", async (_event, { payload, filePath }) => {
   if (!targetPath) {
     const result = await dialog.showSaveDialog(mainWindow, {
       title: "Save project",
-      defaultPath: "reconstruction.skel",
-      filters: [{ name: "Skeleton Plotter project", extensions: ["skel"] }],
+      defaultPath: "reconstruction.csv",
+      filters: [{ name: "Skeleton Plotter project", extensions: ["csv"] }],
     });
 
     if (result.canceled || !result.filePath) {
@@ -99,7 +99,7 @@ ipcMain.handle("save-project", async (_event, { payload, filePath }) => {
   }
 
   try {
-    await fs.writeFile(targetPath, JSON.stringify(payload, null, 2), "utf-8");
+    await fs.writeFile(targetPath, payload, "utf-8");
     return { ok: true, path: targetPath };
   } catch (error) {
     return { ok: false, error: `Could not save: ${error.message}` };
@@ -152,7 +152,7 @@ ipcMain.handle("open-project", async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: "Open project",
     properties: ["openFile"],
-    filters: [{ name: "Skeleton Plotter project", extensions: ["skel"] }],
+    filters: [{ name: "Skeleton Plotter project", extensions: ["csv"] }],
   });
 
   if (result.canceled || result.filePaths.length === 0) {
@@ -163,7 +163,7 @@ ipcMain.handle("open-project", async () => {
 
   try {
     const text = await fs.readFile(filePath, "utf-8");
-    return { ok: true, path: filePath, data: JSON.parse(text) };
+    return { ok: true, path: filePath, text };
   } catch (error) {
     return { ok: false, error: `Could not read this file: ${error.message}` };
   }
