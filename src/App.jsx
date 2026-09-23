@@ -99,16 +99,23 @@ export default function App() {
     return () => unsubscribe?.();
   }, []);
 
-  function handleChange(individualId, jointId, axis, rawValue) {
+  function handleChange(individualId, jointId, axis, rawValue, part = "point") {
     dispatch({
       type: "set-coord",
       individualId,
       jointId,
       axis,
       value: rawValue,
+      part,
     });
     setIsDirty(true);
   }
+
+  function handleToggleSplit(individualId, jointId) {
+    dispatch({ type: "toggle-joint-split", individualId, jointId });
+    setIsDirty(true);
+  }
+
 
   // Called on blur. Ends the current edit run so the next field starts a new
   // history entry.
@@ -550,6 +557,7 @@ export default function App() {
           groups={groups}
           openId={openId}
           onChange={handleChange}
+          onToggleSplit={handleToggleSplit}
           onCommit={handleCommit}
           onUndo={handleUndo}
           onRedo={handleRedo}
