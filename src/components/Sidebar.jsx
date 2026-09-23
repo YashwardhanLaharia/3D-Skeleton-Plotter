@@ -31,6 +31,8 @@ function JointRow({
   onChange,
   onCommit,
   highlightAxis,
+  toggle,
+  inputLabel = label,
 }) {
   const inputRef = useRef(null);
 
@@ -41,12 +43,25 @@ function JointRow({
   }, [highlightAxis]);
 
   return (
-    <div className="d-flex align-items-center gap-1 mb-1">
+    <div className="joint-coordinate-row d-flex align-items-center gap-1 mb-1">
       <span className="joint-num text-body-tertiary text-end">{number}</span>
 
       <label className="joint-label text-body-secondary text-truncate mb-0">
         {label}
       </label>
+
+      {toggle ? (
+        <button
+          type="button"
+          className="joint-expand btn btn-sm p-0 text-body-secondary"
+          aria-label={`${toggle.isOpen ? "Collapse" : "Expand"} ${label} details`}
+          aria-expanded={toggle.isOpen}
+          aria-controls={toggle.id}
+          onClick={toggle.onClick}
+        >
+          <span aria-hidden="true">{toggle.isOpen ? "▾" : "▸"}</span>
+        </button>
+      ) : <span className="joint-expand" aria-hidden="true" />}
 
       {["x", "y", "z"].map((axis) => (
         // Generate 3 identical inputs
@@ -59,7 +74,7 @@ function JointRow({
             highlightAxis === axis ? " coord-input-flash" : ""
           }`}
           placeholder={axis.toUpperCase()}
-          aria-label={`${label}, ${axis.toUpperCase()}`}
+          aria-label={`${inputLabel}, ${axis.toUpperCase()}`}
           value={values[axis]}
           onChange={(e) => {
             const nextValue = e.target.value;
@@ -97,6 +112,8 @@ function IndividualSection({
   onToggle,
   onChange,
   onOffset,
+  jointDetails,
+  onJointDetailChange,
   onCommit,
   onRemove,
   canRemove,
@@ -106,6 +123,7 @@ function IndividualSection({
   onSetGroup,
   highlight,
 }) {
+  const [expandedJoints, setExpandedJoints] = useState({});
   const [offset, setOffset] = useState({ x: "", y: "", z: "" });
   const offsetValid = Object.values(offset).every((value) => Number.isFinite(Number(value)));
   // A point counts as recorded only when all three axes are filled. Partial
@@ -222,22 +240,51 @@ function IndividualSection({
             ))}
           </div>
           {JOINTS.map((joint) => (
-            <JointRow
-              key={joint.id}
-              number={joint.n}
-              label={joint.label}
-              jointId={joint.id}
-              values={individual.coords[joint.id]}
-              onChange={(jointId, axis, value) =>
-                onChange(individual.id, jointId, axis, value)
-              }
-              onCommit={onCommit}
-              highlightAxis={
-                highlight?.field === "coord" && highlight.jointId === joint.id
-                  ? highlight.axis
-                  : null
-              }
-            />
+            <div key={joint.id}>
+              <JointRow
+                number={joint.n}
+                toggle={{
+                  isOpen: !!expandedJoints[joint.id],
+                  id: `joint-details-${individual.id}-${joint.id}`,
+                  onClick: () => setExpandedJoints((current) => ({
+                    ...current, [joint.id]: !current[joint.id],
+                  })),
+                }}
+                label={joint.label}
+                jointId={joint.id}
+                values={individual.coords[joint.id]}
+                onChange={(jointId, axis, value) =>
+                  onChange(individual.id, jointId, axis, value)
+                }
+                onCommit={onCommit}
+                highlightAxis={
+                  highlight?.field === "coord" && highlight.jointId === joint.id
+                    ? highlight.axis
+                    : null
+                }
+              />
+              {expandedJoints[joint.id] && (
+                <div
+                  id={`joint-details-${individual.id}-${joint.id}`}
+                  className="joint-details"
+                  role="group"
+                  aria-label={`${joint.label} details`}
+                >
+                  {["superior", "inferior"].map((position) => (
+                    <JointRow
+                      key={position}
+                      label={position === "superior" ? "Superior" : "Inferior"}
+                      inputLabel={`${joint.label}, ${position}`}
+                      jointId={joint.id}
+                      values={jointDetails[joint.id]?.[position] ?? { x: "", y: "", z: "" }}
+                      onChange={(jointId, axis, value) =>
+                        onJointDetailChange(individual.id, jointId, position, axis, value)
+                      }
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           ))}
         </div>
       )}
@@ -381,6 +428,8 @@ export default function Sidebar({
   openId,
   onChange,
   onOffset,
+  jointDetails,
+  onJointDetailChange,
   onCommit,
   onUndo,
   onRedo,
@@ -421,6 +470,8 @@ export default function Sidebar({
         onToggle={onToggle}
         onChange={onChange}
         onOffset={onOffset}
+        jointDetails={jointDetails[individual.id] ?? {}}
+        onJointDetailChange={onJointDetailChange}
         onCommit={onCommit}
         onRemove={() => setPendingRemoval(individual)}
         canRemove={individuals.length > 1}

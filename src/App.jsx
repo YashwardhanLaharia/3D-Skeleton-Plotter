@@ -70,6 +70,28 @@ export default function App() {
     makeInitialHistory(STARTING_STATE),
   );
 
+  const [jointDetails, setJointDetails] = useState({});
+
+  function handleJointDetailChange(individualId, jointId, position, axis, value) {
+    setJointDetails((current) => {
+      const individualDetails = current[individualId] ?? {};
+      const details = individualDetails[jointId] ?? {
+        superior: { x: "", y: "", z: "" },
+        inferior: { x: "", y: "", z: "" },
+      };
+      return {
+        ...current,
+        [individualId]: {
+          ...individualDetails,
+          [jointId]: {
+            ...details,
+            [position]: { ...details[position], [axis]: value },
+          },
+        },
+      };
+    });
+  }
+
   const individuals = history.present.individuals;
   const groups = history.present.groups;
   const canUndo = history.past.length > 0;
@@ -350,6 +372,7 @@ export default function App() {
       return;
     }
 
+    setJointDetails({});
     dispatch({ type: "new", individuals: STARTING_STATE, groups: [] });
     nextGroupId.current = 1;
 
@@ -386,6 +409,7 @@ export default function App() {
     }
 
     const loaded = normaliseProject(result.data);
+    setJointDetails({});
     dispatch({
       type: "load",
       individuals: loaded.individuals,
@@ -603,6 +627,8 @@ export default function App() {
           openId={openId}
           onChange={handleChange}
           onOffset={handleOffset}
+          jointDetails={jointDetails}
+          onJointDetailChange={handleJointDetailChange}
           onCommit={handleCommit}
           onUndo={handleUndo}
           onRedo={handleRedo}

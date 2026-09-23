@@ -722,3 +722,20 @@
 .new-project-modal-backdrop.show {
   opacity: 1 !important;
 }
+
+.joint-expand {
+  flex: 0 0 16px;
+  width: 16px;
+  line-height: 24px;
+  text-align: right;
+}
+
+.joint-details {
+  border-left: 2px solid var(--bs-border-color);
+  margin-bottom: 6px;
+  background: var(--bs-tertiary-bg);
+}
+
+.joint-coordinate-row .joint-label {
+  width: 7rem;
+}

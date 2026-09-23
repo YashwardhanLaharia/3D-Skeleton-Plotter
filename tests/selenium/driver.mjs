@@ -116,8 +116,6 @@ export async function launchSkeletonPlotter({ inspectorPort } = {}) {
   }
 
   if (inspectorPort) {
-    // Release binaries disable the main-process inspector. Run the same packaged
-    // app.asar under the development Electron binary for native-dialog tests.
     const require = createRequire(import.meta.url);
     const appArchive = process.platform === "darwin"
       ? path.resolve(appBinary, "../../Resources/app.asar")

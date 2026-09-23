@@ -10,8 +10,6 @@ import { launchSkeletonPlotter } from "./driver.mjs";
 const WAIT = 10_000;
 const HEADER = "individual_id,joint_id,x,y,z,label\n";
 
-// Use Electron's main-process inspector to substitute only the native picker.
-// The real menu callback, IPC handler, disk read and renderer import all run.
 async function openImportApp(t) {
   const server = createServer();
   await new Promise((resolve, reject) => {
@@ -115,7 +113,6 @@ test("CSV import appends individuals, preserves coordinates, and undoes/redoes a
   await driver.findElement(By.css('[aria-label="Redo"]')).click();
   await count(driver, 3);
   assert.deepEqual(await labels(driver), ["", "Case, A", "Skeleton 2"]);
-  // Re-importing the same IDs must append, rather than overwrite, existing data.
   await importFile(HEADER + "ind-1,chin,10,11,12,Repeated");
   await notice(driver, "Imported 1 individuals");
   await count(driver, 4);
@@ -144,7 +141,6 @@ test("canceling CSV import leaves the project unchanged and permits another impo
   const { driver, importFile } = await openImportApp(t);
   const title = await driver.getTitle();
   await importFile("", { canceled: true });
-  // A subsequent successful import also proves cancellation did not block the flow.
   await importFile(HEADER + "a,chin,1,2,3,After cancel");
   await notice(driver, "Imported 1 individuals");
   await count(driver, 2);
