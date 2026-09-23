@@ -43,6 +43,16 @@
   min-width: 0;
   scrollbar-gutter: stable;
   transition: flex-basis 180ms ease;
+  scrollbar-gutter: stable;
+}
+
+.sidebar::-webkit-scrollbar {
+  width: 3px;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: var(--bs-border-color);
+  border-radius: 3px;
 }
 
 .sidebar.sidebar-collapsed {

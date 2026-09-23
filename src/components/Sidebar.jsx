@@ -491,7 +491,7 @@ export default function Sidebar({
     <>
       <aside
         id="individuals-sidebar"
-        className={`sidebar bg-body-tertiary border-end ${isOpen ? "overflow-auto" : "sidebar-collapsed"}`}
+        className={`sidebar bg-body-tertiary border-end ${isOpen ? "overflow-y-auto overflow-x-hidden" : "sidebar-collapsed"}`}
         aria-hidden={!isOpen}
       >
         {isOpen && (

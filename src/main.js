@@ -274,25 +274,6 @@ const menuTemplate = [
         accelerator: "CmdOrCtrl+Shift+I",
         click: () => sendToRenderer("menu-import"),
       },
-      {
-        label: "Export",
-        submenu: [
-          {
-            label: "CSV",
-            click: () => sendToRenderer("menu-export"),
-          },
-          {
-            label: "Screenshot",
-            accelerator: "CmdOrCtrl+Shift+E",
-            click: () => sendToRenderer("menu-export-screenshot"),
-          },
-          {
-            label: "GLB",
-            accelerator: "CmdOrCtrl+Shift+G",
-            click: () => sendToRenderer("menu-export-glb"),
-          },
-        ],
-      },
       { type: "separator" },
       { label: 'Quit', accelerator: 'CmdOrCtrl+Q', click: () => mainWindow.close() },
     ],
@@ -304,6 +285,14 @@ const menuTemplate = [
       { label: "Redo", accelerator: "CmdOrCtrl+Shift+Z", click: () => sendToRenderer("menu-redo") },
       { type: "separator" },
       { label: "Set Grave Dimensions", accelerator: "CmdOrCtrl+G", click: () => sendToRenderer("menu-change-grave-dimensions") },
+    ],
+  },
+  {
+    label: "Export",
+    submenu: [
+      { label: "CSV", accelerator: "CmdOrCtrl+Shift+C", click: () => sendToRenderer("menu-export-csv") },
+      { label: "Screenshot", accelerator: "CmdOrCtrl+Shift+E", click: () => sendToRenderer("menu-export-screenshot") },
+      { label: "GLB", accelerator: "CmdOrCtrl+Shift+G", click: () => sendToRenderer("menu-export-glb") },
     ],
   },
   {

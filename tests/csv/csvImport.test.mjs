@@ -10,7 +10,7 @@ import {
   csvToProject,
   parseCsv,
   rowsToIndividuals,
-} from "../../src/csvimport.js";
+} from "../../src/csvImport.js";
 
 const HEADER = CSV_COLUMNS.join(",");
 const APP_ROW = `${APPLICATION_ID},,,,,,,,${APPLICATION_LABEL}`;
@@ -272,7 +272,7 @@ test("collision IDs reserve later source IDs and imported coordinates are indepe
 });
 
 test("import bridge preserves cancellation/errors and parses successful file reads", async (t) => {
-  const { importCsv } = await import("../../src/csvimport.js");
+  const { importCsv } = await import("../../src/csvImport.js");
   for (const result of [
     { ok: false, canceled: true },
     { ok: false, error: "Could not read CSV" },

@@ -3,7 +3,7 @@ import {
   APPLICATION_ID,
   APPLICATION_LABEL,
   CSV_COLUMNS,
-} from "./csvimport.js";
+} from "./csvImport.js";
 
 function escapeCsvCell(value) {
   const text = String(value ?? "");

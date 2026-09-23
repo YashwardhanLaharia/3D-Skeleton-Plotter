@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { JOINTS } from "../../src/joints.js";
-import { createCsv } from "../../src/csvexport.js";
+import { createCsv } from "../../src/csvExport.js";
 import {
   APPLICATION_ID,
   APPLICATION_LABEL,
@@ -10,7 +10,7 @@ import {
   csvToProject,
   parseCsv,
   rowsToIndividuals,
-} from "../../src/csvimport.js";
+} from "../../src/csvImport.js";
 
 function blankCoords() {
   return Object.fromEntries(

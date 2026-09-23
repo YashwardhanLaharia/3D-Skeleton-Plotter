@@ -24,8 +24,8 @@ import LayersPanel from "./components/LayersPanel";
 import FocusBar from "./components/FocusBar";
 import InspectionPanel from "./components/InspectionPanel";
 import NewProjectModal from "./components/NewProjectModal";
-import { csvToProject, importCsv, rowsToIndividuals } from "./csvimport";
-import { createCsv, exportCsv } from "./csvexport";
+import { csvToProject, importCsv, rowsToIndividuals } from "./csvImport";
+import { createCsv, exportCsv } from "./csvExport";
 import "./app.css";
 
 const PALETTE = [
