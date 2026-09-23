@@ -116,8 +116,31 @@ export function captureSpawnRest(scene, segmentRest = {}) {
       );
     }
 
+    // The orientation the bone sits at in the model at rest, expressed for the
+    // axis-aligned frame the offsets are stored in. Two points fix a bone's
+    // direction but say nothing about its twist, so the twist is taken from
+    // here instead of being left to whatever a shortest-arc rotation picks.
+    let restOrientation = null;
+    if (driver) {
+      driver.updateWorldMatrix(true, false);
+      const inScene = new Matrix4()
+        .copy(scene.matrixWorld)
+        .invert()
+        .multiply(driver.matrixWorld);
+      const driverRotation = new Quaternion();
+      inScene.decompose(new Vector3(), driverRotation, new Vector3());
+      const align = axis
+        ? new Quaternion()
+            .setFromUnitVectors(axis.clone().normalize(), new Vector3(0, 1, 0))
+            .invert()
+        : new Quaternion();
+      restOrientation = driverRotation.multiply(align);
+    }
+
     rest[boneId] = {
       boneId,
+      restOrientation,
+
       found: Boolean(
         driver &&
         masterMeshes.length === catalog.meshNames.length &&

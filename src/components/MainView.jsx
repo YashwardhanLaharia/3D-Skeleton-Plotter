@@ -182,6 +182,27 @@ function SkeletonModel({
       if (!placed.ok) {
         unplaced.push({ boneId: bone.id, error: placed.error });
       }
+
+      // TEMP-PROBE
+      if (placed.ok) {
+        const g = clonedScene.getObjectByName(
+          `spawned-${spawnId}-${placed.instanceId.slice(0, 8)}`,
+        );
+        const box = g ? new Box3().setFromObject(g) : null;
+        console.log("SPAWN", bone.id, spawnId, {
+          inScene: Boolean(g),
+          parent: g?.parent?.name || g?.parent?.type,
+          factor: placed.scaleFactor,
+          groupPos: g?.getWorldPosition(new Vector3()).toArray().map((n) => n.toFixed(3)),
+          askedPos: [bone.proximal.x, bone.proximal.y, bone.proximal.z],
+          boxEmpty: box?.isEmpty(),
+          boxSize: box && !box.isEmpty()
+            ? box.getSize(new Vector3()).toArray().map((n) => n.toFixed(3))
+            : null,
+          meshCount: g?.children.length,
+          anyHidden: g?.children.some((c) => !c.visible),
+        });
+      }
     }
 
     const warnings = [];

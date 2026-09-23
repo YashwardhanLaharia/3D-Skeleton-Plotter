@@ -252,6 +252,7 @@ export class SkeletonRigController {
       this.toModelSpace(superior),
       this.toModelSpace(inferior),
       rest.restLength,
+      rest.restOrientation,
     );
 
     if (!placement.ok) {
@@ -274,6 +275,13 @@ export class SkeletonRigController {
         ? master.material.map((material) => material.clone())
         : master.material.clone();
       clone.name = `${name}__spawned`;
+      // Object3D.clone() copies `visible`, and the master is routinely hidden:
+      // by a previous spawn, or by a caller marking the bone missing. A spawned
+      // instance is a new object, so it starts visible and its visibility is
+      // owned by setSpawnedBoneVisibility. Without this, the first spawn after
+      // the master was hidden produces an invisible bone, and solving again
+      // silently fixes it.
+      clone.visible = true;
       offset.decompose(clone.position, clone.quaternion, clone.scale);
       group.add(clone);
       clones.push(clone.name);
@@ -357,6 +365,7 @@ export class SkeletonRigController {
       this.toModelSpace(superior),
       this.toModelSpace(inferior),
       rest.restLength,
+      rest.restOrientation,
     );
 
     if (!placement.ok) {
