@@ -6,14 +6,17 @@ export const SCHEMA_VERSION = 1;
 
 export function validateProject(data) {
   if (!data || typeof data !== "object" || Array.isArray(data)) {
-    return { ok: false, issues: ["This file is not a Skeleton Plotter project."] };
+    return {
+      ok: false,
+      issues: ["This file is not a Skeleton Plotter project."],
+    };
   }
 
   const issues = [];
 
   if (data.schemaVersion !== SCHEMA_VERSION) {
     issues.push(
-      `Unsupported project version: ${data.schemaVersion ?? "missing"}. This app reads version ${SCHEMA_VERSION}.`
+      `Unsupported project version: ${data.schemaVersion ?? "missing"}. This app reads version ${SCHEMA_VERSION}.`,
     );
   }
 
@@ -47,6 +50,17 @@ export function normaliseIndividual(raw) {
       y: String(value?.y ?? ""),
       z: String(value?.z ?? ""),
     };
+
+    // Only present in files saved after rows could be expanded. Older files
+    // and collapsed rows carry neither key, which keeps their shape unchanged.
+    if (value?.split) {
+      coords[joint.id].split = true;
+      coords[joint.id].inferior = {
+        x: String(value.inferior?.x ?? ""),
+        y: String(value.inferior?.y ?? ""),
+        z: String(value.inferior?.z ?? ""),
+      };
+    }
   }
 
   const groupId =
