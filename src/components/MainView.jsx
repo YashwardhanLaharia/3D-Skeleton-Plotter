@@ -112,6 +112,9 @@ function SkeletonModel({
       solveBone,
     });
 
+    rig.setMasterBoneVisibility("thigh_l", false); // TEMP-HACK-6
+
+
     const warnings = [];
 
     if (Object.keys(sceneJoints).length > 0 && report.unsolved.length) {
@@ -456,7 +459,7 @@ const MainView = forwardRef(function MainView(
               graveDimensions={graveDimensions}
               command={command}
               isTarget={individual.id === targetId}
-          onSolverIssue={onSolverIssue}
+              onSolverIssue={onSolverIssue}
               visible={
                 focusedId
                   ? individual.id === focusedId

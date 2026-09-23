@@ -8,7 +8,9 @@ export const RIG_JOINT_IDS = Object.freeze(Object.keys(JOINT_ROTATIONS));
 export const RIG_ROTATION_AXES = Object.freeze(["x", "y", "z"]);
 export const RIG_SEGMENT_IDS = Object.freeze(Object.keys(SEGMENT_SCALES));
 export const RIG_SEGMENT_GROUP_IDS = Object.freeze(Object.keys(SEGMENT_GROUPS));
-export const RIG_BODY_DIMENSION_IDS = Object.freeze(Object.keys(BODY_DIMENSIONS));
+export const RIG_BODY_DIMENSION_IDS = Object.freeze(
+  Object.keys(BODY_DIMENSIONS),
+);
 export const RIG_SPAWNABLE_BONE_IDS = SPAWNABLE_BONE_IDS;
 
 /**
@@ -208,6 +210,11 @@ export class SkeletonRigApi {
   /** Toggles visibility of one spawned instance (master stays hidden). */
   setSpawnedBoneVisibility(instanceId, visible) {
     return this.#controller.setSpawnedBoneVisibility(instanceId, visible);
+  }
+
+  /** Shows or hides the model's own meshes for one catalog bone. */
+  setMasterBoneVisibility(boneId, visible) {
+    return this.#controller.setMasterBoneVisibility(boneId, visible);
   }
 
   /** Returns model binding and attachment diagnostics for this instance. */
