@@ -37,6 +37,7 @@ export const FOLLOWER_BONE_IDS = Object.freeze({
 //   lower leg  42.1 / 37.0                     spine    49.0 / 47.0
 //
 //   foot       18.2 / 15.1   via foot_whole_*, the tarsal-only unit is 8.1cm
+//   hand       18.0 / 18.0   via hand_whole_*, the carpal-only unit is 16.0cm
 
 //   skull       1.1 /  9.0   anchored neck-to-skull, not skull height
 //   jaw         2.6 /  7.9   anchored skull-to-mandible, not chin length
@@ -50,10 +51,10 @@ export const UNSCALABLE_SPAWN_IDS = Object.freeze(new Set(["skull", "jaw"]));
 export const SPAWN_BONE_IDS = Object.freeze({
   upper_arm_l: "upper_arm_l",
   forearm_l: "forearm_l",
-  hand_l: "hand_l",
+  hand_l: "hand_whole_l",
   upper_arm_r: "upper_arm_r",
   forearm_r: "forearm_r",
-  hand_r: "hand_r",
+  hand_r: "hand_whole_r",
   thigh_l: "thigh_l",
   lower_leg_l: "lower_leg_l",
   foot_l: "foot_whole_l",

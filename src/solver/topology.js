@@ -7,9 +7,9 @@
 // and is entirely wrong.
 //
 // `segmentId` links to the rig's scalable segments (rig/scaling/segmentConfig).
-// Only 8 bones have one; the rest can be aimed but not lengthened, so a
-// measured distance that disagrees with the model is absorbed as positional
-// drift down the chain.
+// Twelve of the fifteen have one. The three that do not — spine, head and jaw —
+// can be aimed but not lengthened, so a measured distance that disagrees with
+// the model is absorbed as positional drift down the chain.
 //
 // ORDER IS IMPORTANT. Bones must appear proximal-to-distal within each
 // chain. The rig applies rotations in local space, so a bone's frame depends
@@ -36,22 +36,22 @@ export const BONES = [
   // Left arm
   { id: "upper_arm_l", proximal: "shoulder_l", distal: "elbow_l", jointId: "shoulder_l", segmentId: "upper_arm_l", chain: "leftArm" },
   { id: "forearm_l", proximal: "elbow_l", distal: "wrist_l", jointId: "elbow_l", segmentId: "forearm_l", chain: "leftArm" },
-  { id: "hand_l", proximal: "wrist_l", distal: "fingertips_l", jointId: "wrist_l", segmentId: null, chain: "leftArm" },
+  { id: "hand_l", proximal: "wrist_l", distal: "fingertips_l", jointId: "wrist_l", segmentId: "hand_l", chain: "leftArm" },
 
   // Right arm
   { id: "upper_arm_r", proximal: "shoulder_r", distal: "elbow_r", jointId: "shoulder_r", segmentId: "upper_arm_r", chain: "rightArm" },
   { id: "forearm_r", proximal: "elbow_r", distal: "wrist_r", jointId: "elbow_r", segmentId: "forearm_r", chain: "rightArm" },
-  { id: "hand_r", proximal: "wrist_r", distal: "fingertips_r", jointId: "wrist_r", segmentId: null, chain: "rightArm" },
+  { id: "hand_r", proximal: "wrist_r", distal: "fingertips_r", jointId: "wrist_r", segmentId: "hand_r", chain: "rightArm" },
 
   // Left leg
   { id: "thigh_l", proximal: "acetabulum_l", distal: "knee_l", jointId: "acetabulum_l", segmentId: "thigh_l", chain: "leftLeg" },
   { id: "lower_leg_l", proximal: "knee_l", distal: "ankle_l", jointId: "knee_l", segmentId: "lower_leg_l", chain: "leftLeg" },
-  { id: "foot_l", proximal: "ankle_l", distal: "toes_l", jointId: "ankle_l", segmentId: null, chain: "leftLeg" },
+  { id: "foot_l", proximal: "ankle_l", distal: "toes_l", jointId: "ankle_l", segmentId: "foot_l", chain: "leftLeg" },
 
   // Right leg
   { id: "thigh_r", proximal: "acetabulum_r", distal: "knee_r", jointId: "acetabulum_r", segmentId: "thigh_r", chain: "rightLeg" },
   { id: "lower_leg_r", proximal: "knee_r", distal: "ankle_r", jointId: "knee_r", segmentId: "lower_leg_r", chain: "rightLeg" },
-  { id: "foot_r", proximal: "ankle_r", distal: "toes_r", jointId: "ankle_r", segmentId: null, chain: "rightLeg" },
+  { id: "foot_r", proximal: "ankle_r", distal: "toes_r", jointId: "ankle_r", segmentId: "foot_r", chain: "rightLeg" },
 
   // Axial. `manubrium` and `sacral_promontory` drive distributed spinal chains
   // rather than single bones, so aiming them is approximate — the rotation is

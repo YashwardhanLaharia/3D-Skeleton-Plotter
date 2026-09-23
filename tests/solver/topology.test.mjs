@@ -32,8 +32,22 @@ test("scalable bones carry the rig segment id", () => {
   assert.equal(getBone("upper_arm_r").segmentId, "upper_arm_r");
 });
 
+test("scalable bones cover both limbs end to end", () => {
+  // Hands and feet are scalable too. They are measured wrist-to-fingertip and
+  // ankle-to-toes, and if only the spawn path resized them an independently
+  // placed foot rendered 3.1cm shorter than its articulated twin on the other
+  // side of the same body.
+  for (const boneId of ["hand_l", "hand_r", "foot_l", "foot_r"]) {
+    assert.equal(getBone(boneId).segmentId, boneId);
+  }
+});
+
 test("bones with no scalable segment declare it explicitly", () => {
-  assert.equal(getBone("hand_l").segmentId, null);
+  // The spine is distributed across many vertebrae and the head and jaw have no
+  // length the form measures against, so none of the three can be lengthened.
+  for (const boneId of ["spine", "head", "jaw"]) {
+    assert.equal(getBone(boneId).segmentId, null);
+  }
 });
 
 test("limb chains are ordered proximal to distal", () => {
