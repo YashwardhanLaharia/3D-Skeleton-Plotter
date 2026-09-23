@@ -8,6 +8,7 @@
 // Blur closes the session, so the next field's first keystroke starts a fresh history entry.
 
 export const HISTORY_LIMIT = 200; // Random number
+const BLANK_POINT = { x: "", y: "", z: "" };
 
 export function makeDocument(individuals, groups = []) {
   return { individuals, groups };
@@ -54,21 +55,49 @@ function mapIndividuals(present, mapFn) {
 export function historyReducer(state, action) {
   switch (action.type) {
     case "set-coord": {
-      const next = mapIndividuals(state.present, (individual) =>
-        individual.id !== action.individualId
-          ? individual
-          : {
-              ...individual,
-              coords: {
-                ...individual.coords,
-                [action.jointId]: {
-                  ...individual.coords[action.jointId],
+      const next = mapIndividuals(state.present, (individual) => {
+        if (individual.id !== action.individualId) return individual;
+
+        const previous = individual.coords[action.jointId];
+        const updated =
+          action.part === "inferior"
+            ? {
+                ...previous,
+                inferior: {
+                  ...(previous.inferior ?? BLANK_POINT),
                   [action.axis]: action.value,
                 },
-              },
-            },
-      );
+              }
+            : { ...previous, [action.axis]: action.value };
+
+        return {
+          ...individual,
+          coords: { ...individual.coords, [action.jointId]: updated },
+        };
+      });
       return withSession(state, next);
+    }
+
+    // Expanding a row is a discrete change, so it gets its own history entry.
+    case "toggle-joint-split": {
+      const next = mapIndividuals(state.present, (individual) => {
+        if (individual.id !== action.individualId) return individual;
+
+        const previous = individual.coords[action.jointId];
+
+        return {
+          ...individual,
+          coords: {
+            ...individual.coords,
+            [action.jointId]: {
+              ...previous,
+              split: !previous.split,
+              inferior: previous.inferior ?? { ...BLANK_POINT },
+            },
+          },
+        };
+      });
+      return withCommit(state, next);
     }
 
     case "set-label": {
