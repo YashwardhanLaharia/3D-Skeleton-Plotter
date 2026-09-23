@@ -27,7 +27,12 @@ import { makeGLBExportScene } from "../exportScene.js";
 import { toNumericJoints } from "../solver/numericJoints.js";
 import { createSolveBone, verifyRestConvention } from "../solver/solveBone.js";
 import { applySolvedPose, placeSkeleton } from "../solver/applyPose.js";
-import { planBones, SPAWN_BONE_IDS } from "../solver/boneModes.js";
+import {
+  planBones,
+  FOLLOWER_BONE_IDS,
+  SPAWN_BONE_IDS,
+} from "../solver/boneModes.js";
+
 
 
 // Make Three.js orbit controls available as a React Three Fiber element.
@@ -101,23 +106,86 @@ function SkeletonModel({
     }
   }, [clonedScene]);
 
-  // Pose this individual from their coordinates. Every ordering constraint
-  // lives in applySolvedPose; see the comment at the top of that module.
+  // Pose this individual from their coordinates.
+  //
+  // Each bone is either posed as part of the connected skeleton, placed on its
+  // own from its two endpoints, or not rendered at all. planBones decides
+  // which; the articulated solve only touches the first kind. Ordering inside
+  // the solve lives in applySolvedPose; see the comment at the top of it.
   useEffect(() => {
+    const plan = planBones(coords);
+    const articulated = new Set(
+      plan.filter((bone) => bone.mode === "articulated").map((bone) => bone.id),
+    );
+
+    // Anything not articulated is deliberately left unsolved in the hierarchy.
+    // Its meshes are hidden or replaced by a spawned copy below.
+    const gatedSolveBone = (proximal, distal, bone) =>
+      articulated.has(bone.id) ? solveBone(proximal, distal, bone) : null;
+
+    // Start clean: spawned copies from the previous solve are removed, which
+    // also restores the master meshes they were hiding.
+    rig.clearSpawnedBones();
+
     const { report, segmentScales } = applySolvedPose({
       scene: clonedScene,
       rig,
       root: groupRef.current,
       joints: sceneJoints,
-      solveBone,
+      solveBone: gatedSolveBone,
     });
 
-    rig.setMasterBoneVisibility("thigh_l", false); // TEMP-HACK-6
+    const origin = graveOrigin(graveDimensions);
+    const unplaced = [];
 
+    for (const bone of plan) {
+      const spawnId = SPAWN_BONE_IDS[bone.id];
+      if (!spawnId) continue;
+
+      for (const followerId of FOLLOWER_BONE_IDS[bone.id] ?? []) {
+        rig.setMasterBoneVisibility(followerId, bone.mode === "articulated");
+      }
+
+      if (bone.mode === "articulated") {
+        rig.setMasterBoneVisibility(spawnId, true);
+        continue;
+      }
+
+
+      if (bone.mode === "absent") {
+        rig.setMasterBoneVisibility(spawnId, false);
+        continue;
+      }
+
+      // Spawned bones are added inside the model scene, which the solver has
+      // already rotated and moved. Scene-space coordinates would get that
+      // transform applied a second time, so convert them into the model's own
+      // frame first. worldToLocal mutates its argument, hence the fresh
+      // vectors.
+      const superior = clonedScene.worldToLocal(
+        new Vector3().copy(toSceneSpace(bone.proximal, origin, globalScale)),
+      );
+      const inferior = clonedScene.worldToLocal(
+        new Vector3().copy(toSceneSpace(bone.distal, origin, globalScale)),
+      );
+
+      const placed = rig.spawnBone(spawnId, superior, inferior);
+
+
+      if (!placed.ok) {
+        unplaced.push({ boneId: bone.id, error: placed.error });
+      }
+    }
 
     const warnings = [];
 
-    if (Object.keys(sceneJoints).length > 0 && report.unsolved.length) {
+    // Only bones that were meant to be articulated. A bone the researcher
+    // recorded as displaced is unsolved on purpose, not a problem to report.
+    const unexpectedlyUnsolved = report.unsolved.filter((boneId) =>
+      articulated.has(boneId),
+    );
+
+    if (Object.keys(sceneJoints).length > 0 && unexpectedlyUnsolved.length) {
       warnings.push(
         "some bones are missing the coordinates needed to position them",
       );
@@ -135,6 +203,10 @@ function SkeletonModel({
       warnings.push("some bones could not be positioned");
     }
 
+    if (unplaced.length) {
+      warnings.push("some displaced bones could not be placed");
+    }
+
     if (segmentScales.clamped.length) {
       warnings.push(
         "some bone lengths are outside the supported range and were limited",
@@ -149,10 +221,11 @@ function SkeletonModel({
 
     if (warnings.length) {
       console.warn("solve issues", {
-        unsolved: report.unsolved,
+        unsolved: unexpectedlyUnsolved,
         unknown: report.unknown,
         invalid: report.invalid,
         failed: report.failed,
+        unplaced,
         clamped: segmentScales.clamped,
         degenerate: segmentScales.degenerate,
       });
@@ -161,6 +234,8 @@ function SkeletonModel({
       onSolverIssue?.(`${name}: ${warnings.join("; ")}.`);
     }
   }, [
+    coords,
+    graveDimensions,
     sceneJoints,
     solveBone,
     rig,
@@ -168,6 +243,7 @@ function SkeletonModel({
     label,
     onSolverIssue,
   ]);
+
 
   // Commands arrive one at a time from the Rig Controls window.
   const lastCommandRef = useRef(command ?? null);

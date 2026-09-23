@@ -18,6 +18,16 @@ import { toNumericJoints } from "./numericJoints.js";
 
 const BLANK_POINT = { x: "", y: "", z: "" };
 
+// Catalog bones with no landmarks of their own. They are not in topology.js, so
+// planBones never returns them, but they are attached to bones that it does
+// return — a patella sitting in mid-air after its thigh was hidden reads as a
+// bug. Hidden whenever the bone they follow is not articulated.
+export const FOLLOWER_BONE_IDS = Object.freeze({
+  thigh_l: ["patella_l"],
+  thigh_r: ["patella_r"],
+});
+
+
 // Topology bone id -> spawn catalog id (src/rig/spawn/boneCatalog.js). They
 // agree except for the head, which the catalog calls the skull.
 export const SPAWN_BONE_IDS = Object.freeze({
