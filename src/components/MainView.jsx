@@ -27,6 +27,8 @@ import { makeGLBExportScene } from "../exportScene.js";
 import { toNumericJoints } from "../solver/numericJoints.js";
 import { createSolveBone, verifyRestConvention } from "../solver/solveBone.js";
 import { applySolvedPose, placeSkeleton } from "../solver/applyPose.js";
+import { planBones, SPAWN_BONE_IDS } from "../solver/boneModes.js";
+
 
 // Make Three.js orbit controls available as a React Three Fiber element.
 extend({ OrbitControls: ThreeOrbitControls });
