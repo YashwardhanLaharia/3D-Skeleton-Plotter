@@ -89,6 +89,7 @@ export function historyReducer(state, action) {
       const next = mapIndividuals(state.present, (individual) => {
         if (individual.id !== action.individualId) return individual;
 
+
         const previous = individual.coords[action.jointId];
         const updated =
           action.part === "inferior"

@@ -44,12 +44,6 @@ function JointRow({
 
   return (
     <div className="joint-coordinate-row d-flex align-items-center gap-1 mb-1">
-      <span className="joint-num text-body-tertiary text-end">{number}</span>
-
-      <label className="joint-label text-body-secondary text-truncate mb-0">
-        {label}
-      </label>
-
       {toggle ? (
         <button
           type="button"
@@ -63,43 +57,54 @@ function JointRow({
         </button>
       ) : <span className="joint-expand" aria-hidden="true" />}
 
-      {["x", "y", "z"].map((axis) => (
-        // Generate 3 identical inputs
-        <input
-          key={axis}
-          type="text"
-          inputMode="decimal"
-          pattern="-?[0-9]*[.]?[0-9]*"
-          className={`form-control form-control-sm coord-input${
-            highlightAxis === axis ? " coord-input-flash" : ""
-          }`}
-          placeholder={axis.toUpperCase()}
-          aria-label={`${inputLabel}, ${axis.toUpperCase()}`}
-          value={values[axis]}
-          onChange={(e) => {
-            const nextValue = e.target.value;
-            if (DECIMAL_PATTERN.test(nextValue)) {
-              onChange(jointId, axis, nextValue);
-            }
-          }}
-          onBlur={onCommit}
-          onKeyDown={(e) => {
-            if (e.key === "ArrowDown") {
-              e.preventDefault();
-              moveFocus(e.target, 1, 0);
-            }
-            if (e.key === "ArrowUp") {
-              e.preventDefault();
-              moveFocus(e.target, -1, 0);
-            }
-            if (e.key === "Enter") {
-              e.preventDefault();
-              moveFocus(e.target, 1, 0);
-            }
-          }}
-          ref={highlightAxis === axis ? inputRef : null}
-        />
-      ))}
+      <span className="joint-num text-body-tertiary text-end">{number}</span>
+
+      <label className="joint-label text-body-secondary text-truncate mb-0">
+        {label}
+      </label>
+
+      {label === "superior" || label === "inferior" || !toggle?.isOpen ? (
+        ["x", "y", "z"].map((axis) => (
+          // Generate 3 identical inputs
+          <input
+            key={axis}
+            type="text"
+            inputMode="decimal"
+            pattern="-?[0-9]*[.]?[0-9]*"
+            className={`form-control form-control-sm coord-input${
+              highlightAxis === axis ? " coord-input-flash" : ""
+            }`}
+            placeholder={axis.toUpperCase()}
+            aria-label={`${inputLabel}, ${axis.toUpperCase()}`}
+            value={values[axis]}
+            onChange={(e) => {
+              const nextValue = e.target.value;
+              if (DECIMAL_PATTERN.test(nextValue)) {
+                onChange(jointId, axis, nextValue);
+              }
+            }}
+            onBlur={onCommit}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                moveFocus(e.target, 1, 0);
+              }
+              if (e.key === "ArrowUp") {
+                e.preventDefault();
+                moveFocus(e.target, -1, 0);
+              }
+              if (e.key === "Enter") {
+                e.preventDefault();
+                moveFocus(e.target, 1, 0);
+              }
+            }}
+            ref={highlightAxis === axis ? inputRef : null}
+          />
+        ))
+      ) : (
+        <>
+        </>
+      )}
     </div>
   );
 }
@@ -112,8 +117,6 @@ function IndividualSection({
   onToggle,
   onChange,
   onOffset,
-  jointDetails,
-  onJointDetailChange,
   onCommit,
   onRemove,
   canRemove,
@@ -273,13 +276,13 @@ function IndividualSection({
                   {["superior", "inferior"].map((position) => (
                     <JointRow
                       key={position}
-                      label={position === "superior" ? "Superior" : "Inferior"}
+                      label={position}
                       inputLabel={`${joint.label}, ${position}`}
                       jointId={joint.id}
-                      values={jointDetails[joint.id]?.[position] ?? { x: "", y: "", z: "" }}
-                      onChange={(jointId, axis, value) =>
-                        onJointDetailChange(individual.id, jointId, position, axis, value)
-                      }
+                      values={position === "superior" ? individual.coords[joint.id] : individual.coords[joint.id]?.inferior ?? { x: "", y: "", z: "" }}
+                      onChange={(jointId, axis, value) => {
+                        onChange(individual.id, jointId, axis, value, position);
+                      }}
                     />
                   ))}
                 </div>
@@ -428,8 +431,6 @@ export default function Sidebar({
   openId,
   onChange,
   onOffset,
-  jointDetails,
-  onJointDetailChange,
   onCommit,
   onUndo,
   onRedo,
@@ -470,8 +471,6 @@ export default function Sidebar({
         onToggle={onToggle}
         onChange={onChange}
         onOffset={onOffset}
-        jointDetails={jointDetails[individual.id] ?? {}}
-        onJointDetailChange={onJointDetailChange}
         onCommit={onCommit}
         onRemove={() => setPendingRemoval(individual)}
         canRemove={individuals.length > 1}
