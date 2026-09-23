@@ -4,6 +4,12 @@ import { JOINTS } from "./joints.js";
 
 export const SCHEMA_VERSION = 1;
 
+// Matches the default in App.jsx. A project saved before graves were stored
+// carries no dimensions, and every coordinate in it was entered against
+// whatever grave was open at the time — which we cannot recover, so the safest
+// answer is the same default a new project starts with.
+export const DEFAULT_GRAVE_DIMENSIONS = [1, 1, 1];
+
 export function validateProject(data) {
   if (!data || typeof data !== "object" || Array.isArray(data)) {
     return {
@@ -96,6 +102,26 @@ export function normaliseGroups(rawGroups) {
   return groups;
 }
 
+// The grave is not decoration: graveOrigin puts the site-grid origin at the
+// grave's left-front-floor corner, so the same coordinates land metres apart in
+// different graves. A file that did not carry its grave was silently reopened
+// against whichever one happened to be set.
+//
+// Additive, so no schema bump: older readers ignore the key and older files get
+// the default.
+export function normaliseGraveDimensions(raw) {
+  if (!Array.isArray(raw) || raw.length !== 3) {
+    return [...DEFAULT_GRAVE_DIMENSIONS];
+  }
+
+  return raw.map((value, index) => {
+    const size = Number(value);
+    return Number.isFinite(size) && size > 0
+      ? size
+      : DEFAULT_GRAVE_DIMENSIONS[index];
+  });
+}
+
 export function normaliseProject(data) {
   const groups = normaliseGroups(data.groups);
   const groupIds = new Set(groups.map((group) => group.id));
@@ -107,5 +133,9 @@ export function normaliseProject(data) {
     return individual;
   });
 
-  return { individuals, groups };
+  return {
+    individuals,
+    groups,
+    graveDimensions: normaliseGraveDimensions(data.graveDimensions),
+  };
 }
