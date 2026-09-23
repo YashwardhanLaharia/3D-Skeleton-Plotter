@@ -1,5 +1,6 @@
 import { access, mkdtemp, readdir, rm } from "node:fs/promises";
 import os from "node:os";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Browser, Builder } from "selenium-webdriver";
@@ -88,7 +89,7 @@ async function switchToMainWindow(driver) {
   }, 20_000, "Skeleton Plotter's main window did not become ready");
 }
 
-export async function launchSkeletonPlotter() {
+export async function launchSkeletonPlotter({ inspectorPort } = {}) {
   const appBinary = await findPackagedApp();
   const chromeDriverBinary = path.join(
     PROJECT_ROOT,
@@ -114,7 +115,19 @@ export async function launchSkeletonPlotter() {
     options.addArguments("--headless=new");
   }
 
-  const service = new chrome.ServiceBuilder(chromeDriverBinary);
+  if (inspectorPort) {
+    const require = createRequire(import.meta.url);
+    const appArchive = process.platform === "darwin"
+      ? path.resolve(appBinary, "../../Resources/app.asar")
+      : path.join(path.dirname(appBinary), "resources", "app.asar");
+    await access(appArchive);
+    options.setChromeBinaryPath(require("electron"));
+    options.addArguments(`--inspect=127.0.0.1:${inspectorPort}`, appArchive);
+  }
+
+  const environment = { ...process.env };
+  delete environment.ELECTRON_RUN_AS_NODE;
+  const service = new chrome.ServiceBuilder(chromeDriverBinary).setEnvironment(environment);
   let driver;
 
   try {

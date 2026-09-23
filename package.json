@@ -12,7 +12,8 @@
     "publish": "electron-forge publish",
     "lint": "echo \"No linting configured\"",
     "test": "node --test",
-    "test:selenium": "npm run package && node --test --test-concurrency=1 tests/selenium/app.selenium.mjs"
+    "test:selenium": "npm run package && node --test --test-concurrency=1 tests/selenium/*.selenium.mjs",
+    "test:selenium:import": "npm run package && node --test --test-concurrency=1 tests/selenium/import.selenium.mjs"
   },
   "keywords": [],
   "author": {
