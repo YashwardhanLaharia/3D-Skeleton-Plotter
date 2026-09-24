@@ -215,9 +215,9 @@ function SkeletonModel({
       warnings.push("some displaced bones could not be placed");
     }
 
-    if (segmentScales.clamped.length) {
+    if (segmentScales.implausible.length) {
       warnings.push(
-        "some bone lengths are outside the supported range and were limited",
+        "some bone lengths are unusual and were rendered as recorded",
       );
     }
 
@@ -234,7 +234,7 @@ function SkeletonModel({
         invalid: report.invalid,
         failed: report.failed,
         unplaced,
-        clamped: segmentScales.clamped,
+        implausible: segmentScales.implausible,
         degenerate: segmentScales.degenerate,
       });
 

@@ -161,10 +161,16 @@ const BODY_DIMENSION_SPANS = [
   { id: "pelvis_width", from: "acetabulum_l", to: "acetabulum_r" },
 ];
 
+// Advisory range for implausible-length warnings. Factors outside it render
+// literally — nothing clamps.
 const DIMENSION_LIMITS = [0.5, 1.5];
 
 /**
  * Scale factors for the torso dimensions the rig exposes.
+ *
+  * Scene scale is 1 unit = 1 metre: factors render literally whatever the
+ * landmarks imply. DIMENSION_LIMITS is advisory only — an out-of-range factor
+ * is reported as implausible so the UI can surface it, never clamped.
  *
  * Nothing here throws, and an unmeasurable dimension is simply absent, leaving
  * the model at its own proportions. `pelvis_depth` is never returned: no pair
@@ -172,12 +178,12 @@ const DIMENSION_LIMITS = [0.5, 1.5];
  *
  * @param {Record<string, {x:number,y:number,z:number}>} joints  scene-space landmarks
  * @param {import("three").Object3D} scene  the model, at its rest dimensions
- * @returns {{dimensions: Record<string, number>, clamped: object[]}}
+ * @returns {{dimensions: Record<string, number>, implausible: object[]}}
  */
 export function computeBodyDimensions(joints = {}, scene) {
   const dimensions = {};
-  const clamped = [];
-  if (!scene) return { dimensions, clamped };
+  const implausible = [];
+  if (!scene) return { dimensions, implausible };
 
   for (const { id, from, to } of BODY_DIMENSION_SPANS) {
     const measuredFrom = joints[from];
@@ -202,12 +208,11 @@ export function computeBodyDimensions(joints = {}, scene) {
 
     const requested = measured / restLength;
     const [min, max] = DIMENSION_LIMITS;
-    const applied = Math.min(Math.max(requested, min), max);
-    if (applied !== requested) {
-      clamped.push({ dimensionId: id, requested, applied });
+    if (requested < min || requested > max) {
+      implausible.push({ dimensionId: id, requested });
     }
-    dimensions[id] = applied;
+    dimensions[id] = requested;
   }
 
-  return { dimensions, clamped };
+  return { dimensions, implausible };
 }

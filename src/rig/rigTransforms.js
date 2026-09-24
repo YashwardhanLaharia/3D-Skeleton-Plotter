@@ -1,7 +1,4 @@
-import { Box3, Matrix4, Vector3, Quaternion, Euler } from "three";
-
-// Foot meshes provide a more reliable ground reference than the full skeleton bounds.
-const FOOT_MESH_PATTERN = /(foot|feet|metatarsal|calcaneus)/i;
+import { Matrix4, Vector3, Quaternion, Euler } from "three";
 
 /** Keeps an accumulated rotation within its configured axis limits. */
 export function clamp(value, min, max) {
@@ -137,32 +134,6 @@ export function applySegmentScale({ binding, rest, factor, endcapFraction }) {
     meshRest.mesh.geometry.computeBoundingSphere();
   }
   rest.appliedFactor = factor;
-}
-
-/** Calculates scale and ground placement for the viewport wrapper. */
-export function getDisplayTransform(scene) {
-  const bounds = new Box3().setFromObject(scene);
-  const feetBounds = new Box3();
-
-  scene.traverse((object) => {
-    if (object.isMesh && FOOT_MESH_PATTERN.test(object.name)) {
-      feetBounds.expandByObject(object);
-    }
-  });
-
-  const center = bounds.getCenter(new Vector3());
-  const size = bounds.getSize(new Vector3());
-  const scale = 2.5 / Math.max(size.x, size.y, size.z);
-  const groundY = feetBounds.isEmpty() ? bounds.min.y : feetBounds.min.y;
-
-  return {
-    scale,
-    position: [
-      -center.x * scale,
-      -groundY * scale,
-      -center.z * scale,
-    ],
-  };
 }
 
 /**

@@ -221,11 +221,6 @@ export class SkeletonRigApi {
   getDiagnostics() {
     return this.#controller.getDiagnostics();
   }
-
-  /** Returns the model framing transform used by the viewport. */
-  getDisplayTransform() {
-    return this.#controller.getDisplayTransform();
-  }
 }
 
 /** Creates an isolated rig facade for one loaded Three.js scene. */

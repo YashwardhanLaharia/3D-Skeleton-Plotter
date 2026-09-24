@@ -22,7 +22,8 @@ export class RigState {
     this.uniformScale = 1;
   }
 
-  // State owns clamping so every caller follows the same limit rules.
+  // State stores scale factors as given so every caller follows the same
+  // rules: finite, positive, rendered literally.
   incrementJoint(jointId, axis, degrees, limits) {
     this.jointRotations[jointId][axis] = this.increment(
       this.jointRotations[jointId][axis],
@@ -61,18 +62,22 @@ export class RigState {
     };
   }
 
-  setSegmentScale(segmentId, factor, [min, max]) {
-    this.segmentScales[segmentId] = Math.min(Math.max(factor, min), max);
+  // Scale factors render literally: 1 is the model's rest size and any
+  // positive factor is stored as given. Callers validate finite/positive
+  // before reaching here; advisory ranges live in the scaling configs and
+  // only feed implausible-length warnings, never clamping.
+  setSegmentScale(segmentId, factor) {
+    this.segmentScales[segmentId] = Number(factor);
     return this.segmentScales[segmentId];
   }
 
-  setBodyDimension(dimensionId, factor, [min, max]) {
-    this.bodyDimensions[dimensionId] = Math.min(Math.max(factor, min), max);
+  setBodyDimension(dimensionId, factor) {
+    this.bodyDimensions[dimensionId] = Number(factor);
     return this.bodyDimensions[dimensionId];
   }
 
-  setUniformScale(factor, [min, max]) {
-    this.uniformScale = Math.min(Math.max(factor, min), max);
+  setUniformScale(factor) {
+    this.uniformScale = Number(factor);
     return this.uniformScale;
   }
 

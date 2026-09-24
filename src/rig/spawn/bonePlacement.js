@@ -1,11 +1,11 @@
 import { Quaternion, Vector3 } from "three";
 import { REST_DIRECTION } from "../../solver/solveBone.js";
 
-// Scale limits mirror scaling/segmentConfig.js so spawned bones agree with the
-// articulated rig. Factor computation matches solver/segmentScales.js
-// (measured / rest, clamped), but the result is stored per spawned instance
-// and never touches shared segmentScales state.
-export const SPAWN_SCALE_LIMITS = Object.freeze([0.5, 1.5]);
+// Scale behaviour matches solver/segmentScales.js (measured / rest, rendered
+// literally at any positive factor), but the result is stored per
+// spawned instance and never touches shared segmentScales state. There is no
+// clamp: two recorded endpoints are the measurement, and the spawned copy
+// draws them as recorded.
 
 const EPSILON_SQ = 1e-20;
 
@@ -123,8 +123,7 @@ export function computeBonePlacement(
   }
 
   const requested = measured / rest;
-  const [min, max] = SPAWN_SCALE_LIMITS;
-  const scaleFactor = Math.min(Math.max(requested, min), max);
+  const scaleFactor = requested;
 
   return {
     ok: true,
@@ -138,6 +137,5 @@ export function computeBonePlacement(
     measured,
     requested,
     scaleFactor,
-    clamped: scaleFactor !== requested,
   };
 }
