@@ -32,10 +32,9 @@ test("placement maps +Y onto the measured direction with measured/rest scaling",
   );
   assert.equal(result.ok, true);
   assert.equal(result.measured, 2);
-  // 2 / 1 = 2 clamps to the shared 1.5 limit
+  // 2 / 1 = 2 renders literally: no clamping, scale carries the measurement.
   assert.equal(result.requested, 2);
-  assert.equal(result.scaleFactor, 1.5);
-  assert.equal(result.clamped, true);
+  assert.equal(result.scaleFactor, 2);
   assert.deepEqual(result.position, { x: 0, y: 0, z: 0 });
 });
 
@@ -74,7 +73,7 @@ test("spawned tibia lands on superior with the measured direction", async () => 
   assert.equal(result.ok, true);
   assert.ok(result.instanceId);
   assert.deepEqual(result.position, superior);
-  assert.equal(result.clamped, false);
+  assert.equal(result.scaleFactor, result.requested);
 
   const group = rig.execute({ type: "spawn-bone", boneId: "thigh_r", superior, inferior });
   assert.equal(group.ok, true);
@@ -416,7 +415,7 @@ test("store counts instances per bone", async () => {
   const { SpawnedBoneStore } = await import("../../src/rig/spawn/SpawnedBoneStore.js");
   const store = new SpawnedBoneStore();
   const point = { x: 0, y: 0, z: 0 };
-  const record = { boneId: "thigh_l", superior: point, inferior: point, scaleFactor: 1, requested: 1, measured: 1, clamped: false };
+  const record = { boneId: "thigh_l", superior: point, inferior: point, scaleFactor: 1, requested: 1, measured: 1 };
   store.create(record);
   store.create({ ...record, boneId: "forearm_l" });
   assert.equal(store.countForBone("thigh_l"), 1);
