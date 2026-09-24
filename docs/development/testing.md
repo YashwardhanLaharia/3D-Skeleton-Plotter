@@ -181,11 +181,11 @@ Tests cover:
 - a measured length matching the model
 - missing landmarks
 - missing rig segments
-- upper and lower scale clamping
+- extreme measurements rendering literally with an implausible report
 - coincident endpoints
 - bilateral measurements
 
-`computeSegmentScales()` reports exceptional measurements using `clamped` and
+`computeSegmentScales()` reports exceptional measurements using `implausible` and
 `degenerate` so the application can surface them to the researcher.
 
 ## Placement Tests
