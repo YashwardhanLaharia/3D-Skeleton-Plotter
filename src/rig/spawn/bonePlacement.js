@@ -65,6 +65,9 @@ export function normalizeEndpoint(value) {
  * @param {{x,y,z,w}|null} restOrientation the bone's rest orientation, used to
  *        carry its twist across; omit and the twist falls back to a bare
  *        shortest-arc rotation from +Y.
+ * @param {boolean} [scale=true] false places and aims the bone at its model
+ *        size instead of stretching it to the measured length.
+
 
  * @returns {{ok:true, position, quaternion, measured, requested, scaleFactor}|{ok:false,error}}
  */
@@ -73,6 +76,7 @@ export function computeBonePlacement(
   inferior,
   restLength,
   restOrientation = null,
+  scale = true,
 ) {
   if (!isPosition(superior) || !isPosition(inferior)) {
     return { ok: false, error: "Superior and inferior positions are required" };
@@ -124,7 +128,9 @@ export function computeBonePlacement(
 
   const requested = measured / rest;
   const [min, max] = SPAWN_SCALE_LIMITS;
-  const scaleFactor = Math.min(Math.max(requested, min), max);
+  // A compact bone (skull, jaw) has no rest length that matches what its two
+  // landmarks span, so it is placed and aimed at its model size instead.
+  const scaleFactor = scale ? Math.min(Math.max(requested, min), max) : 1;
 
   return {
     ok: true,
@@ -138,6 +144,6 @@ export function computeBonePlacement(
     measured,
     requested,
     scaleFactor,
-    clamped: scaleFactor !== requested,
+    clamped: scale && scaleFactor !== requested,
   };
 }
