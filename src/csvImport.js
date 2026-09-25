@@ -1,0 +1,372 @@
+import { JOINTS } from "./joints.js";
+
+export const CSV_COLUMNS = [
+  "individual_id",
+  "joint_id",
+  "x",
+  "y",
+  "z",
+  "x_inferior",
+  "y_inferior",
+  "z_inferior",
+  "label",
+];
+
+export const APPLICATION_ID = "application";
+export const APPLICATION_LABEL = "3d_skeleton_plotter";
+export const DEFAULT_GRAVE_DIMENSIONS = [1, 1, 1];
+
+const META_JOINT_IDS = new Set(["colour", "group", "group_label"]);
+const KNOWN_JOINTS = new Set(JOINTS.map(({ id }) => id));
+
+function parseCsvRecords(csvText) {
+  const records = [];
+  let record = [];
+  let value = "";
+  let quoted = false;
+  const text = csvText.replace(/^\uFEFF/, "");
+
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+
+    if (character === '"' && quoted && text[index + 1] === '"') {
+      value += '"';
+      index += 1;
+    } else if (character === '"') {
+      quoted = !quoted;
+    } else if (character === "," && !quoted) {
+      record.push(value.trim());
+      value = "";
+    } else if ((character === "\r" || character === "\n") && !quoted) {
+      if (character === "\r" && text[index + 1] === "\n") index += 1;
+      record.push(value.trim());
+      if (record.some((cell) => cell !== "")) records.push(record);
+      record = [];
+      value = "";
+    } else {
+      value += character;
+    }
+  }
+
+  if (value !== "" || record.length > 0) {
+    record.push(value.trim());
+    if (record.some((cell) => cell !== "")) records.push(record);
+  }
+
+  return records;
+}
+
+export function parseCsv(csvText) {
+  const records = parseCsvRecords(csvText);
+
+  if (records.length === 0) return { columns: [], rows: [] };
+
+  const columns = records[0];
+  const rows = records.slice(1).map((values) => {
+    return Object.fromEntries(
+      columns.map((column, index) => [column, values[index] ?? ""]),
+    );
+  });
+
+  return { columns, rows };
+}
+
+function makeBlankCoords() {
+  return Object.fromEntries(
+    JOINTS.map(({ id }) => [id, { x: "", y: "", z: "" }]),
+  );
+}
+
+function ensureIndividual(grouped, sourceId) {
+  if (!grouped.has(sourceId)) {
+    grouped.set(sourceId, {
+      coords: makeBlankCoords(),
+      label: "",
+      colour: null,
+      groupId: null,
+      seenJoints: new Set(),
+    });
+  }
+  return grouped.get(sourceId);
+}
+
+function parseCoordinateTriple(row, keys, rowNumber) {
+  const values = keys.map((key) => String(row[key] ?? "").trim());
+  if (
+    values.some((value) => value !== "" && !Number.isFinite(Number(value)))
+  ) {
+    return { ok: false, error: `Row ${rowNumber} has invalid coordinates` };
+  }
+  return { ok: true, values };
+}
+
+function normaliseGraveDimensions(raw) {
+  if (!Array.isArray(raw) || raw.length !== 3) {
+    return [...DEFAULT_GRAVE_DIMENSIONS];
+  }
+
+  return raw.map((value, index) => {
+    const size = Number(value);
+    return Number.isFinite(size) && size > 0
+      ? size
+      : DEFAULT_GRAVE_DIMENSIONS[index];
+  });
+}
+
+function buildProjectFromRows(columns, rows) {
+  const missingColumns = CSV_COLUMNS.filter(
+    (required) => !columns.includes(required),
+  );
+
+  if (missingColumns.length > 0) {
+    return {
+      ok: false,
+      error: `Missing CSV columns: ${missingColumns.join(", ")}`,
+    };
+  }
+
+  if (rows.length === 0) {
+    return {
+      ok: false,
+      error: "CSV file is missing the application identity row",
+    };
+  }
+
+  const first = rows[0];
+  if (
+    first.individual_id.trim() !== APPLICATION_ID ||
+    first.label.trim() !== APPLICATION_LABEL
+  ) {
+    return {
+      ok: false,
+      error:
+        'CSV file must start with individual_id "application" and label "3d_skeleton_plotter"',
+    };
+  }
+
+  const grouped = new Map();
+  const groupNames = new Map();
+  let graveDimensions = [...DEFAULT_GRAVE_DIMENSIONS];
+
+  for (let index = 1; index < rows.length; index += 1) {
+    const row = rows[index];
+    const rowNumber = index + 2;
+    const sourceId = row.individual_id.trim();
+    const jointId = row.joint_id.trim();
+
+    if (!sourceId) {
+      return { ok: false, error: `Row ${rowNumber} has no individual_id` };
+    }
+
+    if (sourceId === APPLICATION_ID) {
+      return {
+        ok: false,
+        error: `Row ${rowNumber} repeats the application identity row`,
+      };
+    }
+
+    if (sourceId === "grave_dimensions") {
+      const parsed = parseCoordinateTriple(row, ["x", "y", "z"], rowNumber);
+      if (!parsed.ok) return parsed;
+      graveDimensions = normaliseGraveDimensions(parsed.values);
+      continue;
+    }
+
+    if (META_JOINT_IDS.has(jointId)) {
+      const individual = ensureIndividual(grouped, sourceId);
+      const value = row.label.trim();
+
+      if (jointId === "colour") {
+        if (value) individual.colour = value;
+        continue;
+      }
+
+      if (jointId === "group") {
+        individual.groupId = value || null;
+        if (value && !groupNames.has(value)) groupNames.set(value, "");
+        continue;
+      }
+
+      // group_label
+      if (individual.groupId) {
+        groupNames.set(individual.groupId, value);
+      }
+      continue;
+    }
+
+    if (!KNOWN_JOINTS.has(jointId)) {
+      return {
+        ok: false,
+        error: `Row ${rowNumber} has unknown joint_id: ${jointId}`,
+      };
+    }
+
+    const superior = parseCoordinateTriple(row, ["x", "y", "z"], rowNumber);
+    if (!superior.ok) return superior;
+
+    const inferior = parseCoordinateTriple(
+      row,
+      ["x_inferior", "y_inferior", "z_inferior"],
+      rowNumber,
+    );
+    if (!inferior.ok) return inferior;
+
+    const individual = ensureIndividual(grouped, sourceId);
+    const label = row.label.trim();
+
+    if (label && individual.label && label !== individual.label) {
+      return {
+        ok: false,
+        error: `Row ${rowNumber} gives ${sourceId} a different label`,
+      };
+    }
+    if (label) individual.label = label;
+
+    const { coords, seenJoints } = individual;
+    if (seenJoints.has(jointId)) {
+      return {
+        ok: false,
+        error: `Row ${rowNumber} repeats ${jointId} for ${sourceId}`,
+      };
+    }
+    seenJoints.add(jointId);
+
+    coords[jointId] = {
+      x: superior.values[0],
+      y: superior.values[1],
+      z: superior.values[2],
+    };
+
+    if (inferior.values.some((value) => value !== "")) {
+      coords[jointId].split = true;
+      coords[jointId].inferior = {
+        x: inferior.values[0],
+        y: inferior.values[1],
+        z: inferior.values[2],
+      };
+    }
+  }
+
+  for (const imported of grouped.values()) {
+    if (imported.groupId && !groupNames.has(imported.groupId)) {
+      groupNames.set(imported.groupId, "");
+    }
+  }
+
+  const groups = [...groupNames].map(([id, name]) => ({ id, name }));
+  const groupIds = new Set(groups.map((group) => group.id));
+
+  const individuals = [...grouped].map(([sourceId, imported], index) => ({
+    id: sourceId,
+    label: imported.label || `Skeleton ${index + 1}`,
+    colour: imported.colour,
+    groupId:
+      imported.groupId && groupIds.has(imported.groupId)
+        ? imported.groupId
+        : null,
+    coords: imported.coords,
+  }));
+
+  return {
+    ok: true,
+    graveDimensions,
+    groups,
+    individuals,
+  };
+}
+
+/** Open a project file: full replace payload including grave dimensions. */
+export function csvToProject(csvText) {
+  const { columns, rows } = parseCsv(csvText);
+  const project = buildProjectFromRows(columns, rows);
+  if (!project.ok) return project;
+
+  return {
+    ...project,
+    individuals: project.individuals.map((individual) => ({
+      ...individual,
+      colour: individual.colour || "#E69F00",
+    })),
+  };
+}
+
+function freshId(prefix, usedIds, sourceIds, counter) {
+  let id;
+  do {
+    id = `${prefix}${counter.current}`;
+    counter.current += 1;
+  } while (usedIds.has(id) || sourceIds.has(id));
+  return id;
+}
+
+/**
+ * Additive Import: same CSV shape, remaps colliding individual/group IDs.
+ * Does not apply grave dimensions from the file.
+ */
+export function rowsToIndividuals(
+  columns,
+  rows,
+  existingIds = [],
+  colourPalette = ["#E69F00"],
+  existingGroupIds = [],
+) {
+  const project = buildProjectFromRows(columns, rows);
+  if (!project.ok) return project;
+
+  const usedIds = new Set(existingIds);
+  const sourceIds = new Set(project.individuals.map(({ id }) => id));
+  const nextIndividual = { current: 1 };
+
+  const usedGroupIds = new Set(existingGroupIds);
+  const sourceGroupIds = new Set(project.groups.map(({ id }) => id));
+  const nextGroup = { current: 1 };
+  const groupIdMap = new Map();
+
+  for (const group of project.groups) {
+    if (usedGroupIds.has(group.id)) {
+      const remapped = freshId("grp-", usedGroupIds, sourceGroupIds, nextGroup);
+      groupIdMap.set(group.id, remapped);
+      usedGroupIds.add(remapped);
+    } else {
+      groupIdMap.set(group.id, group.id);
+      usedGroupIds.add(group.id);
+    }
+  }
+
+  const groups = project.groups.map((group) => ({
+    id: groupIdMap.get(group.id),
+    name: group.name,
+  }));
+
+  const individuals = project.individuals.map((imported, index) => {
+    const id = usedIds.has(imported.id)
+      ? freshId("ind-", usedIds, sourceIds, nextIndividual)
+      : imported.id;
+    usedIds.add(id);
+
+    return {
+      id,
+      label: imported.label,
+      colour:
+        imported.colour ??
+        colourPalette[(existingIds.length + index) % colourPalette.length] ??
+        "#E69F00",
+      groupId: imported.groupId
+        ? (groupIdMap.get(imported.groupId) ?? null)
+        : null,
+      coords: imported.coords,
+    };
+  });
+
+  return { ok: true, individuals, groups };
+}
+
+export async function importCsv() {
+  const result = await window.electronAPI.importCsv();
+  if (!result.ok) return result;
+
+  return {
+    ...result,
+    ...parseCsv(result.text),
+  };
+}

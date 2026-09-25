@@ -44,12 +44,6 @@ function JointRow({
 
   return (
     <div className="joint-coordinate-row d-flex align-items-center gap-1 mb-1">
-      <span className="joint-num text-body-tertiary text-end">{number}</span>
-
-      <label className="joint-label text-body-secondary text-truncate mb-0">
-        {label}
-      </label>
-
       {toggle ? (
         <button
           type="button"
@@ -63,43 +57,54 @@ function JointRow({
         </button>
       ) : <span className="joint-expand" aria-hidden="true" />}
 
-      {["x", "y", "z"].map((axis) => (
-        // Generate 3 identical inputs
-        <input
-          key={axis}
-          type="text"
-          inputMode="decimal"
-          pattern="-?[0-9]*[.]?[0-9]*"
-          className={`form-control form-control-sm coord-input${
-            highlightAxis === axis ? " coord-input-flash" : ""
-          }`}
-          placeholder={axis.toUpperCase()}
-          aria-label={`${inputLabel}, ${axis.toUpperCase()}`}
-          value={values[axis]}
-          onChange={(e) => {
-            const nextValue = e.target.value;
-            if (DECIMAL_PATTERN.test(nextValue)) {
-              onChange(jointId, axis, nextValue);
-            }
-          }}
-          onBlur={onCommit}
-          onKeyDown={(e) => {
-            if (e.key === "ArrowDown") {
-              e.preventDefault();
-              moveFocus(e.target, 1, 0);
-            }
-            if (e.key === "ArrowUp") {
-              e.preventDefault();
-              moveFocus(e.target, -1, 0);
-            }
-            if (e.key === "Enter") {
-              e.preventDefault();
-              moveFocus(e.target, 1, 0);
-            }
-          }}
-          ref={highlightAxis === axis ? inputRef : null}
-        />
-      ))}
+      <span className="joint-num text-body-tertiary text-end">{number}</span>
+
+      <label className="joint-label text-body-secondary text-truncate mb-0">
+        {label}
+      </label>
+
+      {label === "superior" || label === "inferior" || !toggle?.isOpen ? (
+        ["x", "y", "z"].map((axis) => (
+          // Generate 3 identical inputs
+          <input
+            key={axis}
+            type="text"
+            inputMode="decimal"
+            pattern="-?[0-9]*[.]?[0-9]*"
+            className={`form-control form-control-sm coord-input${
+              highlightAxis === axis ? " coord-input-flash" : ""
+            }`}
+            placeholder={axis.toUpperCase()}
+            aria-label={`${inputLabel}, ${axis.toUpperCase()}`}
+            value={values[axis]}
+            onChange={(e) => {
+              const nextValue = e.target.value;
+              if (DECIMAL_PATTERN.test(nextValue)) {
+                onChange(jointId, axis, nextValue);
+              }
+            }}
+            onBlur={onCommit}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                moveFocus(e.target, 1, 0);
+              }
+              if (e.key === "ArrowUp") {
+                e.preventDefault();
+                moveFocus(e.target, -1, 0);
+              }
+              if (e.key === "Enter") {
+                e.preventDefault();
+                moveFocus(e.target, 1, 0);
+              }
+            }}
+            ref={highlightAxis === axis ? inputRef : null}
+          />
+        ))
+      ) : (
+        <>
+        </>
+      )}
     </div>
   );
 }
@@ -111,9 +116,8 @@ function IndividualSection({
   isOpen,
   onToggle,
   onChange,
+  onToggleSplit,
   onOffset,
-  jointDetails,
-  onJointDetailChange,
   onCommit,
   onRemove,
   canRemove,
@@ -123,7 +127,6 @@ function IndividualSection({
   onSetGroup,
   highlight,
 }) {
-  const [expandedJoints, setExpandedJoints] = useState({});
   const [offset, setOffset] = useState({ x: "", y: "", z: "" });
   const offsetValid = Object.values(offset).every((value) => Number.isFinite(Number(value)));
   // A point counts as recorded only when all three axes are filled. Partial
@@ -239,16 +242,16 @@ function IndividualSection({
               />
             ))}
           </div>
-          {JOINTS.map((joint) => (
+          {JOINTS.map((joint) => {
+            const isSplit = !!individual.coords[joint.id]?.split;
+            return (
             <div key={joint.id}>
               <JointRow
                 number={joint.n}
                 toggle={{
-                  isOpen: !!expandedJoints[joint.id],
+                  isOpen: isSplit,
                   id: `joint-details-${individual.id}-${joint.id}`,
-                  onClick: () => setExpandedJoints((current) => ({
-                    ...current, [joint.id]: !current[joint.id],
-                  })),
+                  onClick: () => onToggleSplit(individual.id, joint.id),
                 }}
                 label={joint.label}
                 jointId={joint.id}
@@ -263,7 +266,7 @@ function IndividualSection({
                     : null
                 }
               />
-              {expandedJoints[joint.id] && (
+              {isSplit && (
                 <div
                   id={`joint-details-${individual.id}-${joint.id}`}
                   className="joint-details"
@@ -273,19 +276,20 @@ function IndividualSection({
                   {["superior", "inferior"].map((position) => (
                     <JointRow
                       key={position}
-                      label={position === "superior" ? "Superior" : "Inferior"}
+                      label={position}
                       inputLabel={`${joint.label}, ${position}`}
                       jointId={joint.id}
-                      values={jointDetails[joint.id]?.[position] ?? { x: "", y: "", z: "" }}
-                      onChange={(jointId, axis, value) =>
-                        onJointDetailChange(individual.id, jointId, position, axis, value)
-                      }
+                      values={position === "superior" ? individual.coords[joint.id] : individual.coords[joint.id]?.inferior ?? { x: "", y: "", z: "" }}
+                      onChange={(jointId, axis, value) => {
+                        onChange(individual.id, jointId, axis, value, position);
+                      }}
                     />
                   ))}
                 </div>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </section>
@@ -427,9 +431,8 @@ export default function Sidebar({
   groups,
   openId,
   onChange,
+  onToggleSplit,
   onOffset,
-  jointDetails,
-  onJointDetailChange,
   onCommit,
   onUndo,
   onRedo,
@@ -469,9 +472,8 @@ export default function Sidebar({
         isOpen={individual.id === openId}
         onToggle={onToggle}
         onChange={onChange}
+        onToggleSplit={onToggleSplit}
         onOffset={onOffset}
-        jointDetails={jointDetails[individual.id] ?? {}}
-        onJointDetailChange={onJointDetailChange}
         onCommit={onCommit}
         onRemove={() => setPendingRemoval(individual)}
         canRemove={individuals.length > 1}
@@ -492,7 +494,7 @@ export default function Sidebar({
     <>
       <aside
         id="individuals-sidebar"
-        className={`sidebar bg-body-tertiary border-end ${isOpen ? "overflow-auto" : "sidebar-collapsed"}`}
+        className={`sidebar bg-body-tertiary border-end ${isOpen ? "overflow-y-auto overflow-x-hidden" : "sidebar-collapsed"}`}
         aria-hidden={!isOpen}
       >
         {isOpen && (
