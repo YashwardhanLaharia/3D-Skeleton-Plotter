@@ -258,6 +258,11 @@ const menuTemplate = [
         accelerator: "CmdOrCtrl+O",
         click: () => sendToRenderer("menu-open"),
       },
+      {
+        label: "Add Skeletons…",
+        accelerator: "CmdOrCtrl+Shift+I",
+        click: () => sendToRenderer("menu-import"),
+      },
       { type: "separator" },
       {
         label: "Save",
@@ -268,11 +273,6 @@ const menuTemplate = [
         label: "Save As…",
         accelerator: "CmdOrCtrl+Shift+S",
         click: () => sendToRenderer("menu-save-as"),
-      },
-      {
-        label: "Import",
-        accelerator: "CmdOrCtrl+Shift+I",
-        click: () => sendToRenderer("menu-import"),
       },
       { type: "separator" },
       { label: 'Quit', accelerator: 'CmdOrCtrl+Q', click: () => mainWindow.close() },
@@ -290,7 +290,7 @@ const menuTemplate = [
   {
     label: "Export",
     submenu: [
-      { label: "CSV", accelerator: "CmdOrCtrl+Shift+C", click: () => sendToRenderer("menu-export-csv") },
+      { label: "Visible skeletons (CSV)", accelerator: "CmdOrCtrl+Shift+C", click: () => sendToRenderer("menu-export-csv") },
       { label: "Screenshot", accelerator: "CmdOrCtrl+Shift+E", click: () => sendToRenderer("menu-export-screenshot") },
       { label: "GLB", accelerator: "CmdOrCtrl+Shift+G", click: () => sendToRenderer("menu-export-glb") },
     ],

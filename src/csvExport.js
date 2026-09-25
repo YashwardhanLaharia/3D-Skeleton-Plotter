@@ -89,8 +89,11 @@ export function createCsv(individuals, projectGraveDimensions, groups = []) {
   return `${lines.join("\r\n")}\r\n`;
 }
 
-export async function exportCsv(individuals, projectGraveDimensions, groups) {
+export async function exportCsv(individuals, projectGraveDimensions, groups, hidden) {
+  console.log(hidden);
+  const visibleIndividuals = individuals.filter((individual) => !hidden.includes(individual.id));
+
   return window.electronAPI.exportCsv(
-    createCsv(individuals, projectGraveDimensions, groups),
+    createCsv(visibleIndividuals, projectGraveDimensions, groups),
   );
 }

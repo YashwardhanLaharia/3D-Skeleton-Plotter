@@ -355,15 +355,15 @@ export default function App() {
     setNotice(`Imported ${converted.individuals.length} individuals`);
   }
 
-  async function handleExport() {
-    const result = await exportCsv(individuals, graveDimensions, groups);
+  async function handleExportCsv() {
+    const result = await exportCsv(individuals, graveDimensions, groups, hidden);
 
     if (!result.ok) {
       if (!result.canceled) setNotice(result.error);
       return;
     }
 
-    setNotice(`Exported ${individuals.length} individuals`);
+    setNotice(`Exported all visible skeletons`);
   }
 
   async function handleNew() {
@@ -528,7 +528,7 @@ export default function App() {
     handleRedo,
     handleChangeGraveDimensions,
     handleImport,
-    handleExport,
+    handleExportCsv,
   };
 
   useEffect(() => {
@@ -541,7 +541,7 @@ export default function App() {
         actionsRef.current.handleExportScreenshot();
       if (action === "menu-export-glb") actionsRef.current.handleExportGLB();
       if (action === "menu-import") actionsRef.current.handleImport();
-      if (action === "menu-export") actionsRef.current.handleExport();
+      if (action === "menu-export-csv") actionsRef.current.handleExportCsv();
       if (action === "menu-undo") actionsRef.current.handleUndo();
       if (action === "menu-redo") actionsRef.current.handleRedo();
       if (action === "menu-change-grave-dimensions")
