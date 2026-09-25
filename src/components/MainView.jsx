@@ -33,7 +33,7 @@ import {
   SPAWN_BONE_IDS,
   UNSCALABLE_SPAWN_IDS,
 } from "../solver/boneModes.js";
-import { getSpawnableBone } from "../rig/spawn/boneCatalog.js";
+import { boneName } from "../inspection/boneLabels.js";
 import { BODY_DIMENSIONS } from "../rig/scaling/dimensionConfig.js";
 
 // Make Three.js orbit controls available as a React Three Fiber element.
@@ -44,12 +44,6 @@ const EMPTY_POSE = Object.freeze({});
 // Global scale factor for the scene.
 // Must be passed into the grid helper and scene-space conversion functions.
 const globalScale = 1;
-
-// Readable name for a topology bone id: "forearm_l" -> "left forearm".
-function boneName(boneId) {
-  const label = getSpawnableBone(SPAWN_BONE_IDS[boneId])?.label;
-  return label ? label.toLowerCase() : boneId;
-}
 
 function boneNames(boneIds) {
   return boneIds.map(boneName).join(", ");

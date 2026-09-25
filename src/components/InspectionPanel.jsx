@@ -4,6 +4,7 @@
 // Shows what was recorded, what it measures, and anything that looks wrong.
 
 import { measureIndividual } from "../inspection/measurements";
+import { SEGMENT_LABELS } from "../inspection/boneLabels.js";
 
 const CHAIN_LABELS = {
   leftArm: "Left arm",
@@ -11,14 +12,6 @@ const CHAIN_LABELS = {
   leftLeg: "Left leg",
   rightLeg: "Right leg",
   axial: "Axial",
-};
-
-const SEGMENT_LABELS = {
-  upper_arm_l: "Humerus", forearm_l: "Radius / ulna", hand_l: "Hand",
-  upper_arm_r: "Humerus", forearm_r: "Radius / ulna", hand_r: "Hand",
-  thigh_l: "Femur", lower_leg_l: "Tibia", foot_l: "Foot",
-  thigh_r: "Femur", lower_leg_r: "Tibia", foot_r: "Foot",
-  spine: "Spine", head: "Cranium", jaw: "Mandible",
 };
 
 function format(length) {
