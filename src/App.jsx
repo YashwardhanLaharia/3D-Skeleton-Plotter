@@ -651,7 +651,7 @@ export default function App() {
           canRedo={canRedo}
           highlight={highlight}
           notice={notice}
-          solverIssues={{ "ind-1": ["TEMPORARY test warning.", "A second test line."] }}
+          solverIssues={solverIssues}
           onToggle={handleToggle}
           onAdd={handleAdd}
           onRemove={handleRemove}
