@@ -34,6 +34,7 @@ import {
   UNSCALABLE_SPAWN_IDS,
 } from "../solver/boneModes.js";
 import { getSpawnableBone } from "../rig/spawn/boneCatalog.js";
+import { BODY_DIMENSIONS } from "../rig/scaling/dimensionConfig.js";
 
 // Make Three.js orbit controls available as a React Three Fiber element.
 extend({ OrbitControls: ThreeOrbitControls });
@@ -239,7 +240,17 @@ function SkeletonModel({
         `Both ends recorded at the same position: ${boneNames(segmentScales.degenerate)}.`,
       );
     }
-
+    if (hasCoordinates && !rootRotation) {
+      issues.push(
+        "Body orientation could not be worked out from the hip and shoulder points, so the torso is shown upright.",
+      );
+    }
+    if (bodyDimensions.implausible.length) {
+      const list = describeFactors(bodyDimensions.implausible, (entry) =>
+        (BODY_DIMENSIONS[entry.dimensionId]?.label ?? entry.dimensionId).toLowerCase(),
+      );
+      issues.push(`Unusual body proportions, drawn as recorded: ${list}.`);
+    }
     if (issues.length) {
       console.warn("solve issues", id, {
         unsolved: unexpectedlyUnsolved,

@@ -685,7 +685,7 @@ export default function App() {
             focusedId={focusedId}
             graveDimensions={graveDimensions}
             targetId={openId ?? individuals[0]?.id}
-            onSolverIssue={setNotice}
+            onSolverIssues={handleSolverIssues}
           />
           <FocusBar individual={focusedIndividual} onExit={handleExitFocus} />
 
