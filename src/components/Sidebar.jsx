@@ -219,12 +219,18 @@ function IndividualSection({
       {isOpen && (
         <div className="px-2 pb-2">
           {issues.length > 0 && (
-            <ul className="alert alert-warning small py-1 pe-2 ps-4 mb-2" role="status">
-              {issues.map((issue) => (
-                <li key={issue}>{issue}</li>
-              ))}
-            </ul>
+            <details className="alert alert-warning small py-1 px-2 mb-2" role="status">
+              <summary>
+                ⚠ {issues.length} {issues.length === 1 ? "problem" : "problems"}
+              </summary>
+              <ul className="mb-0 mt-1 ps-3">
+                {issues.map((issue) => (
+                  <li key={issue}>{issue}</li>
+                ))}
+              </ul>
+            </details>
           )}
+
 
           <div className="d-flex align-items-center gap-1 mb-2 offset-row">
             <button
