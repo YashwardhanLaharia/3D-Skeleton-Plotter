@@ -311,7 +311,7 @@ function SkeletonModel({
 
     }
 
-    onSolverIssues?.(id, issues);
+    onSolverIssues?.(id, { messages: issues, unusualLengths });
   }, [
     coords,
     graveDimensions,

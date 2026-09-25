@@ -18,7 +18,7 @@ function format(length) {
   return length === null ? "—" : `${(length * 100).toFixed(1)} cm`;
 }
 
-export default function InspectionPanel({ individual }) {
+export default function InspectionPanel({ individual, unusualLengths = {} }) {
   if (!individual) return null;
 
   const { segments, asymmetries, recordedCount, totalCount } =
@@ -39,32 +39,37 @@ export default function InspectionPanel({ individual }) {
         {chains.map((chain) => {
           const rows = segments.filter((segment) => segment.chain === chain);
           if (rows.every((row) => row.length === null)) return null;
-
           return (
             <section key={chain} className="inspection-group">
               <h3 className="inspection-group-title">{CHAIN_LABELS[chain]}</h3>
-              {rows.map((row) => (
-                <div key={row.id} className="inspection-row d-flex">
-                  <span className="inspection-name text-truncate">
-                    {SEGMENT_LABELS[row.id] ?? row.id}
-                  </span>
-                  <span
-                    className={`inspection-value ms-auto ${
-                      row.length === null ? "inspection-missing" : ""
-                    }`}
-                    title={
-                      row.displaced
-                        ? "Recorded away from the rest of the skeleton"
-                        : undefined
-                    }
-                  >
-                    {format(row.length)}
-                    {row.displaced && (
-                      <span className="inspection-displaced"> displaced</span>
-                    )}
-                  </span>
-                </div>
-              ))}
+              {rows.map((row) => {
+                const unusual = unusualLengths[row.id];
+                const notes = [
+                  row.displaced && "Recorded away from the rest of the skeleton",
+                  unusual &&
+                  `Unusual length, drawn as recorded (expected about ${format(unusual.expected)})`,
+                ].filter(Boolean);
+
+                return (
+                  <div key={row.id} className="inspection-row d-flex">
+                    <span className="inspection-name text-truncate">
+                      {SEGMENT_LABELS[row.id] ?? row.id}
+                    </span>
+                    <span
+                      className={`inspection-value ms-auto ${row.length === null ? "inspection-missing" : ""
+                        } ${unusual ? "inspection-unusual" : ""}`}
+                      title={notes.length ? notes.join(". ") : undefined}
+                    >
+                      {unusual && <span aria-label="Unusual length">⚠ </span>}
+                      {format(row.length)}
+                      {row.displaced && (
+                        <span className="inspection-displaced"> displaced</span>
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
+
             </section>
           );
         })}

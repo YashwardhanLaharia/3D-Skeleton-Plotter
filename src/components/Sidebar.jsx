@@ -507,7 +507,7 @@ export default function Sidebar({
         highlight={
           highlight?.individualId === individual.id ? highlight : null
         }
-        issues={solverIssues[individual.id] ?? []}
+        issues={solverIssues[individual.id]?.messages ?? []}
       />
 
     );

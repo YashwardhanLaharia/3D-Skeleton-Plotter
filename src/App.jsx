@@ -104,8 +104,8 @@ export default function App() {
   // Transient message for changes such as adding individuals, which are inconvenient to highlight in place
   const [notice, setNotice] = useState(null);
 
-  // Current solver problems per individual id. Replaced on every solve, so an
-  // empty list means that individual has no problems now.
+  // Current solver problems per individual id, as { messages, unusualLengths }.
+  // Replaced on every solve, so no messages means no problems now.
   const [solverIssues, setSolverIssues] = useState({});
 
   // Stable identity: every skeleton's solve effect depends on this, and a new
@@ -688,7 +688,11 @@ export default function App() {
           <FocusBar individual={focusedIndividual} onExit={handleExitFocus} />
 
           {focusedId ? (
-            <InspectionPanel individual={focusedIndividual} />
+            <InspectionPanel
+              individual={focusedIndividual}
+              unusualLengths={solverIssues[focusedId]?.unusualLengths}
+            />
+
           ) : (
             <LayersPanel
               individuals={individuals}
