@@ -185,7 +185,7 @@ The rig deforms bone geometry between joints, so a measured femur can be made to
 ```js
 import { computeSegmentScales } from "./segmentScales.js";
 
-const { scales, clamped, degenerate } = computeSegmentScales(
+const { scales, implausible, degenerate } = computeSegmentScales(
   joints,
   rig.getDiagnostics().segments,
 );
@@ -202,12 +202,16 @@ because the two rendering paths disagreed — a spawned foot was resized to its
 measurement while its articulated twin on the other side of the same body kept
 the model's own 18.2cm, so identical measurements rendered 3.1cm apart.
 
-### Clamped and Degenerate
+### Implausible and Degenerate
 
-The rig clamps factors to `0.5`–`1.5`. A measurement outside that range is either a transcription error or a genuinely unusual individual, and `clamped` records the factor that was actually implied:
+Scene scale is 1 unit = 1 metre and the model is natively metric, so every
+factor renders literally — nothing clamps. A measurement outside the advisory
+`0.5`–`1.5` range is either a transcription error or a genuinely unusual
+individual, and `implausible` records the factor so the application can warn
+while still drawing what was recorded:
 
 ```js
-clamped;  // [{ segmentId: "thigh_l", requested: 5, applied: 1.5 }]
+implausible;  // [{ segmentId: "thigh_l", requested: 5 }]
 ```
 
 `degenerate` lists segments whose two joints were recorded at the same point.
@@ -280,12 +284,17 @@ Endpoints are scene-space positions. The rig converts them into the model's own
 frame, which matters because the whole-body rotation has already moved that
 frame.
 
-`UNSCALABLE_SPAWN_IDS` holds the bones that cannot be placed independently yet.
-The skull and the jaw name their own driver as their distal anchor in the
-catalog, so they have no axis and no length of their own; spawning them clamps
-to 1.5x and renders them visibly stretched. A bone in that set is hidden and
-reported instead, because drawing it at the articulated position would claim it
-is where the body is, which is the opposite of what was recorded.
+`UNSCALABLE_SPAWN_IDS` holds the bones that cannot be resized when placed
+independently. The skull and the jaw name their own driver as their distal
+anchor in the catalog, so they have no axis and no length of their own; scaling
+them by measured / rest would render them ~8x stretched. A bone in that set is
+spawned with `{ scale: false }` instead: placed and aimed from its two
+landmarks, but kept at the model's own size.
+
+When the skull is displaced (`head_centre` split) and the `chin` row is not,
+`planBones` moves the chin by the skull's offset so the jaw stays under the
+skull rather than aiming back at the body. It follows the skull's position, not
+its rotation.
 
 `FOLLOWER_BONE_IDS` covers model parts with no landmarks that hang off a bone
 that moved — the patellae follow the thighs. A patella left hanging in the air

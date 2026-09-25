@@ -99,8 +99,11 @@ Detailed solver behaviour is documented in `src/solver/README.md`.
 
 ## Measured Scaling
 
+Scene scale is 1 unit = 1 metre: the model is natively metric, grave
+dimensions and coordinates are metres, and the viewport converts with scale 1.
+
 `computeSegmentScales()` compares measured landmark distances with the model's
-rest lengths.
+rest lengths and renders every factor literally — nothing clamps.
 
 The currently scalable articulated segments are:
 
@@ -109,7 +112,8 @@ The currently scalable articulated segments are:
 - left and right thighs
 - left and right lower legs
 
-Measurements outside the supported scale range are reported as `clamped`.
+Measurements outside the advisory scale range are reported as `implausible`
+but still rendered as recorded.
 
 Segments whose two recorded endpoints occupy the same position are reported as
 `degenerate`.
@@ -179,7 +183,7 @@ Reported conditions include:
 - unknown landmark IDs
 - invalid positions
 - failed bone solves
-- clamped segment scales
+- implausible segment scales
 - degenerate segment measurements
 
 Developer details can be logged to the console while the application can

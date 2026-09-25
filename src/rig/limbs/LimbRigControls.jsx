@@ -144,10 +144,11 @@ export default function LimbRigControls() {
 
   function adjustScale(direction) {
     const currentFactor = Number.isFinite(scaleFactor) ? scaleFactor : 1;
-    const nextFactor = Math.min(
-      Math.max(Number((currentFactor + direction * SCALE_STEP).toFixed(2)), 0.5),
-      1.5
+    const nextFactor = Number(
+      (currentFactor + direction * SCALE_STEP).toFixed(2),
     );
+    // Nudging stays positive; any positive factor renders literally.
+    if (nextFactor <= 0) return;
     rememberScale(scaleTarget, nextFactor);
     sendScale(nextFactor);
   }
@@ -333,15 +334,14 @@ export default function LimbRigControls() {
       </select>
 
       <label className="form-label small mt-3 mb-1" htmlFor="scale-factor-input">
-        Scale factor (0.50 to 1.50)
+        Scale factor (1 is the model&apos;s own size)
       </label>
       <div className="input-group input-group-sm">
         <input
           id="scale-factor-input"
           className="form-control"
           type="number"
-          min="0.5"
-          max="1.5"
+          min={SCALE_STEP}
           step={SCALE_STEP}
           value={scaleFactor}
           onChange={(event) => rememberScale(scaleTarget, Number(event.target.value))}

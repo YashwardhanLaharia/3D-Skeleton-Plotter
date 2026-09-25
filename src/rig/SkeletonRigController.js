@@ -18,7 +18,6 @@ import { SpawnedBoneStore } from "./spawn/SpawnedBoneStore.js";
 import { captureSpawnRest } from "./spawn/spawnRest.js";
 import {
   BODY_DIMENSIONS,
-  UNIFORM_SCALE_LIMITS,
 } from "./scaling/dimensionConfig.js";
 import {
   applyBodyDimensions,
@@ -29,7 +28,6 @@ import {
   applySegmentScale,
   captureAttachmentRest,
   captureSegmentRest,
-  getDisplayTransform,
   syncAttachment,
 } from "./rigTransforms.js";
 
@@ -300,7 +298,6 @@ export class SkeletonRigController {
         scaleFactor: placement.scaleFactor,
         requested: placement.requested,
         measured: placement.measured,
-        clamped: placement.clamped,
       },
       options?.instanceId,
     );
@@ -339,7 +336,6 @@ export class SkeletonRigController {
       scaleFactor: placement.scaleFactor,
       requested: placement.requested,
       measured: placement.measured,
-      clamped: placement.clamped,
       position: placement.position,
       quaternion: placement.quaternion,
       meshes: clones,
@@ -398,7 +394,6 @@ export class SkeletonRigController {
       scaleFactor: placement.scaleFactor,
       requested: placement.requested,
       measured: placement.measured,
-      clamped: placement.clamped,
     });
 
     return {
@@ -409,7 +404,6 @@ export class SkeletonRigController {
       scaleFactor: placement.scaleFactor,
       requested: placement.requested,
       measured: placement.measured,
-      clamped: placement.clamped,
       position: placement.position,
       quaternion: placement.quaternion,
     };
@@ -595,11 +589,7 @@ export class SkeletonRigController {
       return { ok: false, error: "Invalid segment scale command" };
     }
 
-    const value = this.state.setSegmentScale(
-      segmentId,
-      numericFactor,
-      config.limits,
-    );
+    const value = this.state.setSegmentScale(segmentId, numericFactor);
     this.applyAllTransforms();
     return { ok: true, type: "set-segment-scale", segmentId, value };
   }
@@ -616,11 +606,7 @@ export class SkeletonRigController {
 
     const values = {};
     for (const segmentId of group.segmentIds) {
-      values[segmentId] = this.state.setSegmentScale(
-        segmentId,
-        numericFactor,
-        SEGMENT_SCALES[segmentId].limits,
-      );
+      values[segmentId] = this.state.setSegmentScale(segmentId, numericFactor);
     }
     this.applyAllTransforms();
     return { ok: true, type: "set-segment-group-scale", groupId, values };
@@ -645,11 +631,7 @@ export class SkeletonRigController {
     const validation = this.validateSegmentScales(scales);
     if (!validation.ok) return validation;
     for (const [segmentId, factor] of Object.entries(scales)) {
-      this.state.setSegmentScale(
-        segmentId,
-        Number(factor),
-        ownConfig(SEGMENT_SCALES, segmentId).limits,
-      );
+      this.state.setSegmentScale(segmentId, Number(factor));
     }
     this.applyAllTransforms();
     return {
@@ -697,11 +679,7 @@ export class SkeletonRigController {
       return { ok: false, error: "Invalid body dimension command" };
     }
 
-    const value = this.state.setBodyDimension(
-      dimensionId,
-      numericFactor,
-      config.limits,
-    );
+    const value = this.state.setBodyDimension(dimensionId, numericFactor);
     this.applyAllTransforms();
     return { ok: true, type: "set-body-dimension", dimensionId, value };
   }
@@ -723,14 +701,6 @@ export class SkeletonRigController {
 
   setSkeletonScale(factor) {
     const numericFactor = Number(factor);
-    const configs = [
-      ...Object.values(SEGMENT_SCALES),
-      ...Object.values(BODY_DIMENSIONS),
-    ];
-    const limits = [
-      Math.max(...configs.map((config) => config.limits[0])),
-      Math.min(...configs.map((config) => config.limits[1])),
-    ];
     if (
       !Number.isFinite(numericFactor) ||
       numericFactor <= 0 ||
@@ -742,13 +712,13 @@ export class SkeletonRigController {
       return { ok: false, error: "Invalid skeleton scale command" };
     }
 
-    const value = Math.min(Math.max(numericFactor, limits[0]), limits[1]);
+    const value = numericFactor;
 
-    for (const [segmentId, config] of Object.entries(SEGMENT_SCALES)) {
-      this.state.setSegmentScale(segmentId, value, config.limits);
+    for (const segmentId of Object.keys(SEGMENT_SCALES)) {
+      this.state.setSegmentScale(segmentId, value);
     }
-    for (const [dimensionId, config] of Object.entries(BODY_DIMENSIONS)) {
-      this.state.setBodyDimension(dimensionId, value, config.limits);
+    for (const dimensionId of Object.keys(BODY_DIMENSIONS)) {
+      this.state.setBodyDimension(dimensionId, value);
     }
     this.applyAllTransforms();
     return {
@@ -766,10 +736,7 @@ export class SkeletonRigController {
       return { ok: false, error: "Invalid uniform scale command" };
     }
 
-    const value = this.state.setUniformScale(
-      numericFactor,
-      UNIFORM_SCALE_LIMITS,
-    );
+    const value = this.state.setUniformScale(numericFactor);
     this.applyAllTransforms();
     return { ok: true, type: "set-uniform-scale", value };
   }
@@ -784,11 +751,7 @@ export class SkeletonRigController {
     const validation = this.validateBodyDimensions(dimensions);
     if (!validation.ok) return validation;
     for (const [dimensionId, factor] of Object.entries(dimensions)) {
-      this.state.setBodyDimension(
-        dimensionId,
-        Number(factor),
-        ownConfig(BODY_DIMENSIONS, dimensionId).limits,
-      );
+      this.state.setBodyDimension(dimensionId, Number(factor));
     }
     this.applyAllTransforms();
     return {
@@ -1122,9 +1085,5 @@ export class SkeletonRigController {
         instances: this.spawnedStore.list(),
       },
     };
-  }
-
-  getDisplayTransform() {
-    return getDisplayTransform(this.scene);
   }
 }

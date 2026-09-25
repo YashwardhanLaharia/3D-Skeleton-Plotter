@@ -207,6 +207,10 @@ rotation cannot be inferred.
 
 ## Measured Lengths
 
+Scene scale is 1 unit = 1 metre: the model is natively metric (thigh rest
+0.442m, stature ~1.77m), grave dimensions and coordinates are metres, and the
+viewport converts with scale 1.
+
 For scalable articulated bones, the distance between the proximal and distal
 landmarks is compared with the model's rest length.
 
@@ -223,8 +227,9 @@ Supported scaling is currently applied to:
 - thighs
 - lower legs
 
-Scale values outside the rig's supported range are clamped and reported rather
-than silently accepted.
+Every factor renders literally — nothing clamps. Scale values outside the
+advisory range are reported as implausible so the application can warn while
+still drawing what was recorded.
 
 If the two endpoints occupy exactly the same position, the segment is reported
 as degenerate.
@@ -241,7 +246,7 @@ Examples include:
 - invalid coordinate values
 - coincident segment endpoints
 - bone solves that fail
-- measurements that require clamping
+- implausible bone lengths (rendered as recorded, with a warning)
 
 These diagnostics allow the application to show a readable warning while still
 rendering the parts of the skeleton that can be solved.

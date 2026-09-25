@@ -35,10 +35,9 @@ test("placement maps +Y onto the measured direction with measured/rest scaling",
   );
   assert.equal(result.ok, true);
   assert.equal(result.measured, 2);
-  // 2 / 1 = 2 clamps to the shared 1.5 limit
+  // 2 / 1 = 2 renders literally: no clamping, scale carries the measurement.
   assert.equal(result.requested, 2);
-  assert.equal(result.scaleFactor, 1.5);
-  assert.equal(result.clamped, true);
+  assert.equal(result.scaleFactor, 2);
   assert.deepEqual(result.position, { x: 0, y: 0, z: 0 });
 });
 
@@ -53,7 +52,6 @@ test("placement with scale off keeps the bone at model size", () => {
   assert.equal(result.ok, true);
   assert.equal(result.requested, 2);
   assert.equal(result.scaleFactor, 1);
-  assert.equal(result.clamped, false);
 });
 
 test("placement rejects coincident endpoints and bad rest lengths", () => {
@@ -88,7 +86,7 @@ test("spawned tibia lands on superior with the measured direction", async () => 
   assert.equal(result.ok, true);
   assert.ok(result.instanceId);
   assert.deepEqual(result.position, superior);
-  assert.equal(result.clamped, false);
+  assert.equal(result.scaleFactor, result.requested);
 
   const group = rig.execute({
     type: "spawn-bone",
@@ -350,7 +348,6 @@ test("a bone spawned with scale off stays at model size when updated", async () 
   );
   assert.equal(spawned.ok, true);
   assert.equal(spawned.scaleFactor, 1);
-  assert.equal(spawned.clamped, false);
 
   const updated = rig.updateSpawnedBone(
     spawned.instanceId,
@@ -626,7 +623,6 @@ test("store counts instances per bone", async () => {
     scaleFactor: 1,
     requested: 1,
     measured: 1,
-    clamped: false,
   };
   store.create(record);
   store.create({ ...record, boneId: "forearm_l" });

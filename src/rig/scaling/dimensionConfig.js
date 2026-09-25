@@ -7,6 +7,9 @@ export const TORSO_LENGTH_BONE_NAMES = SPINAL_BONE_NAMES.slice(
   upperTorsoIndex + 1
 );
 
+// Advisory ranges for implausible-length warnings. Factors outside them render
+// literally — nothing clamps. Scene scale is 1 unit = 1 metre and the model is
+// natively metric, so the measured factor is the answer.
 export const BODY_DIMENSIONS = {
   torso_length: {
     id: "torso_length",
@@ -29,8 +32,6 @@ export const BODY_DIMENSIONS = {
     limits: [0.5, 1.5],
   },
 };
-
-export const UNIFORM_SCALE_LIMITS = Object.freeze([0.5, 1.5]);
 
 export const BODY_DIMENSION_OBJECTS = {
   sternumBoneName: "DEF-Sternum",

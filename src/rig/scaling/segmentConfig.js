@@ -145,6 +145,9 @@ export const SEGMENT_SCALES = Object.fromEntries(
     {
       id: segmentId,
       ...config,
+      // Advisory range for implausible-length warnings. Factors outside it
+      // render literally — nothing clamps. Scene scale is 1 unit = 1 metre
+      // and the model is natively metric, so the measured factor is the answer.
       limits: [0.5, 1.5],
       endcapFraction: 0.15,
     },

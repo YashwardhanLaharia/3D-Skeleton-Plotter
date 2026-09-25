@@ -75,3 +75,68 @@ test("toSceneSpace is the inverse of fromSceneSpace", () => {
   const site = fromSceneSpace(scene, origin, scale);
   assert.deepEqual(toSceneSpace(site, origin, scale), scene);
 });
+
+// Scene scale is 1 unit = 1 metre, so a tape-measured burial length
+// (head_proximal to toes) must survive conversion unchanged — the conversion
+// is a translation plus axis reorder, both distance-preserving.
+function distance(a, b) {
+  return Math.sqrt(
+    (b.x - a.x) ** 2 + (b.y - a.y) ** 2 + (b.z - a.z) ** 2,
+  );
+}
+
+test("burial length is preserved through conversion in height mode", () => {
+  const origin = graveOrigin([3, 9, 1]);
+  const head = { x: 1.5, y: 5.62, z: 0.39 };
+  const toes = { x: 1.4, y: 7.42, z: 0.36 };
+  const vertical = { convention: "height", floorRL: null };
+
+  const rendered = distance(
+    toSceneSpace(head, origin, 1, vertical),
+    toSceneSpace(toes, origin, 1, vertical),
+  );
+
+  assert.ok(Math.abs(rendered - distance(head, toes)) < 1e-12);
+});
+
+test("burial length is preserved through conversion in rl mode", () => {
+  const origin = graveOrigin([3, 9, 1]);
+  const head = { x: 1.5, y: 5.62, z: 2.01 };
+  const toes = { x: 1.4, y: 7.42, z: 2.04 };
+  const vertical = { convention: "rl", floorRL: 2.4 };
+
+  const rendered = distance(
+    toSceneSpace(head, origin, 1, vertical),
+    toSceneSpace(toes, origin, 1, vertical),
+  );
+
+  assert.ok(Math.abs(rendered - distance(head, toes)) < 1e-12);
+  assert.deepEqual(
+    fromSceneSpace(toSceneSpace(head, origin, 1, vertical), origin, 1, vertical),
+    head,
+  );
+});
+
+test("the grave box maps corner to corner in scene space", () => {
+  const grave = [2, 4, 1.5];
+  const origin = graveOrigin(grave);
+  const vertical = { convention: "height", floorRL: null };
+
+  // Site-grid corners of the grave footprint at floor and rim.
+  const corners = [
+    { x: 0, y: 0, z: 0 },
+    { x: 2, y: 0, z: 0 },
+    { x: 0, y: 4, z: 0 },
+    { x: 2, y: 4, z: 0 },
+    { x: 0, y: 0, z: 1.5 },
+    { x: 2, y: 4, z: 1.5 },
+  ];
+
+  for (const corner of corners) {
+    const scene = toSceneSpace(corner, origin, 1, vertical);
+    // The grave spans 2m in scene x, 1.5m in scene y, 4m in scene z.
+    assert.ok(scene.x >= -1 && scene.x <= 1, `x=${scene.x}`);
+    assert.ok(scene.y >= -1.5 && scene.y <= 0, `y=${scene.y}`);
+    assert.ok(scene.z >= -2 && scene.z <= 2, `z=${scene.z}`);
+  }
+});

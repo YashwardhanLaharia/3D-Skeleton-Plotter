@@ -12,10 +12,16 @@
 // legs. Everything else is aimed but not lengthened, so a measured distance
 // that disagrees with the model is absorbed as positional drift down the chain.
 //
-// Nothing here throws. Out-of-range and degenerate measurements are reported so
-// the UI can surface them: a femur reading 60cm is exactly the kind of thing
-// that appears in real excavation data, and the researcher should see it rather
-// than get a silently wrong skeleton.
+// Scene scale is 1 unit = 1 metre: the model is natively metric, so the
+// measured distance is rendered literally at whatever factor it implies. The
+// per-segment `limits` are advisory only — a factor outside them is reported
+// as implausible so the UI can surface it, never clamped: a femur reading
+// 60cm is exactly the kind of thing that appears in real excavation data, and
+// the researcher should see it rendered as recorded rather than get a silently
+// wrong skeleton.
+//
+// Nothing here throws. Implausible and degenerate measurements are reported so
+// the UI can surface them.
 
 import { BONES } from "./topology.js";
 
@@ -43,13 +49,13 @@ function isPosition(value) {
  *        from rig.getDiagnostics().segments
  * @returns {{
  *   scales: Record<string, number>,
- *   clamped: {segmentId: string, requested: number, applied: number}[],
+ *   implausible: {segmentId: string, requested: number}[],
  *   degenerate: string[],
  * }}
  */
 export function computeSegmentScales(joints = {}, segments = {}) {
   const scales = {};
-  const clamped = [];
+  const implausible = [];
   const degenerate = [];
 
   for (const bone of BONES) {
@@ -69,15 +75,19 @@ export function computeSegmentScales(joints = {}, segments = {}) {
     }
 
     const requested = measured / segment.restLength;
-    const [min, max] = segment.limits;
-    const applied = Math.min(Math.max(requested, min), max);
-
-    if (applied !== requested) {
-      clamped.push({ segmentId: bone.segmentId, requested, applied });
+    // Advisory only: rendered literally whatever the factor (see header), but
+    // flagged so a transcription error reads as a warning, not a surprise.
+    const [min, max] = segment.limits ?? [];
+    if (
+      Number.isFinite(min) &&
+      Number.isFinite(max) &&
+      (requested < min || requested > max)
+    ) {
+      implausible.push({ segmentId: bone.segmentId, requested });
     }
 
-    scales[bone.segmentId] = applied;
+    scales[bone.segmentId] = requested;
   }
 
-  return { scales, clamped, degenerate };
+  return { scales, implausible, degenerate };
 }
