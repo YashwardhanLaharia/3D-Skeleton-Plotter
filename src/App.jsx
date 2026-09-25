@@ -420,7 +420,7 @@ export default function App() {
       console.error(loaded.error);
       setNotice(
         loaded.error ||
-          "This project file is invalid or uses an unsupported format.",
+        "This project file is invalid or uses an unsupported format.",
       );
       return;
     }
@@ -638,6 +638,7 @@ export default function App() {
           canRedo={canRedo}
           highlight={highlight}
           notice={notice}
+          solverIssues={{ "ind-1": ["TEMPORARY test warning.", "A second test line."] }}
           onToggle={handleToggle}
           onAdd={handleAdd}
           onRemove={handleRemove}

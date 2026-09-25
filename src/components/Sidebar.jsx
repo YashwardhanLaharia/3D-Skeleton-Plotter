@@ -71,9 +71,8 @@ function JointRow({
             type="text"
             inputMode="decimal"
             pattern="-?[0-9]*[.]?[0-9]*"
-            className={`form-control form-control-sm coord-input${
-              highlightAxis === axis ? " coord-input-flash" : ""
-            }`}
+            className={`form-control form-control-sm coord-input${highlightAxis === axis ? " coord-input-flash" : ""
+              }`}
             placeholder={axis.toUpperCase()}
             aria-label={`${inputLabel}, ${axis.toUpperCase()}`}
             value={values[axis]}
@@ -126,6 +125,7 @@ function IndividualSection({
   groups,
   onSetGroup,
   highlight,
+  issues = [],
 }) {
   const [offset, setOffset] = useState({ x: "", y: "", z: "" });
   const offsetValid = Object.values(offset).every((value) => Number.isFinite(Number(value)));
@@ -147,9 +147,8 @@ function IndividualSection({
       >
         <input
           type="color"
-          className={`form-control form-control-color${
-            highlight?.field === "colour" ? " coord-input-flash" : ""
-          }`}
+          className={`form-control form-control-color${highlight?.field === "colour" ? " coord-input-flash" : ""
+            }`}
           id={`colorPicker-${individual.id}`}
           value={individual.colour}
           title="Choose your color"
@@ -160,9 +159,8 @@ function IndividualSection({
         />
         <input
           type="text"
-          className={`form-control form-control-sm label-input${
-            highlight?.field === "label" ? " coord-input-flash" : ""
-          }`}
+          className={`form-control form-control-sm label-input${highlight?.field === "label" ? " coord-input-flash" : ""
+            }`}
           placeholder="Label"
           aria-label="Label"
           value={individual.label}
@@ -189,6 +187,16 @@ function IndividualSection({
         <small className="text-body-tertiary">
           {filledCount}/{JOINTS.length}
         </small>
+        {issues.length > 0 && (
+          <span
+            className="text-warning-emphasis"
+            title={`${issues.length} ${issues.length === 1 ? "problem" : "problems"}`}
+            aria-label={`${issues.length} ${issues.length === 1 ? "problem" : "problems"}`}
+          >
+            ⚠
+          </span>
+        )}
+
         {canRemove && (
           <span
             role="button"
@@ -210,6 +218,14 @@ function IndividualSection({
       </button>
       {isOpen && (
         <div className="px-2 pb-2">
+          {issues.length > 0 && (
+            <ul className="alert alert-warning small py-1 pe-2 ps-4 mb-2" role="status">
+              {issues.map((issue) => (
+                <li key={issue}>{issue}</li>
+              ))}
+            </ul>
+          )}
+
           <div className="d-flex align-items-center gap-1 mb-2 offset-row">
             <button
               type="button"
@@ -245,49 +261,49 @@ function IndividualSection({
           {JOINTS.map((joint) => {
             const isSplit = !!individual.coords[joint.id]?.split;
             return (
-            <div key={joint.id}>
-              <JointRow
-                number={joint.n}
-                toggle={{
-                  isOpen: isSplit,
-                  id: `joint-details-${individual.id}-${joint.id}`,
-                  onClick: () => onToggleSplit(individual.id, joint.id),
-                }}
-                label={joint.label}
-                jointId={joint.id}
-                values={individual.coords[joint.id]}
-                onChange={(jointId, axis, value) =>
-                  onChange(individual.id, jointId, axis, value)
-                }
-                onCommit={onCommit}
-                highlightAxis={
-                  highlight?.field === "coord" && highlight.jointId === joint.id
-                    ? highlight.axis
-                    : null
-                }
-              />
-              {isSplit && (
-                <div
-                  id={`joint-details-${individual.id}-${joint.id}`}
-                  className="joint-details"
-                  role="group"
-                  aria-label={`${joint.label} details`}
-                >
-                  {["superior", "inferior"].map((position) => (
-                    <JointRow
-                      key={position}
-                      label={position}
-                      inputLabel={`${joint.label}, ${position}`}
-                      jointId={joint.id}
-                      values={position === "superior" ? individual.coords[joint.id] : individual.coords[joint.id]?.inferior ?? { x: "", y: "", z: "" }}
-                      onChange={(jointId, axis, value) => {
-                        onChange(individual.id, jointId, axis, value, position);
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
+              <div key={joint.id}>
+                <JointRow
+                  number={joint.n}
+                  toggle={{
+                    isOpen: isSplit,
+                    id: `joint-details-${individual.id}-${joint.id}`,
+                    onClick: () => onToggleSplit(individual.id, joint.id),
+                  }}
+                  label={joint.label}
+                  jointId={joint.id}
+                  values={individual.coords[joint.id]}
+                  onChange={(jointId, axis, value) =>
+                    onChange(individual.id, jointId, axis, value)
+                  }
+                  onCommit={onCommit}
+                  highlightAxis={
+                    highlight?.field === "coord" && highlight.jointId === joint.id
+                      ? highlight.axis
+                      : null
+                  }
+                />
+                {isSplit && (
+                  <div
+                    id={`joint-details-${individual.id}-${joint.id}`}
+                    className="joint-details"
+                    role="group"
+                    aria-label={`${joint.label} details`}
+                  >
+                    {["superior", "inferior"].map((position) => (
+                      <JointRow
+                        key={position}
+                        label={position}
+                        inputLabel={`${joint.label}, ${position}`}
+                        jointId={joint.id}
+                        values={position === "superior" ? individual.coords[joint.id] : individual.coords[joint.id]?.inferior ?? { x: "", y: "", z: "" }}
+                        onChange={(jointId, axis, value) => {
+                          onChange(individual.id, jointId, axis, value, position);
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
@@ -450,6 +466,7 @@ export default function Sidebar({
   isOpen,
   highlight,
   notice,
+  solverIssues = {},
 }) {
   const [pendingRemoval, setPendingRemoval] = useState(null);
   const [pendingGroupRemoval, setPendingGroupRemoval] = useState(null);
@@ -484,7 +501,9 @@ export default function Sidebar({
         highlight={
           highlight?.individualId === individual.id ? highlight : null
         }
+        issues={solverIssues[individual.id] ?? []}
       />
+
     );
   }
 
