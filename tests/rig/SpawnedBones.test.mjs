@@ -54,6 +54,38 @@ test("placement with scale off keeps the bone at model size", () => {
   assert.equal(result.scaleFactor, 1);
 });
 
+test("placement flags an implausible factor but still draws it", () => {
+  const scaled = computeBonePlacement(
+    { x: 0, y: 0, z: 0 },
+    { x: 0, y: 2, z: 0 },
+    1,
+  );
+  assert.equal(scaled.scaleFactor, 2);
+  assert.equal(scaled.implausible, true);
+
+  const unscaled = computeBonePlacement(
+    { x: 0, y: 0, z: 0 },
+    { x: 0, y: 2, z: 0 },
+    1,
+    null,
+    false,
+  );
+  assert.equal(unscaled.implausible, false);
+});
+
+test("spawnBone reports an implausible length", async () => {
+  const rig = createSkeletonRig(await loadScene());
+  const restLength =
+    rig.getDiagnostics().spawnedBones.catalog.thigh_l.restLength;
+  const result = rig.spawnBone(
+    "thigh_l",
+    { x: 0, y: 0, z: 0 },
+    { x: 0, y: -restLength * 3, z: 0 },
+  );
+  assert.equal(result.ok, true);
+  assert.equal(result.implausible, true);
+});
+
 test("placement rejects coincident endpoints and bad rest lengths", () => {
   assert.equal(
     computeBonePlacement({ x: 1, y: 1, z: 1 }, { x: 1, y: 1, z: 1 }, 0.4).ok,
@@ -344,7 +376,7 @@ test("a bone spawned with scale off stays at model size when updated", async () 
     "skull",
     { x: 0, y: 0, z: 0 },
     { x: 0, y: -restLength * 8, z: 0 },
-    { scale: false }
+    { scale: false },
   );
   assert.equal(spawned.ok, true);
   assert.equal(spawned.scaleFactor, 1);
@@ -352,7 +384,7 @@ test("a bone spawned with scale off stays at model size when updated", async () 
   const updated = rig.updateSpawnedBone(
     spawned.instanceId,
     { x: 0, y: 0, z: 0 },
-    { x: 0, y: -restLength * 4, z: 0 }
+    { x: 0, y: -restLength * 4, z: 0 },
   );
   assert.equal(updated.ok, true);
   assert.equal(updated.scaleFactor, 1);

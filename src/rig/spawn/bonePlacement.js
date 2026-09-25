@@ -7,6 +7,10 @@ import { REST_DIRECTION } from "../../solver/solveBone.js";
 // clamp: two recorded endpoints are the measurement, and the spawned copy
 // draws them as recorded.
 
+// Advisory only: a spawned bone outside this range is drawn as recorded but
+// flagged, matching the articulated bones' limits in scaling/segmentConfig.js.
+export const PLAUSIBLE_SCALE_RANGE = Object.freeze([0.5, 1.5]);
+
 const EPSILON_SQ = 1e-20;
 
 function isAmount(value) {
@@ -131,6 +135,10 @@ export function computeBonePlacement(
   // landmarks span, so it is placed and aimed at its model size instead.
   const scaleFactor = scale ? requested : 1;
 
+  const [min, max] = PLAUSIBLE_SCALE_RANGE;
+  // Only a bone that is being resized can be resized implausibly.
+  const implausible = scale && (requested < min || requested > max);
+
   return {
     ok: true,
     position: toPlainPoint(superior),
@@ -143,5 +151,6 @@ export function computeBonePlacement(
     measured,
     requested,
     scaleFactor,
+    implausible,
   };
 }
