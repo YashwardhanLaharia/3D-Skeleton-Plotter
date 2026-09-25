@@ -59,23 +59,35 @@ export function historyReducer(state, action) {
       const offset = axes.map((axis) => Number(action.offset[axis] || 0));
       if (!offset.every(Number.isFinite)) return state;
       let changed = false;
+
+      const shiftPoint = (point) =>
+        Object.fromEntries(
+          axes.map((axis, index) => {
+            // An omitted offset leaves this axis untouched, including blanks.
+            if (action.offset[axis] === "" || action.offset[axis] == null) {
+              return [axis, point[axis]];
+            }
+            const value = Number(point[axis] || 0) + offset[index];
+            // Keep decimal additions readable in the coordinate inputs.
+            const formatted = String(Number(value.toPrecision(15)));
+            if (formatted !== point[axis]) changed = true;
+            return [axis, formatted];
+          }),
+        );
+
       const next = mapIndividuals(state.present, (individual) => {
         if (individual.id !== action.individualId) return individual;
         const coords = Object.fromEntries(
-          Object.entries(individual.coords).map(([id, position]) => [
-            id,
-            Object.fromEntries(axes.map((axis, index) => {
-              // An omitted offset leaves this axis untouched, including blanks.
-              if (action.offset[axis] === "" || action.offset[axis] == null) {
-                return [axis, position[axis]];
-              }
-              const value = Number(position[axis] || 0) + offset[index];
-              // Keep decimal additions readable in the coordinate inputs.
-              const formatted = String(Number(value.toPrecision(15)));
-              if (formatted !== position[axis]) changed = true;
-              return [axis, formatted];
-            })),
-          ]),
+          Object.entries(individual.coords).map(([id, position]) => {
+            const shifted = shiftPoint(position);
+            // Keep disarticulation metadata: rebuilding only x/y/z used to drop
+            // split/inferior and turn a displaced bone into a gap-spanning one.
+            if (position.inferior) {
+              shifted.inferior = shiftPoint(position.inferior);
+            }
+            if (position.split) shifted.split = true;
+            return [id, shifted];
+          }),
         );
         if (Object.values(coords).some((position) =>
           axes.some((axis) => !Number.isFinite(Number(position[axis]))))) return individual;
@@ -95,6 +107,9 @@ export function historyReducer(state, action) {
           action.part === "inferior"
             ? {
                 ...previous,
+                // Inferior edits only exist on an expanded row; keep split on so
+                // planBones reads the second point rather than spanning a gap.
+                split: true,
                 inferior: {
                   ...(previous.inferior ?? BLANK_POINT),
                   [action.axis]: action.value,

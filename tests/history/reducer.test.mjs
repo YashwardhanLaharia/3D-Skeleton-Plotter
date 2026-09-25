@@ -80,6 +80,68 @@ test("empty offsets do nothing, while an explicit zero fills only its axis", () 
   assert.deepEqual(result.present.individuals[0].coords.knee_l, { x: "0", y: "", z: "" });
 });
 
+test("offset keeps split and shifts both superior and inferior points", () => {
+  const initial = start([
+    individual("ind-1", {
+      coords: {
+        elbow_l: {
+          x: "0.1",
+          y: "0.1",
+          z: "0.1",
+          split: true,
+          inferior: { x: "1.0", y: "2.0", z: "0.5" },
+        },
+      },
+    }),
+  ]);
+  const result = historyReducer(initial, {
+    type: "offset-coords",
+    individualId: "ind-1",
+    offset: { x: "0.2", y: "", z: "" },
+  });
+  assert.deepEqual(result.present.individuals[0].coords.elbow_l, {
+    x: "0.3",
+    y: "0.1",
+    z: "0.1",
+    split: true,
+    inferior: { x: "1.2", y: "2.0", z: "0.5" },
+  });
+});
+
+test("editing an inferior coordinate marks the joint as split", () => {
+  const result = historyReducer(start(), {
+    type: "set-coord",
+    individualId: "ind-1",
+    jointId: "knee_l",
+    axis: "x",
+    value: "1.5",
+    part: "inferior",
+  });
+  assert.equal(result.present.individuals[0].coords.knee_l.split, true);
+  assert.equal(result.present.individuals[0].coords.knee_l.inferior.x, "1.5");
+});
+
+test("toggle-joint-split expands and collapses a row", () => {
+  let state = historyReducer(start(), {
+    type: "toggle-joint-split",
+    individualId: "ind-1",
+    jointId: "knee_l",
+  });
+  assert.equal(state.present.individuals[0].coords.knee_l.split, true);
+  assert.deepEqual(state.present.individuals[0].coords.knee_l.inferior, {
+    x: "",
+    y: "",
+    z: "",
+  });
+
+  state = historyReducer(state, {
+    type: "toggle-joint-split",
+    individualId: "ind-1",
+    jointId: "knee_l",
+  });
+  assert.equal(state.present.individuals[0].coords.knee_l.split, false);
+});
+
 // --- sessions -------------------------------------------------------------
 
 test("first coordinate edit opens a session and snapshots", () => {

@@ -116,6 +116,7 @@ function IndividualSection({
   isOpen,
   onToggle,
   onChange,
+  onToggleSplit,
   onOffset,
   onCommit,
   onRemove,
@@ -126,7 +127,6 @@ function IndividualSection({
   onSetGroup,
   highlight,
 }) {
-  const [expandedJoints, setExpandedJoints] = useState({});
   const [offset, setOffset] = useState({ x: "", y: "", z: "" });
   const offsetValid = Object.values(offset).every((value) => Number.isFinite(Number(value)));
   // A point counts as recorded only when all three axes are filled. Partial
@@ -242,16 +242,16 @@ function IndividualSection({
               />
             ))}
           </div>
-          {JOINTS.map((joint) => (
+          {JOINTS.map((joint) => {
+            const isSplit = !!individual.coords[joint.id]?.split;
+            return (
             <div key={joint.id}>
               <JointRow
                 number={joint.n}
                 toggle={{
-                  isOpen: !!expandedJoints[joint.id],
+                  isOpen: isSplit,
                   id: `joint-details-${individual.id}-${joint.id}`,
-                  onClick: () => setExpandedJoints((current) => ({
-                    ...current, [joint.id]: !current[joint.id],
-                  })),
+                  onClick: () => onToggleSplit(individual.id, joint.id),
                 }}
                 label={joint.label}
                 jointId={joint.id}
@@ -266,7 +266,7 @@ function IndividualSection({
                     : null
                 }
               />
-              {expandedJoints[joint.id] && (
+              {isSplit && (
                 <div
                   id={`joint-details-${individual.id}-${joint.id}`}
                   className="joint-details"
@@ -288,7 +288,8 @@ function IndividualSection({
                 </div>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </section>
@@ -430,6 +431,7 @@ export default function Sidebar({
   groups,
   openId,
   onChange,
+  onToggleSplit,
   onOffset,
   onCommit,
   onUndo,
@@ -470,6 +472,7 @@ export default function Sidebar({
         isOpen={individual.id === openId}
         onToggle={onToggle}
         onChange={onChange}
+        onToggleSplit={onToggleSplit}
         onOffset={onOffset}
         onCommit={onCommit}
         onRemove={() => setPendingRemoval(individual)}
