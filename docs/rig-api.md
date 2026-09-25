@@ -43,7 +43,7 @@ rig.clearSpawnedBones();
 per-digit units; ribs deferred as skinned). Endpoints are scene-space `{x,y,z}`;
 the rig stays space-agnostic, so grave-grid coordinates go through `toSceneSpace`
 first. The spawned group lands on `superior` with its bone axis (+Y) aimed at
-`inferior`. Scale factor is `measured / restLength` clamped to `0.5–1.5` and
-stored per UUID-keyed instance, independent of segment-scale state. Spawning
-hides the matching master meshes until the last instance is despawned. Full
-semantics live in `src/rig/README.md`.
+`inferior`. Scale factor is `measured / restLength`, rendered literally at any
+positive factor and stored per UUID-keyed instance, independent of
+segment-scale state. Spawning hides the matching master meshes until the last
+instance is despawned. Full semantics live in `src/rig/README.md`.

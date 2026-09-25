@@ -40,7 +40,7 @@ function filterToArticulated(segmentScales, articulated) {
 
   return {
     scales,
-    clamped: segmentScales.clamped.filter((entry) =>
+    implausible: segmentScales.implausible.filter((entry) =>
       articulated.has(entry.segmentId),
     ),
     degenerate: segmentScales.degenerate.filter((segmentId) =>

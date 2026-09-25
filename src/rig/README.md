@@ -70,10 +70,11 @@ rig.resetAll(); // Joints and digits only.
 ## Morphology
 
 Scale factors are absolute values relative to the imported model: `1` is the
-rest length, clamped to `0.5`–`1.5`. Every morphology control follows the same
-set / patch / replace / reset convention: `set` writes one value, `patch`
-updates only the entries given, `replace` resets everything first, and resets
-are independent of pose.
+rest length, and any positive factor renders literally — scene scale is 1 unit
+= 1 metre and the model is natively metric, so nothing clamps. Every morphology
+control follows the same set / patch / replace / reset convention: `set` writes
+one value, `patch` updates only the entries given, `replace` resets everything
+first, and resets are independent of pose.
 
 ```js
 rig.setSegmentScale("thigh_l", 0.8);
@@ -180,7 +181,7 @@ Each spawn carries its own scale factor computed from its own endpoints:
 ```
 measured  = distance(superior, inferior)
 requested = measured / restLength
-applied   = clamp(requested, 0.5, 1.5)
+applied   = requested (rendered literally at any positive factor)
 ```
 
 `restLength` is the model's rest length for that bone: the existing segment
@@ -188,10 +189,10 @@ rest length where the catalog names one (so spawned and articulated scaling
 agree), otherwise the distance from the driver to its distal anchor. Bones
 whose catalog entry names their own driver as their distal anchor — skull,
 mandible, scapulae, patellae, sternum — have no axis and no length of their
-own, and fall back to the catalog's proximal-to-distal pair. Limits mirror `scaling/segmentConfig.js`. The factor is applied
+own, and fall back to the catalog's proximal-to-distal pair. The factor is applied
 as a rigid Y-scale on the spawned group, so length changes while
-cross-section is preserved. Results report `measured`, `requested`,
-`scaleFactor`, and `clamped`, and `updateSpawnedBone` recomputes from new
+cross-section is preserved. Results report `measured`, `requested`, and
+`scaleFactor`, and `updateSpawnedBone` recomputes from new
 endpoints. Scale never touches shared `segmentScales` state. Clones are
 restored to rest geometry at spawn, so spawning after a morphology change
 does not inherit the master's deformation on top of the spawn's own factor.
@@ -250,8 +251,6 @@ console.log(RIG_SEGMENT_GROUP_IDS);
 console.log(RIG_BODY_DIMENSION_IDS);
 console.log(RIG_SPAWNABLE_BONE_IDS);
 ```
-
-`getDisplayTransform()` returns the viewport framing transform.
 
 ## Commands
 

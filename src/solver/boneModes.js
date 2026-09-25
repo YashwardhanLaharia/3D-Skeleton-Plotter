@@ -42,8 +42,9 @@ export const FOLLOWER_BONE_IDS = Object.freeze({
 //   skull       1.1 /  9.0   anchored neck-to-skull, not skull height
 //   jaw         2.6 /  7.9   anchored skull-to-mandible, not chin length
 //
-// The last three clamp to 1.5x and render visibly stretched, so they are not
-// placed independently. Delete an id from here once its anchors are fixed.
+// The last two would render ~8x stretched (a 9.0cm skull against a 1.1cm
+// anchor span), so they are not placed independently. Delete an id from here
+// once its anchors are fixed.
 export const UNSCALABLE_SPAWN_IDS = Object.freeze(new Set(["skull", "jaw"]));
 
 // Topology bone id -> spawn catalog id (src/rig/spawn/boneCatalog.js). They

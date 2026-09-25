@@ -51,28 +51,38 @@ test("a missing joint means no scale for that bone", () => {
   assert.deepEqual(result.scales, {});
 });
 
-// The rig clamps 0.5–1.5. A measurement outside that is either a transcription
-// error or a genuinely unusual individual, and the researcher should be told
-// rather than silently given a wrong-length bone.
-test("a scale beyond the rig limits is clamped and reported", () => {
+// No clamping: scene scale is 1 unit = 1 metre, so the measured factor renders
+// literally. A factor outside the advisory range is reported as implausible so
+// the researcher sees a warning rather than a silently wrong skeleton.
+test("an extreme measurement renders literally and is reported implausible", () => {
   const result = computeSegmentScales(
     { acetabulum_l: { x: 0, y: 0, z: 0 }, knee_l: { x: 0, y: 10, z: 0 } },
     DIAGNOSTICS,
   );
 
-  assert.equal(result.scales.thigh_l, 1.5);
-  assert.equal(result.clamped[0].segmentId, "thigh_l");
-  assert.equal(result.clamped[0].requested, 5);
+  assert.equal(result.scales.thigh_l, 5);
+  assert.equal(result.implausible[0].segmentId, "thigh_l");
+  assert.equal(result.implausible[0].requested, 5);
 });
 
-test("clamping applies at the lower bound too", () => {
+test("an unusually small measurement renders literally too", () => {
   const result = computeSegmentScales(
     { acetabulum_l: { x: 0, y: 0, z: 0 }, knee_l: { x: 0, y: 0.2, z: 0 } },
     DIAGNOSTICS,
   );
 
-  assert.equal(result.scales.thigh_l, 0.5);
-  assert.equal(result.clamped.length, 1);
+  assert.equal(result.scales.thigh_l, 0.1);
+  assert.equal(result.implausible.length, 1);
+});
+
+test("an in-range measurement is not flagged", () => {
+  const result = computeSegmentScales(
+    { acetabulum_l: { x: 0, y: 0, z: 0 }, knee_l: { x: 0, y: 2, z: 0 } },
+    DIAGNOSTICS,
+  );
+
+  assert.equal(result.scales.thigh_l, 1);
+  assert.deepEqual(result.implausible, []);
 });
 
 test("two joints recorded at the same point are reported, not divided by zero", () => {

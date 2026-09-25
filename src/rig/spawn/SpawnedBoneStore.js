@@ -17,7 +17,7 @@ export class SpawnedBoneStore {
     this.instances = new Map();
   }
 
-  create({ boneId, superior, inferior, scaleFactor, requested, measured, clamped }, preferredId = null) {
+  create({ boneId, superior, inferior, scaleFactor, requested, measured }, preferredId = null) {
     const instanceId =
       typeof preferredId === "string" && preferredId.trim().length > 0 && !this.instances.has(preferredId)
         ? preferredId
@@ -30,7 +30,6 @@ export class SpawnedBoneStore {
       scaleFactor,
       requested,
       measured,
-      clamped: Boolean(clamped),
       visible: true,
     };
     this.instances.set(instanceId, record);
@@ -42,7 +41,7 @@ export class SpawnedBoneStore {
     return record ? { ...record } : null;
   }
 
-  update(instanceId, { superior, inferior, scaleFactor, requested, measured, clamped }) {
+  update(instanceId, { superior, inferior, scaleFactor, requested, measured }) {
     const record = this.instances.get(instanceId);
     if (!record) return null;
     record.superior = { ...superior };
@@ -50,7 +49,6 @@ export class SpawnedBoneStore {
     record.scaleFactor = scaleFactor;
     record.requested = requested;
     record.measured = measured;
-    record.clamped = Boolean(clamped);
     return { ...record };
   }
 
