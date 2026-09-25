@@ -1,6 +1,6 @@
 // The root component owns individuals, sidebar state, and rig commands.
 
-import { useEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import {
   historyReducer,
   makeInitialHistory,
@@ -103,6 +103,19 @@ export default function App() {
 
   // Transient message for changes such as adding individuals, which are inconvenient to highlight in place
   const [notice, setNotice] = useState(null);
+
+  // Current solver problems per individual id. Replaced on every solve, so an
+  // empty list means that individual has no problems now.
+  const [solverIssues, setSolverIssues] = useState({});
+
+  // Stable identity: every skeleton's solve effect depends on this, and a new
+  // function on each render would re-run every solve on every render.
+  const handleSolverIssues = useCallback((individualId, issues) => {
+    // TEMPORARY: shows each solve reporting in. Deleted in Edit 8.
+    console.log("solver issues", individualId, issues);
+    setSolverIssues((current) => ({ ...current, [individualId]: issues }));
+  }, []);
+
 
   const [openId, setOpenId] = useState("ind-1");
   const [filePath, setFilePath] = useState(null);
