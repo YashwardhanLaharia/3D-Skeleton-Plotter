@@ -339,6 +339,28 @@ test("axial and girdle bones spawn at unit scale from rest endpoints", async () 
   assert.equal(scene.getObjectByName("Pelvis").visible, true);
 });
 
+test("a bone spawned with scale off stays at model size when updated", async () => {
+  const rig = createSkeletonRig(await loadScene());
+  const restLength = rig.getDiagnostics().spawnedBones.catalog.skull.restLength;
+  const spawned = rig.spawnBone(
+    "skull",
+    { x: 0, y: 0, z: 0 },
+    { x: 0, y: -restLength * 8, z: 0 },
+    { scale: false }
+  );
+  assert.equal(spawned.ok, true);
+  assert.equal(spawned.scaleFactor, 1);
+  assert.equal(spawned.clamped, false);
+
+  const updated = rig.updateSpawnedBone(
+    spawned.instanceId,
+    { x: 0, y: 0, z: 0 },
+    { x: 0, y: -restLength * 4, z: 0 }
+  );
+  assert.equal(updated.ok, true);
+  assert.equal(updated.scaleFactor, 1);
+});
+
 test("digits spawn with their full phalanx chains", async () => {
   const scene = await loadScene();
   const rig = createSkeletonRig(scene);

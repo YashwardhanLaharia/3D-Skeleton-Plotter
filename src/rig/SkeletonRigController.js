@@ -248,11 +248,15 @@ export class SkeletonRigController {
       };
     }
 
+    // Off for bones whose rest length does not match what their landmarks
+    // span (see UNSCALABLE_SPAWN_IDS). They are placed and aimed, not resized.
+    const scale = options?.scale !== false;
     const placement = computeBonePlacement(
       this.toModelSpace(superior),
       this.toModelSpace(inferior),
       rest.restLength,
       rest.restOrientation,
+      scale,
     );
 
     if (!placement.ok) {
@@ -292,6 +296,7 @@ export class SkeletonRigController {
         boneId,
         superior,
         inferior,
+        scale,
         scaleFactor: placement.scaleFactor,
         requested: placement.requested,
         measured: placement.measured,
@@ -366,6 +371,7 @@ export class SkeletonRigController {
       this.toModelSpace(inferior),
       rest.restLength,
       rest.restOrientation,
+      record.scale,
     );
 
     if (!placement.ok) {
