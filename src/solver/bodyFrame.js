@@ -168,7 +168,7 @@ const DIMENSION_LIMITS = [0.5, 1.5];
 /**
  * Scale factors for the torso dimensions the rig exposes.
  *
-  * Scene scale is 1 unit = 1 metre: factors render literally whatever the
+ * Scene scale is 1 unit = 1 metre: factors render literally whatever the
  * landmarks imply. DIMENSION_LIMITS is advisory only — an out-of-range factor
  * is reported as implausible so the UI can surface it, never clamped.
  *
@@ -209,7 +209,12 @@ export function computeBodyDimensions(joints = {}, scene) {
     const requested = measured / restLength;
     const [min, max] = DIMENSION_LIMITS;
     if (requested < min || requested > max) {
-      implausible.push({ dimensionId: id, requested });
+      implausible.push({
+        dimensionId: id,
+        requested,
+        measured,
+        expected: restLength,
+      });
     }
     dimensions[id] = requested;
   }

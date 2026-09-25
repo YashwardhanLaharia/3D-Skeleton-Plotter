@@ -49,12 +49,20 @@ function boneNames(boneIds) {
   return boneIds.map(boneName).join(", ");
 }
 
-// "left thigh (1.6× the model), left forearm (0.3× the model)"
-function describeFactors(entries, nameOf) {
-  return entries
-    .map((entry) => `${nameOf(entry)} (${entry.requested.toFixed(1)}× the model)`)
-    .join(", ");
+function centimetres(metres) {
+  return `${(metres * 100).toFixed(1)} cm`;
 }
+
+// "left femur 120.0 cm, expected about 44.2 cm; left tibia ..."
+function describeLengths(entries) {
+  return entries
+    .map(
+      (entry) =>
+        `${entry.name} ${centimetres(entry.measured)}, expected about ${centimetres(entry.expected)}`,
+    )
+    .join("; ");
+}
+
 
 function SkeletonModel({
   id,
@@ -183,7 +191,12 @@ function SkeletonModel({
       if (!placed.ok) {
         unplaced.push({ boneId: bone.id, error: placed.error });
       } else if (placed.implausible) {
-        implausibleSpawns.push({ boneId: bone.id, requested: placed.requested });
+        implausibleSpawns.push({
+          boneId: bone.id,
+          measured: placed.measured,
+          expected: placed.measured / placed.requested,
+        });
+
       }
 
     }
@@ -226,12 +239,35 @@ function SkeletonModel({
       );
     }
 
-    if (segmentScales.implausible.length) {
-      const list = describeFactors(segmentScales.implausible, (entry) =>
-        boneName(entry.segmentId),
+    // Unusual lengths by bone id, placed and displaced alike. The inspection
+    // panel marks these same rows, so the two agree on what is unusual.
+    const segmentRest = rig.getDiagnostics().segments;
+    const unusualLengths = {};
+    for (const entry of segmentScales.implausible) {
+      const expected = segmentRest[entry.segmentId].restLength;
+      unusualLengths[entry.segmentId] = {
+        measured: entry.requested * expected,
+        expected,
+      };
+    }
+    for (const entry of implausibleSpawns) {
+      unusualLengths[entry.boneId] = {
+        measured: entry.measured,
+        expected: entry.expected,
+      };
+    }
+
+    const unusualIds = Object.keys(unusualLengths);
+    if (unusualIds.length) {
+      const list = describeLengths(
+        unusualIds.map((boneId) => ({
+          name: boneName(boneId),
+          ...unusualLengths[boneId],
+        })),
       );
       issues.push(`Unusual lengths, drawn as recorded: ${list}.`);
     }
+
 
     if (segmentScales.degenerate.length) {
       issues.push(
@@ -246,18 +282,18 @@ function SkeletonModel({
     }
 
     if (bodyDimensions.implausible.length) {
-      const list = describeFactors(bodyDimensions.implausible, (entry) =>
-        (BODY_DIMENSIONS[entry.dimensionId]?.label ?? entry.dimensionId).toLowerCase(),
+      const list = describeLengths(
+        bodyDimensions.implausible.map((entry) => ({
+          name: (
+            BODY_DIMENSIONS[entry.dimensionId]?.label ?? entry.dimensionId
+          ).toLowerCase(),
+          measured: entry.measured,
+          expected: entry.expected,
+        })),
       );
       issues.push(`Unusual body proportions, drawn as recorded: ${list}.`);
     }
 
-    if (implausibleSpawns.length) {
-      const list = describeFactors(implausibleSpawns, (entry) =>
-        boneName(entry.boneId),
-      );
-      issues.push(`Unusual lengths on displaced bones, drawn as recorded: ${list}.`);
-    }
 
     if (issues.length) {
       console.warn("solve issues", id, {
