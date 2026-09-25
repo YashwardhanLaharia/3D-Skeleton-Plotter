@@ -111,8 +111,6 @@ export default function App() {
   // Stable identity: every skeleton's solve effect depends on this, and a new
   // function on each render would re-run every solve on every render.
   const handleSolverIssues = useCallback((individualId, issues) => {
-    // TEMPORARY: shows each solve reporting in. Deleted in Edit 8.
-    console.log("solver issues", individualId, issues);
     setSolverIssues((current) => ({ ...current, [individualId]: issues }));
   }, []);
 

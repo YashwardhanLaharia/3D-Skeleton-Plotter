@@ -156,6 +156,7 @@ function SkeletonModel({
 
     const origin = graveOrigin(graveDimensions);
     const unplaced = [];
+    const implausibleSpawns = [];
 
     for (const bone of plan) {
       const spawnId = SPAWN_BONE_IDS[bone.id];
@@ -187,7 +188,10 @@ function SkeletonModel({
 
       if (!placed.ok) {
         unplaced.push({ boneId: bone.id, error: placed.error });
+      } else if (placed.implausible) {
+        implausibleSpawns.push({ boneId: bone.id, requested: placed.requested });
       }
+
     }
 
     // Plain-language problems for this individual, shown in the sidebar until
@@ -240,17 +244,27 @@ function SkeletonModel({
         `Both ends recorded at the same position: ${boneNames(segmentScales.degenerate)}.`,
       );
     }
+
     if (hasCoordinates && !rootRotation) {
       issues.push(
         "Body orientation could not be worked out from the hip and shoulder points, so the torso is shown upright.",
       );
     }
+
     if (bodyDimensions.implausible.length) {
       const list = describeFactors(bodyDimensions.implausible, (entry) =>
         (BODY_DIMENSIONS[entry.dimensionId]?.label ?? entry.dimensionId).toLowerCase(),
       );
       issues.push(`Unusual body proportions, drawn as recorded: ${list}.`);
     }
+
+    if (implausibleSpawns.length) {
+      const list = describeFactors(implausibleSpawns, (entry) =>
+        boneName(entry.boneId),
+      );
+      issues.push(`Unusual lengths on displaced bones, drawn as recorded: ${list}.`);
+    }
+
     if (issues.length) {
       console.warn("solve issues", id, {
         unsolved: unexpectedlyUnsolved,
@@ -262,7 +276,9 @@ function SkeletonModel({
         degenerate: segmentScales.degenerate,
         rootRotation,
         bodyDimensions: bodyDimensions.implausible,
+        implausibleSpawns,
       });
+
     }
 
     onSolverIssues?.(id, issues);
