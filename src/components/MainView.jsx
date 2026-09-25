@@ -168,12 +168,6 @@ function SkeletonModel({
         { scale: !UNSCALABLE_SPAWN_IDS.has(spawnId) },
       );
 
-      // TEMPORARY: confirms the skull spawns at unit scale
-      console.log("spawned", spawnId, placed);
-
-
-
-
       if (!placed.ok) {
         unplaced.push({ boneId: bone.id, error: placed.error });
       }
