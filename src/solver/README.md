@@ -284,12 +284,17 @@ Endpoints are scene-space positions. The rig converts them into the model's own
 frame, which matters because the whole-body rotation has already moved that
 frame.
 
-`UNSCALABLE_SPAWN_IDS` holds the bones that cannot be placed independently yet.
-The skull and the jaw name their own driver as their distal anchor in the
-catalog, so they have no axis and no length of their own. A bone in that set is
-hidden and reported instead, because drawing it at the articulated position
-would claim it is where the body is, which is the opposite of what was
-recorded.
+`UNSCALABLE_SPAWN_IDS` holds the bones that cannot be resized when placed
+independently. The skull and the jaw name their own driver as their distal
+anchor in the catalog, so they have no axis and no length of their own; scaling
+them by measured / rest would render them ~8x stretched. A bone in that set is
+spawned with `{ scale: false }` instead: placed and aimed from its two
+landmarks, but kept at the model's own size.
+
+When the skull is displaced (`head_centre` split) and the `chin` row is not,
+`planBones` moves the chin by the skull's offset so the jaw stays under the
+skull rather than aiming back at the body. It follows the skull's position, not
+its rotation.
 
 `FOLLOWER_BONE_IDS` covers model parts with no landmarks that hang off a bone
 that moved — the patellae follow the thighs. A patella left hanging in the air

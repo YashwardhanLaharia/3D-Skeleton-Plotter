@@ -43,8 +43,9 @@ export const FOLLOWER_BONE_IDS = Object.freeze({
 //   jaw         2.6 /  7.9   anchored skull-to-mandible, not chin length
 //
 // The last two would render ~8x stretched (a 9.0cm skull against a 1.1cm
-// anchor span), so they are not placed independently. Delete an id from here
-// once its anchors are fixed.
+// anchor span), so they are spawned with { scale: false }: placed and aimed at
+// their model size, never resized. Delete an id from here once its anchors are
+// fixed.
 export const UNSCALABLE_SPAWN_IDS = Object.freeze(new Set(["skull", "jaw"]));
 
 // Topology bone id -> spawn catalog id (src/rig/spawn/boneCatalog.js). They
@@ -66,6 +67,17 @@ export const SPAWN_BONE_IDS = Object.freeze({
   head: "skull",
   jaw: "jaw",
 });
+
+// How far the skull moved, when the jaw should move with it; otherwise null.
+// The skull's move is head_centre's "bone below" point minus its own point.
+function jawFollowsSkull(bone, coords, points, inferiorPoints) {
+  if (bone.id !== "jaw") return null;
+  if (!coords[bone.proximal]?.split || coords[bone.distal]?.split) return null;
+  const from = points[bone.proximal];
+  const to = inferiorPoints[bone.proximal];
+  if (!from || !to) return null;
+  return { x: to.x - from.x, y: to.y - from.y, z: to.z - from.z };
+}
 
 /**
  * @param {Record<string, {x:string,y:string,z:string,split?:boolean,inferior?:object}>} coords
@@ -94,7 +106,21 @@ export function planBones(coords = {}) {
     const proximal = isSplit(bone.proximal)
       ? inferiorPoints[bone.proximal]
       : points[bone.proximal];
-    const distal = points[bone.distal];
+
+    let distal = points[bone.distal];
+
+    // The chin is a landmark on the jaw, not a joint of its own. When the
+    // skull was moved (head_centre split) but the chin row was not, the chin
+    // still holds its position on the body, and aiming the jaw at it swings the
+    // jaw open towards the body. Carry the chin along by the skull's move.
+    const skullMove = jawFollowsSkull(bone, coords, points, inferiorPoints);
+    if (skullMove && distal) {
+      distal = {
+        x: distal.x + skullMove.x,
+        y: distal.y + skullMove.y,
+        z: distal.z + skullMove.z,
+      };
+    }
 
     const independent =
       Boolean(detached[bone.chain]) ||

@@ -102,7 +102,7 @@ function SkeletonModel({
     if (!check.ok) {
       console.warn(
         "skeleton model is missing objects the solver aims by",
-        check.unresolved, 
+        check.unresolved,
       );
     }
   }, [clonedScene]);
@@ -159,26 +159,14 @@ function SkeletonModel({
         continue;
       }
 
-      // See UNSCALABLE_SPAWN_IDS. Drawing it at the articulated position would
-      // claim the bone is where the body is, which is the opposite of what the
-      // researcher recorded, so it is left out and reported instead.
-      if (UNSCALABLE_SPAWN_IDS.has(spawnId)) {
-        rig.setMasterBoneVisibility(spawnId, false);
-        unplaced.push({
-          boneId: bone.id,
-          error: "this bone cannot be placed on its own yet",
-        });
-        continue;
-      }
-
-
+      // See UNSCALABLE_SPAWN_IDS. These are placed and aimed at their model
+      // size rather than stretched to a rest length that does not fit them.
       const placed = rig.spawnBone(
         spawnId,
         toSceneSpace(bone.proximal, origin, globalScale),
         toSceneSpace(bone.distal, origin, globalScale),
+        { scale: !UNSCALABLE_SPAWN_IDS.has(spawnId) },
       );
-
-
 
       if (!placed.ok) {
         unplaced.push({ boneId: bone.id, error: placed.error });

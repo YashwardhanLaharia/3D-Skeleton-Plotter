@@ -6,7 +6,10 @@
 // supports future commingled cases even though one-per-skeleton is normal now.
 
 function newId() {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
     return crypto.randomUUID();
   }
   return `bone-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e9).toString(36)}`;
@@ -17,14 +20,28 @@ export class SpawnedBoneStore {
     this.instances = new Map();
   }
 
-  create({ boneId, superior, inferior, scaleFactor, requested, measured }, preferredId = null) {
+  create(
+    {
+      boneId,
+      superior,
+      inferior,
+      scale = true,
+      scaleFactor,
+      requested,
+      measured,
+    },
+    preferredId = null,
+  ) {
     const instanceId =
-      typeof preferredId === "string" && preferredId.trim().length > 0 && !this.instances.has(preferredId)
+      typeof preferredId === "string" &&
+      preferredId.trim().length > 0 &&
+      !this.instances.has(preferredId)
         ? preferredId
         : newId();
     const record = {
       instanceId,
       boneId,
+      scale: scale !== false,
       superior: { ...superior },
       inferior: { ...inferior },
       scaleFactor,
@@ -67,7 +84,9 @@ export class SpawnedBoneStore {
   }
 
   clear() {
-    const removed = [...this.instances.values()].map((record) => ({ ...record }));
+    const removed = [...this.instances.values()].map((record) => ({
+      ...record,
+    }));
     this.instances.clear();
     return removed;
   }

@@ -75,3 +75,30 @@ test("without a shoulder split the humerus spans the gap to the displaced elbow"
   assert.equal(humerus.mode, "independent");
   assert.ok(Math.abs(length(humerus) * 100 - 600.7270594870852) < 1e-6);
 });
+
+//Only the skull was moved, the chin row was not.
+const MOVED_SKULL = {
+  head_proximal: { x: "1.900", y: "5.510", z: "0.340" },
+  head_centre: {
+    x: "1.500",
+    y: "5.710",
+    z: "0.390",
+    split: true,
+    inferior: { x: "1.900", y: "5.600", z: "0.340" },
+  },
+  chin: { x: "1.500", y: "5.780", z: "0.350" },
+};
+
+test("the jaw moves with a displaced skull when the chin was not split", () => {
+  const byId = new Map(planBones(MOVED_SKULL).map((bone) => [bone.id, bone]));
+
+  const jaw = byId.get("jaw");
+  assert.equal(jaw.mode, "independent");
+  assert.deepEqual(jaw.proximal, { x: 1.9, y: 5.6, z: 0.34 });
+  // chin + (1.9 - 1.5, 5.6 - 5.71, 0.34 - 0.39)
+  assert.ok(Math.abs(jaw.distal.x - 1.9) < 1e-9);
+  assert.ok(Math.abs(jaw.distal.y - 5.67) < 1e-9);
+  assert.ok(Math.abs(jaw.distal.z - 0.3) < 1e-9);
+  // The mandible's own span, not the 44cm gap back to the body.
+  assert.ok(Math.abs(length(jaw) - Math.hypot(0.07, 0.04)) < 1e-9);
+});
