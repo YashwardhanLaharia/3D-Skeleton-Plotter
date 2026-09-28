@@ -145,6 +145,18 @@
   font-size: 0.78rem;
 }
 
+[data-bs-theme="dark"] .sidebar .joint-label,
+[data-bs-theme="dark"] .sidebar .joint-expand,
+[data-bs-theme="dark"] .sidebar .sidebar-group-title,
+[data-bs-theme="dark"] .sidebar-header h2 {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+[data-bs-theme="dark"] .sidebar .joint-num,
+[data-bs-theme="dark"] .sidebar .individual-header small {
+  color: rgba(255, 255, 255, 0.68) !important;
+}
+
 .offset-add {
   flex-shrink: 0;
   background-color: var(--bs-secondary-bg);

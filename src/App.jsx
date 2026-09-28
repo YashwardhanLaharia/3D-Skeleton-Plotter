@@ -1103,7 +1103,7 @@ export default function App() {
 
         <button
           type="button"
-          className={`btn btn-light sidebar-edge-toggle border ${isSidebarOpen ? "" : "sidebar-edge-toggle-collapsed"}`}
+          className={`btn ${theme === "dark" ? "btn-dark" : "btn-light"} sidebar-edge-toggle border ${isSidebarOpen ? "" : "sidebar-edge-toggle-collapsed"}`}
           aria-label={`${isSidebarOpen ? "Hide" : "Show"} sidebar`}
           aria-controls="individuals-sidebar"
           aria-expanded={isSidebarOpen}
