@@ -36,6 +36,7 @@ import {
 import { csvToProject, importCsv, rowsToIndividuals } from "./csvImport";
 import { createCsv, exportCsv } from "./csvExport";
 import { DEFAULT_VERTICAL } from "./sceneSpace";
+import { applyTheme, readTheme } from "./theme";
 import "./app.css";
 
 const PALETTE = [
@@ -76,6 +77,7 @@ export default function App() {
   const [overlayFrame, setOverlayFrame] = useState(null);
   const [showOverlaySettings, setShowOverlaySettings] = useState(false);
   const [graveSurvey, setGraveSurvey] = useState(null);
+  const [theme, setTheme] = useState(readTheme);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showStartup, setShowStartup] = useState(true);
   const [isGraveDimensionsModalOpen, setIsGraveDimensionsModalOpen] =
@@ -249,6 +251,10 @@ export default function App() {
   useEffect(() => {
     refreshRecentProjects();
   }, []);
+
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
 
   function handleChange(individualId, jointId, axis, rawValue, part = "point") {
     dispatch({
@@ -1132,6 +1138,7 @@ export default function App() {
             onOverlayError={setNotice}
             onSelect={openAndSelect}
             onClearSelection={() => setSelectedId(null)}
+            theme={theme}
           />
           <FocusBar
             individual={focusedIndividual}
@@ -1228,6 +1235,10 @@ export default function App() {
               onShowAll={handleShowAll}
               focusedId={focusedId}
               onFocus={handleFocus}
+              theme={theme}
+              onToggleTheme={() =>
+                setTheme((current) => (current === "dark" ? "light" : "dark"))
+              }
             />
           </div>
         </div>

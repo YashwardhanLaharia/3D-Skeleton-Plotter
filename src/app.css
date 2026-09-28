@@ -37,6 +37,10 @@
   min-height: 0;
 }
 
+.viewport-wrap {
+  --viewport-control-height: 1.75rem;
+}
+
 .sidebar {
   --sidebar-control-height: 1.65rem;
   width: var(--sidebar-width);
@@ -143,7 +147,7 @@
 
 .offset-add {
   flex-shrink: 0;
-  background-color: #e9ecef;
+  background-color: var(--bs-secondary-bg);
   font-size: 0.78rem;
   white-space: nowrap;
 }
@@ -666,9 +670,36 @@
   overflow-y: auto;
 }
 
+.viewport-theme-toggle {
+  position: absolute;
+  top: 0.75rem;
+  right: 14.15rem;
+  z-index: 5;
+  display: inline-flex;
+  width: 1.75rem;
+  height: var(--viewport-control-height);
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: var(--bs-body-color);
+  font-family: var(--bs-body-font-family);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.viewport-theme-toggle:hover {
+  background: var(--bs-secondary-bg) !important;
+}
+
+.viewport-theme-toggle:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 2px;
+}
+
 .layers-header {
   position: sticky;
   top: 0;
+  height: var(--viewport-control-height);
   background: var(--bs-body-bg);
 }
 
@@ -1012,7 +1043,7 @@
   }
 }
 .new-project-modal-backdrop {
-  background-color: #e9ecef !important;
+  background-color: var(--bs-secondary-bg) !important;
 }
 
 .new-project-modal-backdrop.show {
