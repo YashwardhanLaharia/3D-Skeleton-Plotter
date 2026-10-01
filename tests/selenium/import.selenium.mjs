@@ -51,6 +51,7 @@ async function openImportApp(t) {
       } }));
     });
   }
+  await driver.wait(until.elementLocated(By.id("startup-create")), WAIT).click();
   await driver.wait(until.elementLocated(By.id("confirm-grave-dimensions")), WAIT).click();
   const directory = await mkdtemp(path.join(os.tmpdir(), "skeleton-import-"));
   t.after(() => rm(directory, { recursive: true, force: true }));

@@ -23,7 +23,8 @@ import MainView from "./components/MainView";
 import LayersPanel from "./components/LayersPanel";
 import FocusBar from "./components/FocusBar";
 import InspectionPanel from "./components/InspectionPanel";
-import NewProjectModal from "./components/NewProjectModal";
+import StartupScreen from "./components/StartupScreen";
+import GraveDimensionsModal from "./components/GraveDimensionsModal";
 import { csvToProject, importCsv, rowsToIndividuals } from "./csvImport";
 import { createCsv, exportCsv } from "./csvExport";
 import "./app.css";
@@ -56,8 +57,11 @@ function makeBlankCoords() {
 
 export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(true);
+  const [showStartup, setShowStartup] = useState(true);
+  const [isGraveDimensionsModalOpen, setIsGraveDimensionsModalOpen] =
+    useState(false);
   const [graveDimensions, setGraveDimensions] = useState([1, 1, 1]);
+  const [recentProjects, setRecentProjects] = useState([]);
   // The data model is now an array of individuals, not one coordinate object.
   // Each carries its own label, colour, and full coordinate set.
   const [history, dispatch] = useReducer(historyReducer, undefined, () =>
@@ -128,9 +132,77 @@ export default function App() {
   const nextId = useRef(2);
   const nextGroupId = useRef(1);
 
+  async function refreshRecentProjects() {
+    if (!window.electronAPI?.getRecentProjects) return;
+    try {
+      const recent = await window.electronAPI.getRecentProjects();
+      setRecentProjects(Array.isArray(recent) ? recent : []);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async function rememberRecent(projectPath, skeletonCount) {
+    if (!window.electronAPI?.rememberRecentProject || !projectPath) return;
+    try {
+      const result = await window.electronAPI.rememberRecentProject({
+        path: projectPath,
+        name: projectPath.split(/[\\/]/).pop(),
+        skeletonCount,
+      });
+      if (result?.ok && Array.isArray(result.recent)) {
+        setRecentProjects(result.recent);
+      } else {
+        await refreshRecentProjects();
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  function applyLoadedProject(loaded, projectPath) {
+    setJointDetails({});
+    dispatch({
+      type: "load",
+      individuals: loaded.individuals,
+      groups: loaded.groups,
+    });
+
+    // Before the grave itself, or the coordinates in it mean something else.
+    setGraveDimensions(loaded.graveDimensions);
+
+    const numbers = loaded.individuals
+      .map((individual) => Number(individual.id.replace("ind-", "")))
+      .filter((value) => Number.isFinite(value));
+    nextId.current = numbers.length ? Math.max(...numbers) + 1 : 1;
+
+    const groupNumbers = loaded.groups
+      .map((group) => Number(group.id.replace("grp-", "")))
+      .filter((value) => Number.isFinite(value));
+    nextGroupId.current = groupNumbers.length
+      ? Math.max(...groupNumbers) + 1
+      : 1;
+
+    const firstId = loaded.individuals[0]?.id ?? null;
+    setOpenId(firstId);
+    setSelectedId(firstId);
+    setFilePath(projectPath);
+    setIsDirty(false);
+    setHidden([]);
+    setFocusedId(null);
+    setShowStartup(false);
+    setIsGraveDimensionsModalOpen(false);
+    setNotice("Project opened successfully.");
+    rememberRecent(projectPath, loaded.individuals.length);
+  }
+
   useEffect(() => {
     const unsubscribe = window.electronAPI?.onRigCommand(setRigCommand);
     return () => unsubscribe?.();
+  }, []);
+
+  useEffect(() => {
+    refreshRecentProjects();
   }, []);
 
   function handleChange(individualId, jointId, axis, rawValue, part = "point") {
@@ -339,7 +411,36 @@ export default function App() {
   }
 
   function handleChangeGraveDimensions() {
-    setIsNewProjectModalOpen(true);
+    setIsGraveDimensionsModalOpen(true);
+  }
+
+  function handleCreateFromStartup() {
+    setShowStartup(false);
+    setIsDirty(true);
+  }
+
+  async function handleHome() {
+    if (isDirty) {
+      const choice = await window.electronAPI.confirmDiscard("new");
+      if (choice === "cancel") return;
+      if (choice === "save") {
+        const saved = await handleSave(false);
+        if (!saved) return;
+      }
+    }
+
+    setGraveDimensions([1, 1, 1]);
+    setFilePath(null);
+    setIsDirty(false);
+    setHidden([]);
+    setFocusedId(null);
+    setOpenId(null);
+    setSelectedId(null);
+    setJointDetails({});
+    dispatch({ type: "new", individuals: STARTING_STATE, groups: [] });
+    nextGroupId.current = 1;
+    nextId.current = 2;
+    setShowStartup(true);
   }
 
   async function handleImport() {
@@ -419,15 +520,19 @@ export default function App() {
     setJointDetails({});
     dispatch({ type: "new", individuals: STARTING_STATE, groups: [] });
     nextGroupId.current = 1;
+    nextId.current = 2;
 
-    setIsNewProjectModalOpen(true);
+    setShowStartup(false);
+    setIsGraveDimensionsModalOpen(true);
     setFilePath(null);
     openAndSelect(STARTING_STATE[0].id);
+    setHidden([]);
+    setFocusedId(null);
     setIsDirty(true);
   }
 
   async function handleOpen() {
-    if (isDirty) {
+    if (isDirty && !showStartup) {
       const choice = await window.electronAPI.confirmDiscard("open");
       if (choice === "cancel") return;
       if (choice === "save") {
@@ -455,39 +560,39 @@ export default function App() {
       return;
     }
 
-    setJointDetails({});
-    dispatch({
-      type: "load",
-      individuals: loaded.individuals,
-      groups: loaded.groups,
-    });
+    applyLoadedProject(loaded, result.path);
+  }
 
-    // Before the grave itself, or the coordinates in it mean something else.
-    setGraveDimensions(loaded.graveDimensions);
+  async function handleOpenRecent(projectPath) {
+    if (isDirty && !showStartup) {
+      const choice = await window.electronAPI.confirmDiscard("open");
+      if (choice === "cancel") return;
+      if (choice === "save") {
+        const saved = await handleSave(false);
+        if (!saved) return;
+      }
+    }
 
-    const numbers = loaded.individuals
-      .map((individual) => Number(individual.id.replace("ind-", "")))
-      .filter((value) => Number.isFinite(value));
-    nextId.current = numbers.length ? Math.max(...numbers) + 1 : 1;
+    const result = await window.electronAPI.openProjectPath(projectPath);
 
-    const groupNumbers = loaded.groups
-      .map((group) => Number(group.id.replace("grp-", "")))
-      .filter((value) => Number.isFinite(value));
-    nextGroupId.current = groupNumbers.length
-      ? Math.max(...groupNumbers) + 1
-      : 1;
+    if (!result.ok) {
+      console.error(result.error);
+      setNotice(result.error || "Could not open the project file.");
+      await refreshRecentProjects();
+      return;
+    }
 
-    setOpenId(loaded.individuals[0]?.id ?? null);
-    setSelectedId(loaded.individuals[0]?.id ?? null);
+    const loaded = csvToProject(result.text);
+    if (!loaded.ok) {
+      console.error(loaded.error);
+      setNotice(
+        loaded.error ||
+          "This project file is invalid or uses an unsupported format.",
+      );
+      return;
+    }
 
-    setFilePath(result.path);
-
-    setIsDirty(false);
-
-    setHidden([]);
-
-    setFocusedId(null);
-    setNotice("Project opened successfully.");
+    applyLoadedProject(loaded, result.path);
   }
 
   async function handleSave(forcePrompt) {
@@ -507,6 +612,7 @@ export default function App() {
     setFilePath(result.path);
     setIsDirty(false);
     setNotice("Project saved successfully.");
+    await rememberRecent(result.path, individuals.length);
     return true;
   }
 
@@ -549,8 +655,10 @@ export default function App() {
   // it was on first render, so saving would write an empty project forever.
   const actionsRef = useRef(null);
   actionsRef.current = {
+    handleHome,
     handleNew,
     handleOpen,
+    handleOpenRecent,
     handleSave,
     handleRequestClose,
     handleExportScreenshot,
@@ -565,6 +673,7 @@ export default function App() {
 
   useEffect(() => {
     const unsubscribe = window.electronAPI?.onMenuAction((action) => {
+      if (action === "menu-home") actionsRef.current.handleHome();
       if (action === "menu-new") actionsRef.current.handleNew();
       if (action === "menu-open") actionsRef.current.handleOpen();
       if (action === "menu-save") actionsRef.current.handleSave(false);
@@ -647,9 +756,18 @@ export default function App() {
 
   return (
     <div className="app-shell d-flex flex-column vh-100 overflow-hidden">
-      <NewProjectModal
-        show={isNewProjectModalOpen}
-        onHide={() => setIsNewProjectModalOpen(false)}
+      <StartupScreen
+        show={showStartup}
+        recentProjects={recentProjects}
+        graveDimensions={graveDimensions}
+        setGraveDimensions={setGraveDimensions}
+        onCreateConfirm={handleCreateFromStartup}
+        onOpen={handleOpen}
+        onOpenRecent={handleOpenRecent}
+      />
+      <GraveDimensionsModal
+        show={isGraveDimensionsModalOpen}
+        onHide={() => setIsGraveDimensionsModalOpen(false)}
         graveDimensions={graveDimensions}
         setGraveDimensions={setGraveDimensions}
       />
