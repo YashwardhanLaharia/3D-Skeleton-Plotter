@@ -148,6 +148,85 @@ ipcMain.handle("new-project", async () => {
   return { ok: true, path: null, data: null };
 });
 
+const RECENT_PROJECTS_LIMIT = 8;
+
+function recentProjectsPath() {
+  return path.join(app.getPath("userData"), "recent-projects.json");
+}
+
+async function readRecentProjects() {
+  try {
+    const raw = await fs.readFile(recentProjectsPath(), "utf-8");
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+async function writeRecentProjects(entries) {
+  await fs.mkdir(path.dirname(recentProjectsPath()), { recursive: true });
+  await fs.writeFile(
+    recentProjectsPath(),
+    JSON.stringify(entries, null, 2),
+    "utf-8",
+  );
+}
+
+async function fileExists(filePath) {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+ipcMain.handle("get-recent-projects", async () => {
+  const entries = await readRecentProjects();
+  const existing = [];
+
+  for (const entry of entries) {
+    if (!entry?.path || typeof entry.path !== "string") continue;
+    if (!(await fileExists(entry.path))) continue;
+    existing.push({
+      path: entry.path,
+      name: entry.name || path.basename(entry.path),
+      openedAt: entry.openedAt || 0,
+      skeletonCount:
+        typeof entry.skeletonCount === "number" ? entry.skeletonCount : null,
+    });
+  }
+
+  if (existing.length !== entries.length) {
+    await writeRecentProjects(existing);
+  }
+
+  return existing
+    .sort((a, b) => (b.openedAt || 0) - (a.openedAt || 0))
+    .slice(0, RECENT_PROJECTS_LIMIT);
+});
+
+ipcMain.handle("remember-recent-project", async (_event, project) => {
+  if (!project?.path || typeof project.path !== "string") {
+    return { ok: false, error: "Missing project path." };
+  }
+
+  const entries = await readRecentProjects();
+  const next = {
+    path: project.path,
+    name: project.name || path.basename(project.path),
+    openedAt: Date.now(),
+    skeletonCount:
+      typeof project.skeletonCount === "number" ? project.skeletonCount : null,
+  };
+
+  const withoutCurrent = entries.filter((entry) => entry.path !== next.path);
+  const updated = [next, ...withoutCurrent].slice(0, RECENT_PROJECTS_LIMIT);
+  await writeRecentProjects(updated);
+  return { ok: true, recent: updated };
+});
+
 ipcMain.handle("open-project", async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: "Open project",
@@ -160,6 +239,19 @@ ipcMain.handle("open-project", async () => {
   }
 
   const filePath = result.filePaths[0];
+
+  try {
+    const text = await fs.readFile(filePath, "utf-8");
+    return { ok: true, path: filePath, text };
+  } catch (error) {
+    return { ok: false, error: `Could not read this file: ${error.message}` };
+  }
+});
+
+ipcMain.handle("open-project-path", async (_event, filePath) => {
+  if (!filePath || typeof filePath !== "string") {
+    return { ok: false, error: "Missing project path." };
+  }
 
   try {
     const text = await fs.readFile(filePath, "utf-8");
@@ -248,6 +340,12 @@ const menuTemplate = [
   {
     label: "File",
     submenu: [
+      {
+        label: "Home",
+        accelerator: "CmdOrCtrl+H",
+        click: () => sendToRenderer("menu-home"),
+      },
+      { type: "separator" },
       {
         label: "New…",
         accelerator: "CmdOrCtrl+N",
