@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { OrthographicCamera, Vector3 } from "three";
 import {
   CAMERA_PRESETS,
   ZOOM_MAX,
@@ -260,5 +261,101 @@ test("screen right, up and view direction stay orthogonal", () => {
     close(dot(right, preset.up), 0, `${preset.id} right . up`);
     close(dot(right, preset.offset), 0, `${preset.id} right . offset`);
     close(magnitude(right), 1, `${preset.id} right length`);
+  }
+});
+
+// Everything above reasons about axes on paper. These go through Three.js's
+// actual projection, so a preset whose camera up vector is set wrongly — which
+// is what would silently turn a plan view into a plan view rotated 90 degrees —
+// fails here rather than in the hands of a researcher measuring a burial.
+
+/** The camera a preset would leave on screen, laid out the way R3F lays it out. */
+function projectedCamera(view, viewport, grave) {
+  const preset = CAMERA_PRESETS[view];
+  const pose = presetPose({ view, grave, viewport });
+  const camera = new OrthographicCamera(
+    -viewport.width / 2,
+    viewport.width / 2,
+    viewport.height / 2,
+    -viewport.height / 2,
+    0.1,
+    1000,
+  );
+
+  camera.position.set(pose.position.x, pose.position.y, pose.position.z);
+  camera.up.set(preset.up.x, preset.up.y, preset.up.z);
+  camera.zoom = pose.zoom;
+  camera.lookAt(new Vector3(pose.target.x, pose.target.y, pose.target.z));
+  camera.updateMatrixWorld();
+  camera.updateProjectionMatrix();
+
+  return camera;
+}
+
+/** Where a scene-space point lands on screen. */
+function screenOf(camera, point) {
+  const projected = new Vector3(point.x, point.y, point.z).project(camera);
+
+  return { x: projected.x, y: projected.y };
+}
+
+test("the plan view puts site x to the right and site y up the screen", () => {
+  const camera = projectedCamera("plan", VIEWPORT, graveBox([2, 4, 1]));
+
+  // Recorded site x maps to scene x, and site y maps to scene -z.
+  const leftWall = screenOf(camera, { x: -1, y: 0, z: 0 });
+  const rightWall = screenOf(camera, { x: 1, y: 0, z: 0 });
+  const nearEnd = screenOf(camera, { x: 0, y: 0, z: 2 });
+  const farEnd = screenOf(camera, { x: 0, y: 0, z: -2 });
+
+  assert.ok(rightWall.x > leftWall.x, "site x should increase to the right");
+  assert.ok(farEnd.y > nearEnd.y, "site y should increase up the screen");
+});
+
+test("the lateral views are upright with the grave's length across the screen", () => {
+  const grave = graveBox([2, 4, 1]);
+
+  for (const view of ["left", "right"]) {
+    const camera = projectedCamera(view, VIEWPORT, grave);
+    const floor = screenOf(camera, { x: 0, y: -1, z: 0 });
+    const rim = screenOf(camera, { x: 0, y: 0, z: 0 });
+    const oneEnd = screenOf(camera, { x: 0, y: 0, z: 2 });
+    const otherEnd = screenOf(camera, { x: 0, y: 0, z: -2 });
+
+    assert.ok(rim.y > floor.y, `${view}: depth should read upwards`);
+    // The two lateral views are mirrored, so which end is left is what tells
+    // them apart. Neither may end up on its side.
+    assert.notEqual(oneEnd.x, otherEnd.x, `${view}: the length must span horizontally`);
+    assert.ok(Math.abs(oneEnd.x) < 1 && Math.abs(otherEnd.x) < 1);
+  }
+
+  const left = projectedCamera("left", VIEWPORT, grave);
+  const right = projectedCamera("right", VIEWPORT, grave);
+  const near = { x: 0, y: 0, z: 2 };
+
+  assert.ok(
+    screenOf(left, near).x > screenOf(right, near).x,
+    "the two lateral views should show the same end on opposite sides",
+  );
+});
+
+test("a preset frames the whole grave without cropping it", () => {
+  const grave = graveBox([2, 4, 1.5]);
+
+  for (const view of Object.keys(CAMERA_PRESETS)) {
+    const camera = projectedCamera(view, VIEWPORT, grave);
+
+    for (const x of [grave.min.x, grave.max.x]) {
+      for (const y of [grave.min.y, grave.max.y]) {
+        for (const z of [grave.min.z, grave.max.z]) {
+          const onScreen = screenOf(camera, { x, y, z });
+
+          assert.ok(
+            Math.abs(onScreen.x) <= 1 && Math.abs(onScreen.y) <= 1,
+            `${view} cropped the grave at ${JSON.stringify({ x, y, z })}`,
+          );
+        }
+      }
+    }
   }
 });
