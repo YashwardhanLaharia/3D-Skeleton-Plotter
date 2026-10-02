@@ -602,7 +602,11 @@ function CameraPose({
 // view are still measuring that same plan, and a stray click on the viewport is
 // not navigation at all, so neither should discard a view someone has just set
 // up for a measurement.
-function useClearPresetOnGesture(view, controlsRef, onUserNavigate) {
+//
+// This is a component rather than a hook called by MainView because it needs
+// useThree, and useThree only works inside the Canvas — MainView renders the
+// Canvas rather than sitting inside it.
+function UserNavigation({ view, controlsRef, onUserNavigate }) {
   const { camera, gl } = useThree();
   const latest = useRef(onUserNavigate);
   const latestView = useRef(view);
@@ -646,6 +650,8 @@ function useClearPresetOnGesture(view, controlsRef, onUserNavigate) {
       canvas.removeEventListener("pointercancel", handleUp);
     };
   }, [camera, controlsRef, gl]);
+
+  return null;
 }
 
 // Ground reference under the focused specimen.
@@ -687,8 +693,6 @@ const MainView = forwardRef(function MainView(
   ref,
 ) {
   const controlsRef = useRef(null);
-
-  useClearPresetOnGesture(view, controlsRef, onUserNavigate);
 
   return (
     <main className="viewport flex-grow-1 bg-body-secondary">
@@ -747,6 +751,11 @@ const MainView = forwardRef(function MainView(
           controlsRef={controlsRef}
         />
         <CameraGizmo controlsRef={controlsRef} />
+        <UserNavigation
+          view={view}
+          controlsRef={controlsRef}
+          onUserNavigate={onUserNavigate}
+        />
         <ViewportExport ref={ref} controlsRef={controlsRef} />
       </Canvas>
     </main>
