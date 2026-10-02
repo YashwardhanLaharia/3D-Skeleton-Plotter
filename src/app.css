@@ -725,6 +725,53 @@
     transition: none;
   }
 }
+/* Preset view buttons, sitting under the navigation gizmo in the bottom-right
+   corner of the viewport. Bottom-right because that is the one corner neither
+   the layers panel nor the sidebar toggle reaches. */
+.view-controls {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 8.75rem;
+  z-index: 5;
+  display: flex;
+  gap: 0.15rem;
+  padding: 0.2rem;
+  user-select: none;
+}
+
+.view-preset-btn {
+  padding: 0.1rem 0.45rem;
+  border: 0;
+  border-radius: var(--bs-border-radius-sm);
+  background: transparent;
+  color: var(--bs-secondary-color);
+  font-size: 0.7rem;
+  line-height: 1.4;
+}
+
+.view-preset-btn:hover {
+  background: var(--bs-secondary-bg);
+  color: var(--bs-body-color);
+}
+
+.view-preset-btn:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: -2px;
+}
+
+.view-preset-btn-active {
+  background: var(--bs-primary-bg-subtle);
+  color: var(--bs-emphasis-color);
+  font-weight: 600;
+}
+
+/* The gizmo and the view buttons need the bottom-right corner kept clear, so the
+   panels above stop short of it rather than sliding underneath. */
+.layers-panel,
+.inspection-panel {
+  max-height: calc(100% - 13.5rem);
+}
+
 .new-project-modal-backdrop {
   background-color: #e9ecef !important;
 }

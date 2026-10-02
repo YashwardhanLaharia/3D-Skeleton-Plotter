@@ -24,6 +24,8 @@ import LayersPanel from "./components/LayersPanel";
 import FocusBar from "./components/FocusBar";
 import InspectionPanel from "./components/InspectionPanel";
 import NewProjectModal from "./components/NewProjectModal";
+import ViewControls from "./components/ViewControls";
+import { presetForKey } from "./cameraViews.js";
 import { csvToProject, importCsv, rowsToIndividuals } from "./csvImport";
 import { createCsv, exportCsv } from "./csvExport";
 import "./app.css";
@@ -52,6 +54,22 @@ function makeBlankCoords() {
   return Object.fromEntries(
     JOINTS.map((joint) => [joint.id, { x: "", y: "", z: "" }]),
   );
+}
+
+/**
+ * Whether a keystroke is destined for a field rather than the application.
+ *
+ * The view shortcuts are bare number keys, which is also what every coordinate
+ * is made of, so the distinction has to be made here rather than by choosing
+ * more awkward shortcuts.
+ */
+function isTypingTarget(target) {
+  if (!target) return false;
+  if (target.isContentEditable) return true;
+
+  const tag = target.tagName;
+
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
 }
 
 export default function App() {
@@ -100,6 +118,10 @@ export default function App() {
   // not undoable, not saved. Separate from `hidden` on purpose so the two
   // mechanisms can be compared before deciding whether they merge.
   const [focusedId, setFocusedId] = useState(null);
+
+  // The chosen preset view, or null for free orbit. View state, like `hidden` —
+  // not undoable, not saved.
+  const [view, setView] = useState(null);
 
   // Transient message for changes such as adding individuals, which are inconvenient to highlight in place
   const [notice, setNotice] = useState(null);
@@ -254,6 +276,12 @@ export default function App() {
 
   function handleExitFocus() {
     setFocusedId(null);
+  }
+
+  // Escape leaves whichever viewing mode is on top: focus first, then the preset.
+  function handleEscape() {
+    if (focusedId) setFocusedId(null);
+    else setView(null);
   }
 
   // Reveal the effect: expand the affected individual and flash the field, so
@@ -526,6 +554,7 @@ export default function App() {
     handleExportGLB,
     handleUndo,
     handleRedo,
+    handleEscape,
     handleChangeGraveDimensions,
     handleImport,
     handleExportCsv,
@@ -580,11 +609,22 @@ export default function App() {
   useEffect(() => {
     function onKeyDown(event) {
       if (event.key === "Escape") {
-        setFocusedId(null);
+        actionsRef.current.handleEscape();
         return;
       }
 
-      if (!event.ctrlKey && !event.metaKey) return;
+      if (!event.ctrlKey && !event.metaKey) {
+        // View shortcuts are single keys, so they have to keep out of the way of
+        // someone typing a coordinate. Without this, entering 12.5 into a joint
+        // would switch to the plan view three times.
+        if (isTypingTarget(event.target)) return;
+
+        const preset = presetForKey(event.key);
+
+        if (preset !== undefined) setView(preset);
+
+        return;
+      }
 
       const key = event.key.toLowerCase();
 
@@ -669,8 +709,10 @@ export default function App() {
             command={rigCommand}
             hidden={hidden}
             focusedId={focusedId}
+            view={view}
             graveDimensions={graveDimensions}
             targetId={openId ?? individuals[0]?.id}
+            onUserNavigate={() => setView(null)}
             onSolverIssue={setNotice}
           />
           <FocusBar individual={focusedIndividual} onExit={handleExitFocus} />
@@ -690,6 +732,8 @@ export default function App() {
               onFocus={handleFocus}
             />
           )}
+
+          <ViewControls view={view} onChange={setView} />
         </div>
       </div>
     </div>
