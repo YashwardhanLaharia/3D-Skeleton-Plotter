@@ -172,6 +172,43 @@ spawning.
 See the "Spawned Bones" section of `src/rig/README.md` for placement, scaling,
 instance, and master-mesh behaviour.
 
+## Camera and Views
+
+The viewport camera is orthographic, because these views are measured rather
+than looked at.
+
+Fixed viewing directions live in `src/cameraViews.js` as `CAMERA_PRESETS`. Each
+preset is only an offset from the target to the camera plus the direction that
+counts as screen-up; the screen-right axis, and how much of the scene has to fit
+on screen, are both derived from those two. Presets are described in scene
+space, so they follow the same axis convention as everything else in the
+renderer.
+
+A preset frames the union of the grave and the individuals currently visible,
+rather than the grave alone. A bone recorded outside the grave outline is still
+something the researcher recorded, and cropping it would quietly remove a
+measurement from the view.
+
+The camera itself is moved by a single component in `MainView`, `CameraPose`.
+Focus view and the presets used to move the camera from separate components,
+which meant two tweens could race whenever both were active. One owner now picks
+a destination from whatever was last asked for:
+
+- focus decides **what** is framed
+- a preset decides **which way** it is looked at
+- neither leaves the camera where the user put it
+
+`Escape` and the pointer both feed back into `App`: a preset describes a viewing
+direction, so it survives panning and zooming within that view and is dropped
+once the camera is pointed somewhere else.
+
+The navigation gizmo is a separate scene rendered as a second, scissored pass
+over one corner of the viewport. Keeping it out of the main scene means it
+cannot be mistaken for part of a grave, and because screenshots and GLB exports
+render the main scene only, it stays out of those for free. Its maths lives in
+`src/cameraNavigation.js` so the orbit, pan and zoom behaviour is covered by
+ordinary unit tests.
+
 ## Error Reporting
 
 Solver functions return diagnostic information rather than stopping the entire
@@ -196,4 +233,5 @@ surface readable messages to the researcher.
 - `docs/rig-api.md` — public rig API overview
 - `docs/data-formats/joint-coordinates.md` — coordinate conventions
 - `docs/data-formats/project-file.md` — saved project structure
+- `docs/user-guide.md` — preset views and the navigation gizmo
 - `docs/development/testing.md` — testing commands and structure
