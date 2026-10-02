@@ -256,6 +256,9 @@ export default function CameraGizmo({ controlsRef }) {
 
       if (Math.abs(ndc.x) > 1 || Math.abs(ndc.y) > 1) return null;
 
+      // The gizmo camera is not part of any scene graph, so nothing else will
+      // have updated its world matrix by the time a pointer arrives.
+      gizmo.camera.updateMatrixWorld();
       scratch.pointer.set(ndc.x, ndc.y);
       scratch.raycaster.setFromCamera(scratch.pointer, gizmo.camera);
 

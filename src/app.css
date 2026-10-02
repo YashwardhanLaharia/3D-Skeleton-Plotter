@@ -765,11 +765,11 @@
   font-weight: 600;
 }
 
-/* The gizmo needs the bottom-right corner kept clear, so the panels above stop
-   short of it rather than sliding underneath. */
+/* The gizmo and the view buttons need the bottom-right corner kept clear, so the
+   panels above stop short of it rather than sliding underneath. */
 .layers-panel,
 .inspection-panel {
-  max-height: calc(100% - 12.5rem);
+  max-height: calc(100% - 13.5rem);
 }
 
 .new-project-modal-backdrop {

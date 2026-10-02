@@ -278,6 +278,12 @@ export default function App() {
     setFocusedId(null);
   }
 
+  // Escape leaves whichever viewing mode is on top: focus first, then the preset.
+  function handleEscape() {
+    if (focusedId) setFocusedId(null);
+    else setView(null);
+  }
+
   // Reveal the effect: expand the affected individual and flash the field, so
   // an undo inside a collapsed section isn't silent.
   function revealChange(before, after) {
@@ -548,6 +554,7 @@ export default function App() {
     handleExportGLB,
     handleUndo,
     handleRedo,
+    handleEscape,
     handleChangeGraveDimensions,
     handleImport,
     handleExportCsv,
@@ -602,13 +609,7 @@ export default function App() {
   useEffect(() => {
     function onKeyDown(event) {
       if (event.key === "Escape") {
-        // Escape leaves whichever mode is on top: focus if it is active,
-        // otherwise the preset view.
-        setFocusedId((current) => {
-          if (current) return null;
-          setView(null);
-          return null;
-        });
+        actionsRef.current.handleEscape();
         return;
       }
 

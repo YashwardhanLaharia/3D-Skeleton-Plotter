@@ -548,13 +548,15 @@ function CameraPose({
     focusedId,
     view,
     graveDimensions,
-    individuals,
-    hidden,
     camera,
     controlsRef,
     scene,
     viewport.width,
     viewport.height,
+    // individuals and hidden are deliberately absent. The solved skeletons move
+    // as they are being edited, so depending on them here would restart the
+    // tween on every keystroke and drag the camera back to a framing the user
+    // had already panned away from. Choosing the view again reframes.
   ]);
 
   useFrame(() => {
