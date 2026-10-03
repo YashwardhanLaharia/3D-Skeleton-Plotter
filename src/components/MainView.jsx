@@ -45,6 +45,15 @@ const EMPTY_POSE = Object.freeze({});
 // Must be passed into the grid helper and scene-space conversion functions.
 const globalScale = 1;
 
+// Raycasting ignores `visible`, so clicks would otherwise land on hidden
+// skeletons and hidden bones.
+function isShown(object) {
+  for (let node = object; node; node = node.parent) {
+    if (!node.visible) return false;
+  }
+  return true;
+}
+
 function SkeletonModel({
   id,
   label = "",
@@ -55,6 +64,7 @@ function SkeletonModel({
   command,
   isTarget,
   onSolverIssue,
+  onSelect,
 }) {
   const groupRef = useRef(null);
 
@@ -272,6 +282,14 @@ function SkeletonModel({
       name={`skeleton-${id}`}
       userData={{ individualId: id, label }}
       visible={visible}
+      onClick={(event) => {
+        // Orbiting the camera with a drag still ends in a click.
+        if (event.delta > 2) return;
+        if (!isShown(event.object)) return;
+        event.stopPropagation();
+        onSelect?.(id);
+      }}
+
     >
       <primitive object={clonedScene} />
     </group>
@@ -497,6 +515,8 @@ const MainView = forwardRef(function MainView(
     hidden = [],
     focusedId = null,
     onSolverIssue,
+    onSelect,
+    onClearSelection,
   },
   ref,
 ) {
@@ -512,6 +532,7 @@ const MainView = forwardRef(function MainView(
           near: 0.1,
           far: 1000
         }}
+        onPointerMissed={() => onClearSelection?.()}
       >
         <color attach="background" args={[focusedId ? "#1b1f24" : "#e9ecef"]} />
 
@@ -532,6 +553,7 @@ const MainView = forwardRef(function MainView(
               command={command}
               isTarget={individual.id === targetId}
               onSolverIssue={onSolverIssue}
+              onSelect={onSelect}
               visible={
                 focusedId
                   ? individual.id === focusedId

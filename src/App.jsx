@@ -269,6 +269,12 @@ export default function App() {
     setFocusedId(null);
   }
 
+  // Esc backs out one level at a time: focus first, then the selection.
+  function handleEscape() {
+    if (focusedId) setFocusedId(null);
+    else setSelectedId(null);
+  }
+
   // Reveal the effect: expand the affected individual and flash the field, so
   // an undo inside a collapsed section isn't silent.
   function revealChange(before, after) {
@@ -543,6 +549,7 @@ export default function App() {
     handleChangeGraveDimensions,
     handleImport,
     handleExportCsv,
+    handleEscape,
   };
 
   useEffect(() => {
@@ -594,7 +601,7 @@ export default function App() {
   useEffect(() => {
     function onKeyDown(event) {
       if (event.key === "Escape") {
-        setFocusedId(null);
+        actionsRef.current.handleEscape();
         return;
       }
 
@@ -687,6 +694,8 @@ export default function App() {
             graveDimensions={graveDimensions}
             targetId={selectedId}
             onSolverIssue={setNotice}
+            onSelect={openAndSelect}
+            onClearSelection={() => setSelectedId(null)}
           />
           <FocusBar individual={focusedIndividual} onExit={handleExitFocus} />
 
