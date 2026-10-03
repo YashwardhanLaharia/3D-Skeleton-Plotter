@@ -25,6 +25,7 @@ import { Box3, NormalBlending, Vector2, Vector3 } from "three";
 import { graveDimensionsToGridScale } from "../graveDimensions.js";
 import { toSceneSpace, graveOrigin } from "../sceneSpace.js";
 import { makeGLBExportScene } from "../exportScene.js";
+import { outlineColours } from "../outlineColour.js";
 import { toNumericJoints } from "../solver/numericJoints.js";
 import { createSolveBone, verifyRestConvention } from "../solver/solveBone.js";
 import { applySolvedPose, placeSkeleton } from "../solver/applyPose.js";
@@ -46,18 +47,23 @@ const EMPTY_POSE = Object.freeze({});
 // Must be passed into the grid helper and scene-space conversion functions.
 const globalScale = 1;
 
-const OUTLINE_COLOUR = "#212529";
-// Where the selected bones are behind other bones. Fainter, but still drawn,
-// so commingled remains show whose bones are whose.
-const OUTLINE_HIDDEN_COLOUR = "#6c757d";
-
-// Raycasting ignores `visible`, so clicks would otherwise land on hidden
-// skeletons and hidden bones.
 function isShown(object) {
   for (let node = object; node; node = node.parent) {
     if (!node.visible) return false;
   }
   return true;
+}
+
+// Raycasting ignores `visible`, so clicks and hovers would otherwise land on
+// hidden skeletons and hidden bones.
+function IgnoreHiddenObjects() {
+  const setEvents = useThree((state) => state.setEvents);
+
+  useEffect(() => {
+    setEvents({ filter: (hits) => hits.filter((hit) => isShown(hit.object)) });
+  }, [setEvents]);
+
+  return null;
 }
 
 function SkeletonModel({
@@ -73,6 +79,7 @@ function SkeletonModel({
   onSelect,
 }) {
   const groupRef = useRef(null);
+  const gl = useThree((state) => state.gl);
 
   const { scene } = useLoader(GLTFLoader, modelUrl);
 
@@ -291,11 +298,18 @@ function SkeletonModel({
       onClick={(event) => {
         // Orbiting the camera with a drag still ends in a click.
         if (event.delta > 2) return;
-        if (!isShown(event.object)) return;
         event.stopPropagation();
         onSelect?.(id);
       }}
-
+      // Stopping here leaves skeletons further back un-hovered, so moving off
+      // the front one hands the hover to the one behind.
+      onPointerOver={(event) => {
+        event.stopPropagation();
+        gl.domElement.style.cursor = "pointer";
+      }}
+      onPointerOut={() => {
+        gl.domElement.style.cursor = "";
+      }}
     >
       <primitive object={clonedScene} />
     </group>
@@ -515,13 +529,11 @@ function FocusGrid({ focusedId }) {
 // Draws an outline around the selected skeleton's visible bones, on top of the
 // normal render. Priority 1 means React Three Fiber stops rendering on its own,
 // so the scene render it would have done happens here first.
-function SelectionOutline({ selectedId }) {
+function SelectionOutline({ selectedId, colour }) {
   const { gl, scene, camera, size } = useThree();
 
   const outline = useMemo(() => {
     const pass = new OutlinePass(new Vector2(1, 1), scene, camera);
-    pass.visibleEdgeColor.set(OUTLINE_COLOUR);
-    pass.hiddenEdgeColor.set(OUTLINE_HIDDEN_COLOUR);
     pass.edgeStrength = 3;
     pass.edgeThickness = 1;
     // OutlinePass adds its colour on top, which turns white on a light
@@ -531,6 +543,13 @@ function SelectionOutline({ selectedId }) {
   }, [scene, camera]);
 
   useEffect(() => () => outline.dispose(), [outline]);
+
+  useEffect(() => {
+    if (!colour) return;
+    const { visible, hidden } = outlineColours(colour);
+    outline.visibleEdgeColor.set(visible);
+    outline.hiddenEdgeColor.set(hidden);
+  }, [outline, colour]);
 
   useEffect(() => {
     const pixelRatio = gl.getPixelRatio();
@@ -569,6 +588,10 @@ const MainView = forwardRef(function MainView(
   ref,
 ) {
   const controlsRef = useRef(null);
+
+  const selectedColour = individuals.find(
+    (individual) => individual.id === selectedId,
+  )?.colour;
 
   return (
     <main className="viewport flex-grow-1 bg-body-secondary">
@@ -619,7 +642,8 @@ const MainView = forwardRef(function MainView(
             scale={graveDimensionsToGridScale(graveDimensions)}
           />
         )}
-        <SelectionOutline selectedId={selectedId} />
+        <SelectionOutline selectedId={selectedId} colour={selectedColour} />
+        <IgnoreHiddenObjects />
         <CameraControls controlsRef={controlsRef} />
         <FocusCamera focusedId={focusedId} controlsRef={controlsRef} />
         <ViewportExport ref={ref} controlsRef={controlsRef} />
