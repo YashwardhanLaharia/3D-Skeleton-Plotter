@@ -71,9 +71,8 @@ function JointRow({
             type="text"
             inputMode="decimal"
             pattern="-?[0-9]*[.]?[0-9]*"
-            className={`form-control form-control-sm coord-input${
-              highlightAxis === axis ? " coord-input-flash" : ""
-            }`}
+            className={`form-control form-control-sm coord-input${highlightAxis === axis ? " coord-input-flash" : ""
+              }`}
             placeholder={axis.toUpperCase()}
             aria-label={`${inputLabel}, ${axis.toUpperCase()}`}
             value={values[axis]}
@@ -114,6 +113,7 @@ function JointRow({
 function IndividualSection({
   individual,
   isOpen,
+  isSelected,
   onToggle,
   onChange,
   onToggleSplit,
@@ -136,9 +136,21 @@ function IndividualSection({
     return v.x !== "" && v.y !== "" && v.z !== "";
   }).length;
 
+  const sectionRef = useRef(null);
+
+  // Selecting from the viewport has to bring the section into view.
+  useEffect(() => {
+    if (isSelected) {
+      sectionRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  }, [isSelected]);
+
   return (
     // The whole header toggles, so I used a button rather than a div
-    <section className="individual border rounded mb-2 bg-body">
+    <section
+      ref={sectionRef}
+      className={`individual border rounded mb-2 bg-body${isSelected ? " individual-selected" : ""}`}
+    >
       <button
         type="button"
         className="individual-header btn w-100 d-flex align-items-center gap-2 text-start"
@@ -147,9 +159,8 @@ function IndividualSection({
       >
         <input
           type="color"
-          className={`form-control form-control-color${
-            highlight?.field === "colour" ? " coord-input-flash" : ""
-          }`}
+          className={`form-control form-control-color${highlight?.field === "colour" ? " coord-input-flash" : ""
+            }`}
           id={`colorPicker-${individual.id}`}
           value={individual.colour}
           title="Choose your color"
@@ -160,9 +171,8 @@ function IndividualSection({
         />
         <input
           type="text"
-          className={`form-control form-control-sm label-input${
-            highlight?.field === "label" ? " coord-input-flash" : ""
-          }`}
+          className={`form-control form-control-sm label-input${highlight?.field === "label" ? " coord-input-flash" : ""
+            }`}
           placeholder="Label"
           aria-label="Label"
           value={individual.label}
@@ -245,49 +255,49 @@ function IndividualSection({
           {JOINTS.map((joint) => {
             const isSplit = !!individual.coords[joint.id]?.split;
             return (
-            <div key={joint.id}>
-              <JointRow
-                number={joint.n}
-                toggle={{
-                  isOpen: isSplit,
-                  id: `joint-details-${individual.id}-${joint.id}`,
-                  onClick: () => onToggleSplit(individual.id, joint.id),
-                }}
-                label={joint.label}
-                jointId={joint.id}
-                values={individual.coords[joint.id]}
-                onChange={(jointId, axis, value) =>
-                  onChange(individual.id, jointId, axis, value)
-                }
-                onCommit={onCommit}
-                highlightAxis={
-                  highlight?.field === "coord" && highlight.jointId === joint.id
-                    ? highlight.axis
-                    : null
-                }
-              />
-              {isSplit && (
-                <div
-                  id={`joint-details-${individual.id}-${joint.id}`}
-                  className="joint-details"
-                  role="group"
-                  aria-label={`${joint.label} details`}
-                >
-                  {["superior", "inferior"].map((position) => (
-                    <JointRow
-                      key={position}
-                      label={position}
-                      inputLabel={`${joint.label}, ${position}`}
-                      jointId={joint.id}
-                      values={position === "superior" ? individual.coords[joint.id] : individual.coords[joint.id]?.inferior ?? { x: "", y: "", z: "" }}
-                      onChange={(jointId, axis, value) => {
-                        onChange(individual.id, jointId, axis, value, position);
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
+              <div key={joint.id}>
+                <JointRow
+                  number={joint.n}
+                  toggle={{
+                    isOpen: isSplit,
+                    id: `joint-details-${individual.id}-${joint.id}`,
+                    onClick: () => onToggleSplit(individual.id, joint.id),
+                  }}
+                  label={joint.label}
+                  jointId={joint.id}
+                  values={individual.coords[joint.id]}
+                  onChange={(jointId, axis, value) =>
+                    onChange(individual.id, jointId, axis, value)
+                  }
+                  onCommit={onCommit}
+                  highlightAxis={
+                    highlight?.field === "coord" && highlight.jointId === joint.id
+                      ? highlight.axis
+                      : null
+                  }
+                />
+                {isSplit && (
+                  <div
+                    id={`joint-details-${individual.id}-${joint.id}`}
+                    className="joint-details"
+                    role="group"
+                    aria-label={`${joint.label} details`}
+                  >
+                    {["superior", "inferior"].map((position) => (
+                      <JointRow
+                        key={position}
+                        label={position}
+                        inputLabel={`${joint.label}, ${position}`}
+                        jointId={joint.id}
+                        values={position === "superior" ? individual.coords[joint.id] : individual.coords[joint.id]?.inferior ?? { x: "", y: "", z: "" }}
+                        onChange={(jointId, axis, value) => {
+                          onChange(individual.id, jointId, axis, value, position);
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
@@ -430,6 +440,7 @@ export default function Sidebar({
   individuals,
   groups,
   openId,
+  selectedId,
   onChange,
   onToggleSplit,
   onOffset,
@@ -448,6 +459,7 @@ export default function Sidebar({
   onColourChange,
   onLabelChange,
   isOpen,
+  isSelected,
   highlight,
   notice,
 }) {
@@ -470,6 +482,7 @@ export default function Sidebar({
         key={individual.id}
         individual={individual}
         isOpen={individual.id === openId}
+        isSelected={individual.id === selectedId}
         onToggle={onToggle}
         onChange={onChange}
         onToggleSplit={onToggleSplit}

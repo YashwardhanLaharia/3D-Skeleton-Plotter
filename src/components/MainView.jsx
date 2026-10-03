@@ -16,14 +16,16 @@ import {
 import { OrbitControls as ThreeOrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
+import { OutlinePass } from "three/examples/jsm/postprocessing/OutlinePass.js";
 import { createSkeletonRig } from "../rig/SkeletonRigApi.js";
 import modelUrl from "../assets/models/skeleton-male.glb";
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 import { isVisible } from "../visibility";
-import { Box3, Vector2, Vector3 } from "three";
+import { Box3, NormalBlending, Vector2, Vector3 } from "three";
 import { graveDimensionsToGridScale } from "../graveDimensions.js";
 import { toSceneSpace, graveOrigin } from "../sceneSpace.js";
 import { makeGLBExportScene } from "../exportScene.js";
+import { outlineColours } from "../outlineColour.js";
 import { toNumericJoints } from "../solver/numericJoints.js";
 import { createSolveBone, verifyRestConvention } from "../solver/solveBone.js";
 import { applySolvedPose, placeSkeleton } from "../solver/applyPose.js";
@@ -45,6 +47,25 @@ const EMPTY_POSE = Object.freeze({});
 // Must be passed into the grid helper and scene-space conversion functions.
 const globalScale = 1;
 
+function isShown(object) {
+  for (let node = object; node; node = node.parent) {
+    if (!node.visible) return false;
+  }
+  return true;
+}
+
+// Raycasting ignores `visible`, so clicks and hovers would otherwise land on
+// hidden skeletons and hidden bones.
+function IgnoreHiddenObjects() {
+  const setEvents = useThree((state) => state.setEvents);
+
+  useEffect(() => {
+    setEvents({ filter: (hits) => hits.filter((hit) => isShown(hit.object)) });
+  }, [setEvents]);
+
+  return null;
+}
+
 function SkeletonModel({
   id,
   label = "",
@@ -55,8 +76,10 @@ function SkeletonModel({
   command,
   isTarget,
   onSolverIssue,
+  onSelect,
 }) {
   const groupRef = useRef(null);
+  const gl = useThree((state) => state.gl);
 
   const { scene } = useLoader(GLTFLoader, modelUrl);
 
@@ -272,6 +295,21 @@ function SkeletonModel({
       name={`skeleton-${id}`}
       userData={{ individualId: id, label }}
       visible={visible}
+      onClick={(event) => {
+        // Orbiting the camera with a drag still ends in a click.
+        if (event.delta > 2) return;
+        event.stopPropagation();
+        onSelect?.(id);
+      }}
+      // Stopping here leaves skeletons further back un-hovered, so moving off
+      // the front one hands the hover to the one behind.
+      onPointerOver={(event) => {
+        event.stopPropagation();
+        gl.domElement.style.cursor = "pointer";
+      }}
+      onPointerOut={() => {
+        gl.domElement.style.cursor = "";
+      }}
     >
       <primitive object={clonedScene} />
     </group>
@@ -488,19 +526,72 @@ function FocusGrid({ focusedId }) {
   return <gridHelper ref={gridRef} args={[1.2, 6, "#3a4149", "#2b3238"]} />;
 }
 
+// Draws an outline around the selected skeleton's visible bones, on top of the
+// normal render. Priority 1 means React Three Fiber stops rendering on its own,
+// so the scene render it would have done happens here first.
+function SelectionOutline({ selectedId, colour }) {
+  const { gl, scene, camera, size } = useThree();
+
+  const outline = useMemo(() => {
+    const pass = new OutlinePass(new Vector2(1, 1), scene, camera);
+    pass.edgeStrength = 3;
+    pass.edgeThickness = 1;
+    // OutlinePass adds its colour on top, which turns white on a light
+    // background. Normal blending paints it instead.
+    pass.overlayMaterial.blending = NormalBlending;
+    return pass;
+  }, [scene, camera]);
+
+  useEffect(() => () => outline.dispose(), [outline]);
+
+  useEffect(() => {
+    if (!colour) return;
+    const { visible, hidden } = outlineColours(colour);
+    outline.visibleEdgeColor.set(visible);
+    outline.hiddenEdgeColor.set(hidden);
+  }, [outline, colour]);
+
+  useEffect(() => {
+    const pixelRatio = gl.getPixelRatio();
+    outline.setSize(size.width * pixelRatio, size.height * pixelRatio);
+  }, [outline, gl, size.width, size.height]);
+
+  useFrame(() => {
+    gl.render(scene, camera);
+
+    const target = selectedId
+      ? scene.getObjectByName(`skeleton-${selectedId}`)
+      : null;
+    if (!target) return;
+
+    // A null buffer means "the canvas": the outline lands on the frame just drawn.
+    outline.selectedObjects = [target];
+    outline.render(gl, null, null, 0, false);
+  }, 1);
+
+  return null;
+}
+
 const MainView = forwardRef(function MainView(
   {
     individuals = [],
     graveDimensions = [1, 1, 1],
     command,
     targetId,
+    selectedId = null,
     hidden = [],
     focusedId = null,
     onSolverIssue,
+    onSelect,
+    onClearSelection,
   },
   ref,
 ) {
   const controlsRef = useRef(null);
+
+  const selectedColour = individuals.find(
+    (individual) => individual.id === selectedId,
+  )?.colour;
 
   return (
     <main className="viewport flex-grow-1 bg-body-secondary">
@@ -512,6 +603,7 @@ const MainView = forwardRef(function MainView(
           near: 0.1,
           far: 1000
         }}
+        onPointerMissed={() => onClearSelection?.()}
       >
         <color attach="background" args={[focusedId ? "#1b1f24" : "#e9ecef"]} />
 
@@ -532,6 +624,7 @@ const MainView = forwardRef(function MainView(
               command={command}
               isTarget={individual.id === targetId}
               onSolverIssue={onSolverIssue}
+              onSelect={onSelect}
               visible={
                 focusedId
                   ? individual.id === focusedId
@@ -549,6 +642,8 @@ const MainView = forwardRef(function MainView(
             scale={graveDimensionsToGridScale(graveDimensions)}
           />
         )}
+        <SelectionOutline selectedId={selectedId} colour={selectedColour} />
+        <IgnoreHiddenObjects />
         <CameraControls controlsRef={controlsRef} />
         <FocusCamera focusedId={focusedId} controlsRef={controlsRef} />
         <ViewportExport ref={ref} controlsRef={controlsRef} />
