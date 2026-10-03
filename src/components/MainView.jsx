@@ -16,11 +16,12 @@ import {
 import { OrbitControls as ThreeOrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
+import { OutlinePass } from "three/examples/jsm/postprocessing/OutlinePass.js";
 import { createSkeletonRig } from "../rig/SkeletonRigApi.js";
 import modelUrl from "../assets/models/skeleton-male.glb";
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 import { isVisible } from "../visibility";
-import { Box3, Vector2, Vector3 } from "three";
+import { Box3, NormalBlending, Vector2, Vector3 } from "three";
 import { graveDimensionsToGridScale } from "../graveDimensions.js";
 import { toSceneSpace, graveOrigin } from "../sceneSpace.js";
 import { makeGLBExportScene } from "../exportScene.js";
@@ -45,7 +46,10 @@ const EMPTY_POSE = Object.freeze({});
 // Must be passed into the grid helper and scene-space conversion functions.
 const globalScale = 1;
 
-const SELECTION_BOX_COLOUR = "#0d6efd";
+const OUTLINE_COLOUR = "#212529";
+// Where the selected bones are behind other bones. Fainter, but still drawn,
+// so commingled remains show whose bones are whose.
+const OUTLINE_HIDDEN_COLOUR = "#6c757d";
 
 // Raycasting ignores `visible`, so clicks would otherwise land on hidden
 // skeletons and hidden bones.
@@ -508,47 +512,45 @@ function FocusGrid({ focusedId }) {
   return <gridHelper ref={gridRef} args={[1.2, 6, "#3a4149", "#2b3238"]} />;
 }
 
-const meshBox = new Box3();
+// Draws an outline around the selected skeleton's visible bones, on top of the
+// normal render. Priority 1 means React Three Fiber stops rendering on its own,
+// so the scene render it would have done happens here first.
+function SelectionOutline({ selectedId }) {
+  const { gl, scene, camera, size } = useThree();
 
-// Like Box3.setFromObject, but skips hidden meshes, which setFromObject counts.
-// Also skips the skinned ribs: their cached bounds don't follow the pose, and
-// they sit inside the torso anyway.
-function visibleBounds(root, box) {
-  box.makeEmpty();
-  root.traverseVisible((child) => {
-    if (!child.isMesh || child.isSkinnedMesh) return;
-    if (!child.geometry.boundingBox) child.geometry.computeBoundingBox();
-    meshBox.copy(child.geometry.boundingBox).applyMatrix4(child.matrixWorld);
-    box.union(meshBox);
-  });
-  return box;
-}
+  const outline = useMemo(() => {
+    const pass = new OutlinePass(new Vector2(1, 1), scene, camera);
+    pass.visibleEdgeColor.set(OUTLINE_COLOUR);
+    pass.hiddenEdgeColor.set(OUTLINE_HIDDEN_COLOUR);
+    pass.edgeStrength = 3;
+    pass.edgeThickness = 1;
+    // OutlinePass adds its colour on top, which turns white on a light
+    // background. Normal blending paints it instead.
+    pass.overlayMaterial.blending = NormalBlending;
+    return pass;
+  }, [scene, camera]);
 
-// Wireframe box around the selected skeleton. Measured every frame, so it
-// follows new coordinates and rig commands.
-function SelectionBox({ selectedId }) {
-  const { scene } = useThree();
-  const helperRef = useRef(null);
-  const box = useMemo(() => new Box3(), []);
+  useEffect(() => () => outline.dispose(), [outline]);
+
+  useEffect(() => {
+    const pixelRatio = gl.getPixelRatio();
+    outline.setSize(size.width * pixelRatio, size.height * pixelRatio);
+  }, [outline, gl, size.width, size.height]);
 
   useFrame(() => {
-    const helper = helperRef.current;
-    if (!helper) return;
+    gl.render(scene, camera);
 
     const target = selectedId
       ? scene.getObjectByName(`skeleton-${selectedId}`)
       : null;
+    if (!target) return;
 
-    helper.visible = target ? !visibleBounds(target, box).isEmpty() : false;
-  });
+    // A null buffer means "the canvas": the outline lands on the frame just drawn.
+    outline.selectedObjects = [target];
+    outline.render(gl, null, null, 0, false);
+  }, 1);
 
-  return (
-    <box3Helper
-      ref={helperRef}
-      name="selection-box"
-      args={[box, SELECTION_BOX_COLOUR]}
-    />
-  );
+  return null;
 }
 
 const MainView = forwardRef(function MainView(
@@ -617,7 +619,7 @@ const MainView = forwardRef(function MainView(
             scale={graveDimensionsToGridScale(graveDimensions)}
           />
         )}
-        <SelectionBox selectedId={selectedId} />
+        <SelectionOutline selectedId={selectedId} />
         <CameraControls controlsRef={controlsRef} />
         <FocusCamera focusedId={focusedId} controlsRef={controlsRef} />
         <ViewportExport ref={ref} controlsRef={controlsRef} />
