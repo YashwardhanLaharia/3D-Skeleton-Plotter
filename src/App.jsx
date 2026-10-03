@@ -640,6 +640,7 @@ export default function App() {
           individuals={individuals}
           groups={groups}
           openId={openId}
+          selectedId={selectedId}
           onChange={handleChange}
           onToggleSplit={handleToggleSplit}
           onOffset={handleOffset}
