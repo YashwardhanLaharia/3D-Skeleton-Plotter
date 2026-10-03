@@ -16,9 +16,7 @@ import {
 } from "./spawn/bonePlacement.js";
 import { SpawnedBoneStore } from "./spawn/SpawnedBoneStore.js";
 import { captureSpawnRest } from "./spawn/spawnRest.js";
-import {
-  BODY_DIMENSIONS,
-} from "./scaling/dimensionConfig.js";
+import { BODY_DIMENSIONS } from "./scaling/dimensionConfig.js";
 import {
   applyBodyDimensions,
   captureBodyDimensionRest,
@@ -336,6 +334,7 @@ export class SkeletonRigController {
       scaleFactor: placement.scaleFactor,
       requested: placement.requested,
       measured: placement.measured,
+      implausible: placement.implausible,
       position: placement.position,
       quaternion: placement.quaternion,
       meshes: clones,
@@ -404,6 +403,7 @@ export class SkeletonRigController {
       scaleFactor: placement.scaleFactor,
       requested: placement.requested,
       measured: placement.measured,
+      implausible: placement.implausible,
       position: placement.position,
       quaternion: placement.quaternion,
     };

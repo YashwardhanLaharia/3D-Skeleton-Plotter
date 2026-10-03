@@ -33,8 +33,8 @@ import {
   SPAWN_BONE_IDS,
   UNSCALABLE_SPAWN_IDS,
 } from "../solver/boneModes.js";
-
-
+import { boneName } from "../inspection/boneLabels.js";
+import { BODY_DIMENSIONS } from "../rig/scaling/dimensionConfig.js";
 
 // Make Three.js orbit controls available as a React Three Fiber element.
 extend({ OrbitControls: ThreeOrbitControls });
@@ -45,6 +45,25 @@ const EMPTY_POSE = Object.freeze({});
 // Must be passed into the grid helper and scene-space conversion functions.
 const globalScale = 1;
 
+function boneNames(boneIds) {
+  return boneIds.map(boneName).join(", ");
+}
+
+function centimetres(metres) {
+  return `${(metres * 100).toFixed(1)} cm`;
+}
+
+// "left femur 120.0 cm, expected about 44.2 cm; left tibia ..."
+function describeLengths(entries) {
+  return entries
+    .map(
+      (entry) =>
+        `${entry.name} ${centimetres(entry.measured)}, expected about ${centimetres(entry.expected)}`,
+    )
+    .join("; ");
+}
+
+
 function SkeletonModel({
   id,
   label = "",
@@ -54,7 +73,7 @@ function SkeletonModel({
   visible = true,
   command,
   isTarget,
-  onSolverIssue,
+  onSolverIssues,
 }) {
   const groupRef = useRef(null);
 
@@ -128,7 +147,7 @@ function SkeletonModel({
     // also restores the master meshes they were hiding.
     rig.clearSpawnedBones();
 
-    const { report, segmentScales } = applySolvedPose({
+    const { report, segmentScales, bodyDimensions, rootRotation } = applySolvedPose({
       scene: clonedScene,
       rig,
       root: groupRef.current,
@@ -139,6 +158,7 @@ function SkeletonModel({
 
     const origin = graveOrigin(graveDimensions);
     const unplaced = [];
+    const implausibleSpawns = [];
 
     for (const bone of plan) {
       const spawnId = SPAWN_BONE_IDS[bone.id];
@@ -170,10 +190,22 @@ function SkeletonModel({
 
       if (!placed.ok) {
         unplaced.push({ boneId: bone.id, error: placed.error });
+      } else if (placed.implausible) {
+        implausibleSpawns.push({
+          boneId: bone.id,
+          measured: placed.measured,
+          expected: placed.measured / placed.requested,
+        });
+
       }
+
     }
 
-    const warnings = [];
+    // Plain-language problems for this individual, shown in the sidebar until
+    // the data causing them changes. Reported even when empty, so a problem
+    // that has been fixed clears.
+    const issues = [];
+    const hasCoordinates = Object.keys(sceneJoints).length > 0;
 
     // Only bones that were meant to be articulated. A bone the researcher
     // recorded as displaced is unsolved on purpose, not a problem to report.
@@ -181,42 +213,90 @@ function SkeletonModel({
       articulated.has(boneId),
     );
 
-    if (Object.keys(sceneJoints).length > 0 && unexpectedlyUnsolved.length) {
-      warnings.push(
-        "some bones are missing the coordinates needed to position them",
+    if (hasCoordinates && unexpectedlyUnsolved.length) {
+      issues.push(
+        `Missing the coordinates needed to position: ${boneNames(unexpectedlyUnsolved)}.`,
       );
     }
 
     if (report.unknown.length) {
-      warnings.push("some coordinates are not recognised");
+      issues.push(`Coordinates not recognised: ${report.unknown.join(", ")}.`);
     }
 
     if (report.invalid.length) {
-      warnings.push("some coordinates are invalid");
+      issues.push(`Coordinates are not valid: ${report.invalid.join(", ")}.`);
     }
 
     if (report.failed.length) {
-      warnings.push("some bones could not be positioned");
+      const failedIds = report.failed.map((entry) => entry.boneId);
+      issues.push(`Could not be positioned: ${boneNames(failedIds)}.`);
     }
 
     if (unplaced.length) {
-      warnings.push("some displaced bones could not be placed");
-    }
-
-    if (segmentScales.implausible.length) {
-      warnings.push(
-        "some bone lengths are unusual and were rendered as recorded",
+      const unplacedIds = unplaced.map((entry) => entry.boneId);
+      issues.push(
+        `Displaced bones that could not be placed: ${boneNames(unplacedIds)}.`,
       );
     }
+
+    // Unusual lengths by bone id, placed and displaced alike. The inspection
+    // panel marks these same rows, so the two agree on what is unusual.
+    const segmentRest = rig.getDiagnostics().segments;
+    const unusualLengths = {};
+    for (const entry of segmentScales.implausible) {
+      const expected = segmentRest[entry.segmentId].restLength;
+      unusualLengths[entry.segmentId] = {
+        measured: entry.requested * expected,
+        expected,
+      };
+    }
+    for (const entry of implausibleSpawns) {
+      unusualLengths[entry.boneId] = {
+        measured: entry.measured,
+        expected: entry.expected,
+      };
+    }
+
+    const unusualIds = Object.keys(unusualLengths);
+    if (unusualIds.length) {
+      const list = describeLengths(
+        unusualIds.map((boneId) => ({
+          name: boneName(boneId),
+          ...unusualLengths[boneId],
+        })),
+      );
+      issues.push(`Unusual lengths, drawn as recorded: ${list}.`);
+    }
+
 
     if (segmentScales.degenerate.length) {
-      warnings.push(
-        "some bone endpoints are recorded at the same position",
+      issues.push(
+        `Both ends recorded at the same position: ${boneNames(segmentScales.degenerate)}.`,
       );
     }
 
-    if (warnings.length) {
-      console.warn("solve issues", {
+    if (hasCoordinates && !rootRotation) {
+      issues.push(
+        "Body orientation could not be worked out from the hip and shoulder points, so the torso is shown upright.",
+      );
+    }
+
+    if (bodyDimensions.implausible.length) {
+      const list = describeLengths(
+        bodyDimensions.implausible.map((entry) => ({
+          name: (
+            BODY_DIMENSIONS[entry.dimensionId]?.label ?? entry.dimensionId
+          ).toLowerCase(),
+          measured: entry.measured,
+          expected: entry.expected,
+        })),
+      );
+      issues.push(`Unusual body proportions, drawn as recorded: ${list}.`);
+    }
+
+
+    if (issues.length) {
+      console.warn("solve issues", id, {
         unsolved: unexpectedlyUnsolved,
         unknown: report.unknown,
         invalid: report.invalid,
@@ -224,11 +304,14 @@ function SkeletonModel({
         unplaced,
         implausible: segmentScales.implausible,
         degenerate: segmentScales.degenerate,
+        rootRotation,
+        bodyDimensions: bodyDimensions.implausible,
+        implausibleSpawns,
       });
 
-      const name = label?.trim() || "Skeleton";
-      onSolverIssue?.(`${name}: ${warnings.join("; ")}.`);
     }
+
+    onSolverIssues?.(id, { messages: issues, unusualLengths });
   }, [
     coords,
     graveDimensions,
@@ -237,8 +320,10 @@ function SkeletonModel({
     rig,
     clonedScene,
     label,
-    onSolverIssue,
+    id,
+    onSolverIssues,
   ]);
+
 
 
   // Commands arrive one at a time from the Rig Controls window.
@@ -496,7 +581,7 @@ const MainView = forwardRef(function MainView(
     targetId,
     hidden = [],
     focusedId = null,
-    onSolverIssue,
+    onSolverIssues,
   },
   ref,
 ) {
@@ -531,7 +616,7 @@ const MainView = forwardRef(function MainView(
               graveDimensions={graveDimensions}
               command={command}
               isTarget={individual.id === targetId}
-              onSolverIssue={onSolverIssue}
+              onSolverIssues={onSolverIssues}
               visible={
                 focusedId
                   ? individual.id === focusedId
