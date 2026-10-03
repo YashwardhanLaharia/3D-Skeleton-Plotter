@@ -45,6 +45,8 @@ const EMPTY_POSE = Object.freeze({});
 // Must be passed into the grid helper and scene-space conversion functions.
 const globalScale = 1;
 
+const SELECTION_BOX_COLOUR = "#0d6efd";
+
 // Raycasting ignores `visible`, so clicks would otherwise land on hidden
 // skeletons and hidden bones.
 function isShown(object) {
@@ -506,12 +508,56 @@ function FocusGrid({ focusedId }) {
   return <gridHelper ref={gridRef} args={[1.2, 6, "#3a4149", "#2b3238"]} />;
 }
 
+const meshBox = new Box3();
+
+// Like Box3.setFromObject, but skips hidden meshes, which setFromObject counts.
+// Also skips the skinned ribs: their cached bounds don't follow the pose, and
+// they sit inside the torso anyway.
+function visibleBounds(root, box) {
+  box.makeEmpty();
+  root.traverseVisible((child) => {
+    if (!child.isMesh || child.isSkinnedMesh) return;
+    if (!child.geometry.boundingBox) child.geometry.computeBoundingBox();
+    meshBox.copy(child.geometry.boundingBox).applyMatrix4(child.matrixWorld);
+    box.union(meshBox);
+  });
+  return box;
+}
+
+// Wireframe box around the selected skeleton. Measured every frame, so it
+// follows new coordinates and rig commands.
+function SelectionBox({ selectedId }) {
+  const { scene } = useThree();
+  const helperRef = useRef(null);
+  const box = useMemo(() => new Box3(), []);
+
+  useFrame(() => {
+    const helper = helperRef.current;
+    if (!helper) return;
+
+    const target = selectedId
+      ? scene.getObjectByName(`skeleton-${selectedId}`)
+      : null;
+
+    helper.visible = target ? !visibleBounds(target, box).isEmpty() : false;
+  });
+
+  return (
+    <box3Helper
+      ref={helperRef}
+      name="selection-box"
+      args={[box, SELECTION_BOX_COLOUR]}
+    />
+  );
+}
+
 const MainView = forwardRef(function MainView(
   {
     individuals = [],
     graveDimensions = [1, 1, 1],
     command,
     targetId,
+    selectedId = null,
     hidden = [],
     focusedId = null,
     onSolverIssue,
@@ -571,6 +617,7 @@ const MainView = forwardRef(function MainView(
             scale={graveDimensionsToGridScale(graveDimensions)}
           />
         )}
+        <SelectionBox selectedId={selectedId} />
         <CameraControls controlsRef={controlsRef} />
         <FocusCamera focusedId={focusedId} controlsRef={controlsRef} />
         <ViewportExport ref={ref} controlsRef={controlsRef} />

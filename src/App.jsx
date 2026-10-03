@@ -693,6 +693,7 @@ export default function App() {
             focusedId={focusedId}
             graveDimensions={graveDimensions}
             targetId={selectedId}
+            selectedId={selectedId}
             onSolverIssue={setNotice}
             onSelect={openAndSelect}
             onClearSelection={() => setSelectedId(null)}
