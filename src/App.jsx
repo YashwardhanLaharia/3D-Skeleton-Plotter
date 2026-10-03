@@ -555,7 +555,7 @@ export default function App() {
       console.error(loaded.error);
       setNotice(
         loaded.error ||
-        "This project file is invalid or uses an unsupported format.",
+          "This project file is invalid or uses an unsupported format.",
       );
       return;
     }
@@ -823,7 +823,10 @@ export default function App() {
             focusedId={focusedId}
             graveDimensions={graveDimensions}
             targetId={selectedId}
+<<<<<<< HEAD
             selectedId={selectedId}
+=======
+>>>>>>> 64019ea (add selectedId and pass on seleecting a section)
             onSolverIssues={handleSolverIssues}
             onSelect={openAndSelect}
             onClearSelection={() => setSelectedId(null)}
