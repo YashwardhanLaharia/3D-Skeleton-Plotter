@@ -823,10 +823,7 @@ export default function App() {
             focusedId={focusedId}
             graveDimensions={graveDimensions}
             targetId={selectedId}
-<<<<<<< HEAD
             selectedId={selectedId}
-=======
->>>>>>> 64019ea (add selectedId and pass on seleecting a section)
             onSolverIssues={handleSolverIssues}
             onSelect={openAndSelect}
             onClearSelection={() => setSelectedId(null)}
