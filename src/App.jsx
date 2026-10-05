@@ -1,6 +1,6 @@
 // The root component owns individuals, sidebar state, and rig commands.
 
-import { useEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import {
   historyReducer,
   makeInitialHistory,
@@ -103,6 +103,17 @@ export default function App() {
 
   // Transient message for changes such as adding individuals, which are inconvenient to highlight in place
   const [notice, setNotice] = useState(null);
+
+  // Current solver problems per individual id, as { messages, unusualLengths }.
+  // Replaced on every solve, so no messages means no problems now.
+  const [solverIssues, setSolverIssues] = useState({});
+
+  // Stable identity: every skeleton's solve effect depends on this, and a new
+  // function on each render would re-run every solve on every render.
+  const handleSolverIssues = useCallback((individualId, issues) => {
+    setSolverIssues((current) => ({ ...current, [individualId]: issues }));
+  }, []);
+
 
   const [openId, setOpenId] = useState("ind-1");
 
@@ -660,6 +671,7 @@ export default function App() {
           canRedo={canRedo}
           highlight={highlight}
           notice={notice}
+          solverIssues={solverIssues}
           onToggle={handleToggle}
           onAdd={handleAdd}
           onRemove={handleRemove}
@@ -694,14 +706,18 @@ export default function App() {
             graveDimensions={graveDimensions}
             targetId={selectedId}
             selectedId={selectedId}
-            onSolverIssue={setNotice}
+            onSolverIssues={handleSolverIssues}
             onSelect={openAndSelect}
             onClearSelection={() => setSelectedId(null)}
           />
           <FocusBar individual={focusedIndividual} onExit={handleExitFocus} />
 
           {focusedId ? (
-            <InspectionPanel individual={focusedIndividual} />
+            <InspectionPanel
+              individual={focusedIndividual}
+              unusualLengths={solverIssues[focusedId]?.unusualLengths}
+            />
+
           ) : (
             <LayersPanel
               individuals={individuals}
