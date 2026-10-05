@@ -368,6 +368,30 @@ test("the whole-body rotation is declined when the landmarks cannot define one",
   assert.equal(solveRootRotation(joints, scene), null);
 });
 
+test("the whole-body rotation falls back to the hips when the shoulders are in line with the spine", async () => {
+  const scene = await loadFreshTestScene();
+
+  // Shoulders recorded one above the other along the body's own axis, as can
+  // happen with commingled remains. Their midpoint is unchanged, so the
+  // superior axis is too, but they no longer say which way is left.
+  const joints = toSceneJoints({
+    ...coordsFrom(SUPINE),
+    shoulder_l: { x: "1.500", y: "5.900", z: "0.370" },
+    shoulder_r: { x: "1.500", y: "6.060", z: "0.370" },
+  });
+
+  const solved = solveRootRotation(joints, scene);
+  assert.ok(solved, "the hip pair should frame the body");
+
+  const hips = vector(joints.acetabulum_r)
+    .sub(vector(joints.acetabulum_l))
+    .normalize();
+  assert.ok(
+    degreesBetween(solved.lateral.measured, hips) < 0.5,
+    "the lateral axis should come from the hips",
+  );
+});
+
 test("the whole-body rotation is a rotation, not a reflection", async () => {
   const scene = await loadFreshTestScene();
   const solved = solveRootRotation(toSceneJoints(coordsFrom(SUPINE)), scene);
