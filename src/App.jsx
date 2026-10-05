@@ -26,6 +26,7 @@ import InspectionPanel from "./components/InspectionPanel";
 import NewProjectModal from "./components/NewProjectModal";
 import { csvToProject, importCsv, rowsToIndividuals } from "./csvImport";
 import { createCsv, exportCsv } from "./csvExport";
+import { DEFAULT_VERTICAL } from "./sceneSpace";
 import "./app.css";
 
 const PALETTE = [
@@ -58,6 +59,10 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(true);
   const [graveDimensions, setGraveDimensions] = useState([1, 1, 1]);
+  // How the recorded z is read: height above the grave floor, or RL down from
+  // the site datum with the grave floor's RL (see sceneSpace.js). Saved with
+  // the project, like the grave dimensions.
+  const [vertical, setVertical] = useState(DEFAULT_VERTICAL);
   // The data model is now an array of individuals, not one coordinate object.
   // Each carries its own label, colour, and full coordinate set.
   const [history, dispatch] = useReducer(historyReducer, undefined, () =>
@@ -363,11 +368,28 @@ export default function App() {
       : nextGroupId.current;
 
     setIsDirty(true);
-    setNotice(`Imported ${converted.individuals.length} individuals`);
+
+    // Imported coordinates are drawn with this project's setting, not the
+    // file's. If they differ, the new individuals are at the wrong depth.
+    const sameVertical =
+      converted.vertical.convention === vertical.convention &&
+      (vertical.convention !== "rl" ||
+        converted.vertical.floorRL === vertical.floorRL);
+    setNotice(
+      sameVertical
+        ? `Imported ${converted.individuals.length} individuals`
+        : `Imported ${converted.individuals.length} individuals, but the file records depth differently from this project. Check they sit at the right depth.`,
+    );
   }
 
   async function handleExportCsv() {
-    const result = await exportCsv(individuals, graveDimensions, groups, hidden);
+    const result = await exportCsv(
+      individuals,
+      graveDimensions,
+      groups,
+      hidden,
+      vertical,
+    );
 
     if (!result.ok) {
       if (!result.canceled) setNotice(result.error);
@@ -400,6 +422,7 @@ export default function App() {
     setJointDetails({});
     dispatch({ type: "new", individuals: STARTING_STATE, groups: [] });
     nextGroupId.current = 1;
+    setVertical(DEFAULT_VERTICAL);
 
     setIsNewProjectModalOpen(true);
     setFilePath(null);
@@ -445,6 +468,7 @@ export default function App() {
 
     // Before the grave itself, or the coordinates in it mean something else.
     setGraveDimensions(loaded.graveDimensions);
+    setVertical(loaded.vertical);
 
     const numbers = loaded.individuals
       .map((individual) => Number(individual.id.replace("ind-", "")))
@@ -472,7 +496,7 @@ export default function App() {
 
   async function handleSave(forcePrompt) {
     const result = await window.electronAPI.saveProject({
-      payload: createCsv(individuals, graveDimensions, groups),
+      payload: createCsv(individuals, graveDimensions, groups, vertical),
       filePath: forcePrompt ? null : filePath,
     });
 
@@ -682,6 +706,7 @@ export default function App() {
             hidden={hidden}
             focusedId={focusedId}
             graveDimensions={graveDimensions}
+            vertical={vertical}
             targetId={openId ?? individuals[0]?.id}
             onSolverIssues={handleSolverIssues}
           />

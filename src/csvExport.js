@@ -3,14 +3,21 @@ import {
   APPLICATION_ID,
   APPLICATION_LABEL,
   CSV_COLUMNS,
+  VERTICAL_ROW_ID,
 } from "./csvImport.js";
+import { DEFAULT_VERTICAL } from "./sceneSpace.js";
 
 function escapeCsvCell(value) {
   const text = String(value ?? "");
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
-export function createCsv(individuals, projectGraveDimensions, groups = []) {
+export function createCsv(
+  individuals,
+  projectGraveDimensions,
+  groups = [],
+  vertical = DEFAULT_VERTICAL,
+) {
   const lines = [CSV_COLUMNS.join(",")];
 
   lines.push(
@@ -34,6 +41,15 @@ export function createCsv(individuals, projectGraveDimensions, groups = []) {
       .map(escapeCsvCell)
       .join(","),
   );
+
+  // Height projects are written exactly as before the setting existed.
+  if (vertical?.convention === "rl") {
+    lines.push(
+      [VERTICAL_ROW_ID, "", "", "", vertical.floorRL, "", "", "", "rl"]
+        .map(escapeCsvCell)
+        .join(","),
+    );
+  }
 
   individuals.forEach((individual, individualIndex) => {
     const label = individual.label?.trim() || `Skeleton ${individualIndex + 1}`;
@@ -89,11 +105,17 @@ export function createCsv(individuals, projectGraveDimensions, groups = []) {
   return `${lines.join("\r\n")}\r\n`;
 }
 
-export async function exportCsv(individuals, projectGraveDimensions, groups, hidden) {
+export async function exportCsv(
+  individuals,
+  projectGraveDimensions,
+  groups,
+  hidden,
+  vertical = DEFAULT_VERTICAL,
+) {
   console.log(hidden);
   const visibleIndividuals = individuals.filter((individual) => !hidden.includes(individual.id));
 
   return window.electronAPI.exportCsv(
-    createCsv(visibleIndividuals, projectGraveDimensions, groups),
+    createCsv(visibleIndividuals, projectGraveDimensions, groups, vertical),
   );
 }

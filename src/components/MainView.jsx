@@ -22,7 +22,7 @@ import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 import { isVisible } from "../visibility";
 import { Box3, Vector2, Vector3 } from "three";
 import { graveDimensionsToGridScale } from "../graveDimensions.js";
-import { toSceneSpace, graveOrigin } from "../sceneSpace.js";
+import { toSceneSpace, graveOrigin, DEFAULT_VERTICAL } from "../sceneSpace.js";
 import { makeGLBExportScene } from "../exportScene.js";
 import { toNumericJoints } from "../solver/numericJoints.js";
 import { createSolveBone, verifyRestConvention } from "../solver/solveBone.js";
@@ -70,6 +70,7 @@ function SkeletonModel({
   colour,
   coords = EMPTY_POSE,
   graveDimensions,
+  vertical = DEFAULT_VERTICAL,
   visible = true,
   command,
   isTarget,
@@ -96,10 +97,10 @@ function SkeletonModel({
     return Object.fromEntries(
       Object.entries(numericJoints).map(([jointId, point]) => [
         jointId,
-        toSceneSpace(point, origin, globalScale),
+        toSceneSpace(point, origin, globalScale, vertical),
       ]),
     );
-  }, [coords, graveDimensions]);
+  }, [coords, graveDimensions, vertical]);
 
   useEffect(() => {
     if (colour) {
@@ -183,8 +184,8 @@ function SkeletonModel({
       // size rather than stretched to a rest length that does not fit them.
       const placed = rig.spawnBone(
         spawnId,
-        toSceneSpace(bone.proximal, origin, globalScale),
-        toSceneSpace(bone.distal, origin, globalScale),
+        toSceneSpace(bone.proximal, origin, globalScale, vertical),
+        toSceneSpace(bone.distal, origin, globalScale, vertical),
         { scale: !UNSCALABLE_SPAWN_IDS.has(spawnId) },
       );
 
@@ -315,6 +316,7 @@ function SkeletonModel({
   }, [
     coords,
     graveDimensions,
+    vertical,
     sceneJoints,
     solveBone,
     rig,
@@ -577,6 +579,7 @@ const MainView = forwardRef(function MainView(
   {
     individuals = [],
     graveDimensions = [1, 1, 1],
+    vertical = DEFAULT_VERTICAL,
     command,
     targetId,
     hidden = [],
@@ -614,6 +617,7 @@ const MainView = forwardRef(function MainView(
               colour={individual.colour}
               coords={individual.coords}
               graveDimensions={graveDimensions}
+              vertical={vertical}
               command={command}
               isTarget={individual.id === targetId}
               onSolverIssues={onSolverIssues}
