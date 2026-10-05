@@ -169,8 +169,21 @@ export function solveRootRotation(joints = {}, scene) {
 // Torso proportions the rig can deform but no single bone spans, so
 // computeSegmentScales cannot reach them. Each is a measured distance over the
 // same distance on the model at rest.
+//
+// `skipIfSplit` names a row that, when expanded, means there is no attached
+// span to measure. An expanded sacral_promontory says the spine was recorded
+// somewhere else, so the row's own point is only the pelvis end: measuring it
+// to the manubrium spans the gap to the moved spine, and stretched the torso
+// to 85.6cm on a file whose spine measured 46.9cm. The widths need no such
+// rule, because an expanded shoulder or acetabulum row keeps its own point on
+// the torso side, which is the end a width wants.
 const BODY_DIMENSION_SPANS = [
-  { id: "torso_length", from: "sacral_promontory", to: "manubrium" },
+  {
+    id: "torso_length",
+    from: "sacral_promontory",
+    to: "manubrium",
+    skipIfSplit: "sacral_promontory",
+  },
   { id: "shoulder_width", from: "shoulder_l", to: "shoulder_r" },
   { id: "pelvis_width", from: "acetabulum_l", to: "acetabulum_r" },
 ];
@@ -192,14 +205,18 @@ const DIMENSION_LIMITS = [0.5, 1.5];
  *
  * @param {Record<string, {x:number,y:number,z:number}>} joints  scene-space landmarks
  * @param {import("three").Object3D} scene  the model, at its rest dimensions
+ * @param {Set<string>} [splitJoints]  ids of expanded rows; numeric joints do
+ *        not carry the flag, so the caller passes it alongside.
  * @returns {{dimensions: Record<string, number>, implausible: object[]}}
  */
-export function computeBodyDimensions(joints = {}, scene) {
+export function computeBodyDimensions(joints = {}, scene, splitJoints = new Set()) {
   const dimensions = {};
   const implausible = [];
   if (!scene) return { dimensions, implausible };
 
-  for (const { id, from, to } of BODY_DIMENSION_SPANS) {
+  for (const { id, from, to, skipIfSplit } of BODY_DIMENSION_SPANS) {
+    if (skipIfSplit && splitJoints.has(skipIfSplit)) continue;
+
     const measuredFrom = joints[from];
     const measuredTo = joints[to];
     if (!isPosition(measuredFrom) || !isPosition(measuredTo)) continue;

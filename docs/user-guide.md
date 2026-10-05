@@ -26,6 +26,22 @@ Usage of these sections will be described in more detail below.
 
 ### Keyboard navigation
 
+## Warnings
+
+Problems with an individual's coordinates are listed in the sidebar, and the
+affected bones are marked in the inspection panel. Lengths are never
+corrected: a bone flagged as unusual is still drawn exactly as recorded, so the
+warning is a prompt to check the coordinates, not a change to them.
+
+### Fully disarticulated individuals
+
+When the sacrum, shoulders and hips are all recorded as displaced, there is no
+articulated torso to measure. The app still draws the model's ribcage and
+pelvis, placed at the skull's recorded position. Their orientation, and the
+shoulder- and pelvis-width warnings, are not meaningful for these individuals
+and can be ignored. Displaced bones are drawn at their own recorded positions
+and are unaffected.
+
 ## Viewing skeletons
 
 ### Orbit, panning and zooming

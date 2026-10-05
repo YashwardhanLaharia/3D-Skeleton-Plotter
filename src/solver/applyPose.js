@@ -63,6 +63,9 @@ function filterToArticulated(segmentScales, articulated) {
  * @param {Set<string>|null} [options.articulated]  bone ids being drawn as part
  *        of the connected skeleton. Omit and every scalable bone is scaled,
  *        which is only right when nothing is placed independently.
+ * @param {Set<string>} [options.splitJoints]  ids of expanded rows. Body
+ *        dimensions need them: an expanded row's own point can be one end of
+ *        a gap rather than of the torso.
  * @returns {{report: object, segmentScales: object, bodyDimensions: object,
  *           rootRotation: object|null, anchor: object|null}}
  */
@@ -73,6 +76,7 @@ export function applySolvedPose({
   joints = {},
   solveBone,
   articulated = null,
+  splitJoints = new Set(),
 }) {
   // 1. Reset, so a re-solve never composes onto the previous answer.
   if (root) {
@@ -90,7 +94,7 @@ export function applySolvedPose({
   scene.updateMatrixWorld(true);
 
   // 2. Torso proportions, while the model is still at its own dimensions.
-  const bodyDimensions = computeBodyDimensions(joints, scene);
+  const bodyDimensions = computeBodyDimensions(joints, scene, splitJoints);
   rig.replaceBodyDimensions(bodyDimensions.dimensions);
   scene.updateMatrixWorld(true);
 
