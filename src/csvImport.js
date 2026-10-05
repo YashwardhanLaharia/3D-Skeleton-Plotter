@@ -4,6 +4,7 @@ import {
   validateContour,
   validateContourReference,
 } from "./graveContourData.js";
+import { DEFAULT_VERTICAL, VERTICAL_CONVENTIONS } from "./sceneSpace.js";
 
 export const CSV_COLUMNS = [
   "individual_id",
@@ -20,6 +21,12 @@ export const CSV_COLUMNS = [
 export const APPLICATION_ID = "application";
 export const APPLICATION_LABEL = "3d_skeleton_plotter";
 export const DEFAULT_GRAVE_DIMENSIONS = [1, 1, 1];
+
+// How the recorded z is read (see sceneSpace.js). Written only for RL
+// projects, with the convention in `label` and the grave-floor RL in `z`,
+// since it is a z value itself. A file without it is a height project, which
+// is every file saved before the setting existed.
+export const VERTICAL_ROW_ID = "vertical_reference";
 
 const META_JOINT_IDS = new Set(["colour", "group", "group_label", "grave"]);
 const KNOWN_JOINTS = new Set(JOINTS.map(({ id }) => id));
@@ -116,6 +123,30 @@ function normaliseGraveDimensions(raw) {
   });
 }
 
+function parseVerticalReference(row, rowNumber) {
+  const convention = row.label.trim().toLowerCase();
+  if (!VERTICAL_CONVENTIONS.includes(convention)) {
+    return {
+      ok: false,
+      error: `Row ${rowNumber} has an unknown vertical reference: ${row.label.trim() || "(blank)"}`,
+    };
+  }
+
+  if (convention === "height") {
+    return { ok: true, vertical: { ...DEFAULT_VERTICAL } };
+  }
+
+  const floorRL = Number(row.z.trim());
+  if (row.z.trim() === "" || !Number.isFinite(floorRL)) {
+    return {
+      ok: false,
+      error: `Row ${rowNumber} needs the grave floor RL in the z column`,
+    };
+  }
+
+  return { ok: true, vertical: { convention, floorRL } };
+}
+
 function buildProjectFromRows(columns, rows) {
   const missingColumns = CSV_COLUMNS.filter(
     (required) => !columns.includes(required),
@@ -157,6 +188,7 @@ function buildProjectFromRows(columns, rows) {
   const graveRecords = new Map();
   const graveDefinitions = new Set();
   let view = null;
+  let vertical = { ...DEFAULT_VERTICAL };
   function contourFor(id) {
     if (!id) return graveOutline;
     if (!graveRecords.has(id))
@@ -185,6 +217,13 @@ function buildProjectFromRows(columns, rows) {
       const parsed = parseCoordinateTriple(row, ["x", "y", "z"], rowNumber);
       if (!parsed.ok) return parsed;
       graveDimensions = normaliseGraveDimensions(parsed.values);
+      continue;
+    }
+
+    if (sourceId === VERTICAL_ROW_ID) {
+      const parsed = parseVerticalReference(row, rowNumber);
+      if (!parsed.ok) return parsed;
+      vertical = parsed.vertical;
       continue;
     }
 
@@ -282,7 +321,6 @@ function buildProjectFromRows(columns, rows) {
         y: parsed.values[1],
         z: parsed.values[2],
       });
-
       continue;
     }
 
@@ -459,6 +497,7 @@ function buildProjectFromRows(columns, rows) {
     graveOutline: firstOutline,
     graves,
     view,
+    vertical,
     groups,
     individuals,
   };
@@ -547,7 +586,8 @@ export function rowsToIndividuals(
     };
   });
 
-  return { ok: true, individuals, groups };
+  // Returned so the caller can warn when it differs from the open project's.
+  return { ok: true, individuals, groups, vertical: project.vertical };
 }
 
 export async function importCsv() {

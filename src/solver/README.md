@@ -312,7 +312,11 @@ after its thigh was hidden reads as a bug.
 - **Cluster stretch.** A spawned hand or foot scales rigidly; an articulated one
   stretches with a 15% endcap blend at each end. Both measure the same end to
   end, which is what is read off the screen, but they are not pixel-identical.
-- **The depth axis.** `sceneSpace.js` treats the third recorded value as height
-  above the grave floor. If the survey records depth increasing downwards, the
-  conversion is a reflection and flexed limbs will render mirrored. Not yet
-  confirmed against a real recording sheet.
+- **The depth axis.** Confirmed with the client: the LN24 files record the third
+  value as a reduced level (RL), which increases downwards. `sceneSpace.js`
+  converts it with the project's grave-floor RL before the solver sees it (see
+  `docs/data-formats/joint-coordinates.md`). A project left in `height` mode
+  with RL data is still reflected: side-lying bodies render on the wrong side
+  and flexed limbs on the wrong side of the torso. Flat supine and prone bodies
+  look right either way, so they will not reveal the wrong setting.
+  `tests/solver/rlOrientation.test.mjs` covers each case.

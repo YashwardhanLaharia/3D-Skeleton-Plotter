@@ -59,7 +59,7 @@ The project treats the recorded system as:
 
 - `x` — horizontal position across the site grid
 - `y` — horizontal position along the site grid
-- `z` — vertical position
+- `z` — vertical position, in one of two conventions (below)
 - units — metres
 
 The local site grid is used so the reconstruction preserves the spatial
@@ -68,6 +68,46 @@ requiring global GPS coordinates.
 
 The grave dimensions are used to position this local grid relative to the
 centred Three.js scene.
+
+## Vertical Convention
+
+Each project reads `z` in one of two ways:
+
+| Convention | `z` means | Larger `z` is |
+|---|---|---|
+| `height` | height above the grave floor | higher |
+| `rl` | reduced level (RL): distance below the site datum | deeper |
+
+An RL is measured from an arbitrary site datum, such as a mark on a nearby
+wall, so values stay consistent across days and seasons where GPS is not
+available. It is not a true elevation. RLs are usually, but not always,
+positive. The surveyors subtract the daily instrument datum on site, so the
+value entered is the RL itself. The LN24 files record `z` as RL.
+
+In `rl` mode the project also needs the RL of the grave floor. Each point is
+converted before drawing:
+
+```text
+heightAboveFloor = floorRL - RL
+```
+
+This flips the vertical axis, as lines3d does for a whole site, and places a
+point recorded at the floor RL on the grave floor. RL data drawn as `height` is
+reflected: deeper individuals render higher, and a body lying on its side
+renders on the opposite side.
+
+Coordinates are always stored as recorded. The conversion happens only when
+drawing, so saving and reopening never changes a value.
+
+In the project file, an RL project has one extra row after `grave_dimensions`,
+with the floor RL in `z` and the convention in `label`:
+
+```csv
+vertical_reference,,,,1.98,,,,rl
+```
+
+A file without this row is a `height` project. That includes every file saved
+before the setting existed, so older projects open unchanged.
 
 ## Scene-Space Conversion
 
@@ -84,8 +124,8 @@ site z  -> scene y
 site y  -> scene -z
 ```
 
-The conversion also applies the grave origin before the point is passed to the
-solver.
+The conversion also applies the grave origin and the vertical convention
+before the point is passed to the solver.
 
 Conceptually:
 
@@ -96,7 +136,7 @@ recorded site-grid point
 graveOrigin(graveDimensions)
         |
         v
-toSceneSpace(point, origin, scale)
+toSceneSpace(point, origin, scale, vertical)
         |
         v
 Three.js scene-space point
