@@ -87,7 +87,13 @@ function modelMidpoint(scene, ids) {
 // An axis is only usable when it resolves on BOTH the recording and the model:
 // comparing a measured shoulder axis against a modelled hip axis would produce
 // a confident, wrong rotation.
-function pickAxis(candidates, joints, scene) {
+//
+// Returns every usable axis, best first, rather than only the first. Whether an
+// axis is good enough depends on the other one: shoulders recorded in line with
+// the spine resolve fine on their own but cannot frame the body, and then the
+// hips should be tried instead of giving up.
+function usableAxes(candidates, joints, scene) {
+  const axes = [];
   for (const { from, to } of candidates) {
     const measuredFrom = measuredMidpoint(joints, from);
     const measuredTo = measuredMidpoint(joints, to);
@@ -99,9 +105,9 @@ function pickAxis(candidates, joints, scene) {
     const model = modelTo.clone().sub(modelFrom);
     if (measured.lengthSq() === 0 || model.lengthSq() === 0) continue;
 
-    return { measured: measured.normalize(), model: model.normalize() };
+    axes.push({ measured: measured.normalize(), model: model.normalize() });
   }
-  return null;
+  return axes;
 }
 
 // Right-handed basis from a superior and a lateral direction. The lateral is
@@ -134,22 +140,30 @@ function basis(superior, lateral) {
 export function solveRootRotation(joints = {}, scene) {
   if (!scene) return null;
 
-  const superior = pickAxis(SUPERIOR_AXES, joints, scene);
-  const lateral = pickAxis(LATERAL_AXES, joints, scene);
-  if (!superior || !lateral) return null;
+  const superiorAxes = usableAxes(SUPERIOR_AXES, joints, scene);
+  const lateralAxes = usableAxes(LATERAL_AXES, joints, scene);
 
-  const measured = basis(superior.measured, lateral.measured);
-  const model = basis(superior.model, lateral.model);
-  if (!measured || !model) return null;
+  // The first pairing, in preference order, that frames the body on both the
+  // recording and the model. The superior axis is kept as long as any lateral
+  // axis works with it, because it spans more of the body.
+  for (const superior of superiorAxes) {
+    for (const lateral of lateralAxes) {
+      const measured = basis(superior.measured, lateral.measured);
+      const model = basis(superior.model, lateral.model);
+      if (!measured || !model) continue;
 
-  // Both bases are orthonormal, so the inverse is the transpose.
-  const rotation = measured.multiply(model.transpose());
+      // Both bases are orthonormal, so the inverse is the transpose.
+      const rotation = measured.multiply(model.transpose());
 
-  return {
-    quaternion: new Quaternion().setFromRotationMatrix(rotation),
-    superior: { measured: superior.measured, model: superior.model },
-    lateral: { measured: lateral.measured, model: lateral.model },
-  };
+      return {
+        quaternion: new Quaternion().setFromRotationMatrix(rotation),
+        superior: { measured: superior.measured, model: superior.model },
+        lateral: { measured: lateral.measured, model: lateral.model },
+      };
+    }
+  }
+
+  return null;
 }
 
 // Torso proportions the rig can deform but no single bone spans, so
