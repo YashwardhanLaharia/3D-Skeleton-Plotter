@@ -1,7 +1,13 @@
 import { JOINTS } from "./joints.js";
 import { validateImageOverlay } from "./overlayAsset.js";
 import { validateProjectView } from "./projectView.js";
-import { APPLICATION_ID, APPLICATION_LABEL, CSV_COLUMNS } from "./csvImport.js";
+import {
+  APPLICATION_ID,
+  APPLICATION_LABEL,
+  CSV_COLUMNS,
+  VERTICAL_ROW_ID,
+} from "./csvImport.js";
+import { DEFAULT_VERTICAL } from "./sceneSpace.js";
 
 function escapeCsvCell(value) {
   const text = String(value ?? "");
@@ -14,6 +20,7 @@ export function createCsv(
   groups = [],
   graveOutline = { top: [], bottom: [] },
   options = {},
+  vertical = DEFAULT_VERTICAL,
 ) {
   const lines = [CSV_COLUMNS.join(",")];
 
@@ -38,6 +45,15 @@ export function createCsv(
       .map(escapeCsvCell)
       .join(","),
   );
+
+  // Height projects are written exactly as before the setting existed.
+  if (vertical?.convention === "rl") {
+    lines.push(
+      [VERTICAL_ROW_ID, "", "", "", vertical.floorRL, "", "", "", "rl"]
+        .map(escapeCsvCell)
+        .join(","),
+    );
+  }
 
   if (options.imageOverlay) {
     lines.push(
@@ -198,6 +214,7 @@ export async function exportCsv(
   hidden,
   graveOutline = { top: [], bottom: [] },
   options = {},
+  vertical = DEFAULT_VERTICAL,
 ) {
   console.log(hidden);
 
@@ -212,6 +229,7 @@ export async function exportCsv(
       groups,
       graveOutline,
       options,
+      vertical,
     ),
   );
 }

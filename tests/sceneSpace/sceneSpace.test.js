@@ -140,3 +140,72 @@ test("the grave box maps corner to corner in scene space", () => {
     assert.ok(scene.z >= -2 && scene.z <= 2, `z=${scene.z}`);
   }
 });
+
+// RL: depth below a site datum, so a larger value is deeper. Floor RL 2.0m is
+// in the range of the LN24 data (RL 1.39 to 1.97).
+const RL = { convention: "rl", floorRL: 2.0 };
+
+test("in rl mode a larger RL renders lower", () => {
+  const origin = graveOrigin([3, 9, 1]);
+  const shallow = toSceneSpace({ x: 1, y: 2, z: 1.4 }, origin, 1, RL);
+  const deep = toSceneSpace({ x: 1, y: 2, z: 1.9 }, origin, 1, RL);
+
+  assert.ok(deep.y < shallow.y, `deep ${deep.y}, shallow ${shallow.y}`);
+  assert.ok(Math.abs(shallow.y - deep.y - 0.5) < 1e-12);
+});
+
+test("in rl mode a point at the floor RL renders on the grave floor", () => {
+  const origin = graveOrigin([3, 9, 1]);
+  const floor = toSceneSpace({ x: 1, y: 2, z: 2.0 }, origin, 1, RL);
+
+  // The grave floor is scene y = -depth.
+  assert.equal(floor.y, -1);
+});
+
+test("rl mode changes only the vertical axis", () => {
+  const origin = graveOrigin([3, 9, 1]);
+  const point = { x: 1.25, y: 6.3, z: 1.75 };
+  const height = toSceneSpace(point, origin, 1);
+  const rl = toSceneSpace(point, origin, 1, RL);
+
+  assert.equal(rl.x, height.x);
+  assert.equal(rl.z, height.z);
+});
+
+test("fromSceneSpace inverts toSceneSpace in both modes", () => {
+  const origin = graveOrigin([3, 9, 1]);
+  const points = [
+    { x: 1.5, y: 5.62, z: 1.61 },
+    { x: 0, y: 0, z: 0 },
+    { x: 2.8, y: 8.1, z: 1.97 },
+    // RL is usually but not always positive.
+    { x: 1, y: 1, z: -0.12 },
+  ];
+
+  for (const vertical of [undefined, { convention: "height", floorRL: null }, RL]) {
+    for (const point of points) {
+      const back = fromSceneSpace(
+        toSceneSpace(point, origin, 1, vertical),
+        origin,
+        1,
+        vertical,
+      );
+      for (const axis of ["x", "y", "z"]) {
+        assert.ok(
+          Math.abs(back[axis] - point[axis]) < 1e-12,
+          `${vertical?.convention} ${axis}: ${back[axis]} vs ${point[axis]}`,
+        );
+      }
+    }
+  }
+});
+
+test("an rl setting without a floor RL is read as height", () => {
+  const origin = graveOrigin([3, 9, 1]);
+  const point = { x: 1, y: 2, z: 0.4 };
+
+  assert.deepEqual(
+    toSceneSpace(point, origin, 1, { convention: "rl", floorRL: null }),
+    toSceneSpace(point, origin, 1),
+  );
+});

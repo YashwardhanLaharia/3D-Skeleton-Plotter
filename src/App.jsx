@@ -36,6 +36,7 @@ import {
 } from "./graveCollection.js";
 import { csvToProject, importCsv, rowsToIndividuals } from "./csvImport";
 import { createCsv, exportCsv } from "./csvExport";
+import { DEFAULT_VERTICAL } from "./sceneSpace";
 import "./app.css";
 
 const PALETTE = [
@@ -80,6 +81,10 @@ export default function App() {
   const [frameRequest, setFrameRequest] = useState(null);
   const graveOutline = graves[0] ?? { top: [], bottom: [] };
   const [recentProjects, setRecentProjects] = useState([]);
+  // How the recorded z is read: height above the grave floor, or RL down from
+  // the site datum with the grave floor's RL (see sceneSpace.js). Saved with
+  // the project, like the grave dimensions.
+  const [vertical, setVertical] = useState(DEFAULT_VERTICAL);
   // The data model is now an array of individuals, not one coordinate object.
   // Each carries its own label, colour, and full coordinate set.
   const [history, dispatch] = useReducer(historyReducer, undefined, () =>
@@ -193,6 +198,7 @@ export default function App() {
 
     // Before the grave itself, or the coordinates in it mean something else.
     setGraveDimensions(loaded.graveDimensions);
+    setVertical(loaded.vertical);
     setGraves(loaded.graves ?? []);
     setGraveAssignments(
       Object.fromEntries(
@@ -637,7 +643,18 @@ export default function App() {
       : nextGroupId.current;
 
     setIsDirty(true);
-    setNotice(`Imported ${converted.individuals.length} individuals`);
+
+    // Imported coordinates are drawn with this project's setting, not the
+    // file's. If they differ, the new individuals are at the wrong depth.
+    const sameVertical =
+      converted.vertical.convention === vertical.convention &&
+      (vertical.convention !== "rl" ||
+        converted.vertical.floorRL === vertical.floorRL);
+    setNotice(
+      sameVertical
+        ? `Imported ${converted.individuals.length} individuals`
+        : `Imported ${converted.individuals.length} individuals, but the file records depth differently from this project. Check they sit at the right depth.`,
+    );
   }
 
   async function handleExportCsv() {
@@ -648,6 +665,7 @@ export default function App() {
       hidden,
       graveOutline,
       { graves, imageOverlay },
+      vertical,
     );
 
     if (!result.ok) {
@@ -684,6 +702,7 @@ export default function App() {
     dispatch({ type: "new", individuals: STARTING_STATE, groups: [] });
     nextGroupId.current = 1;
     nextId.current = 2;
+    setVertical(DEFAULT_VERTICAL);
 
     resetSurvey();
 
@@ -776,6 +795,7 @@ export default function App() {
           view: viewportRef.current?.getView() ?? savedView,
           imageOverlay,
         },
+        vertical,
       ),
       filePath: forcePrompt ? null : filePath,
     });
@@ -1050,6 +1070,7 @@ export default function App() {
             onViewChange={() => setIsDirty(true)}
             targetId={selectedId}
             selectedId={selectedId}
+            vertical={vertical}
             onSolverIssues={handleSolverIssues}
             imageOverlay={imageOverlay}
             overlayFrame={overlayFrame}
