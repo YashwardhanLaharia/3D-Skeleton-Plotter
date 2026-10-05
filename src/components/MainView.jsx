@@ -32,6 +32,7 @@ import {
   FOLLOWER_BONE_IDS,
   SPAWN_BONE_IDS,
   UNSCALABLE_SPAWN_IDS,
+  unusualLandmarkSpans,
 } from "../solver/boneModes.js";
 import { boneName } from "../inspection/boneLabels.js";
 import { BODY_DIMENSIONS } from "../rig/scaling/dimensionConfig.js";
@@ -143,6 +144,10 @@ function SkeletonModel({
     const gatedSolveBone = (proximal, distal, bone) =>
       articulated.has(bone.id) ? solveBone(proximal, distal, bone) : null;
 
+    const splitJoints = new Set(
+      Object.keys(coords).filter((jointId) => coords[jointId]?.split),
+    );
+
     // Start clean: spawned copies from the previous solve are removed, which
     // also restores the master meshes they were hiding.
     rig.clearSpawnedBones();
@@ -154,6 +159,7 @@ function SkeletonModel({
       joints: sceneJoints,
       solveBone: gatedSolveBone,
       articulated,
+      splitJoints,
     });
 
     const origin = graveOrigin(graveDimensions);
@@ -251,6 +257,14 @@ function SkeletonModel({
       };
     }
     for (const entry of implausibleSpawns) {
+      unusualLengths[entry.boneId] = {
+        measured: entry.measured,
+        expected: entry.expected,
+      };
+    }
+    // The skull and jaw, which neither check above can see: they are not
+    // scalable segments, and they spawn unscaled.
+    for (const entry of unusualLandmarkSpans(plan)) {
       unusualLengths[entry.boneId] = {
         measured: entry.measured,
         expected: entry.expected,
