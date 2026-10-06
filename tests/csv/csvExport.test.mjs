@@ -143,3 +143,21 @@ test("export writes empty cells for a null groupId", () => {
   assert.equal(parsed.rows[4].label, "");
   assert.doesNotMatch(csv, /undefined/);
 });
+test("exported CSV preserves grave outline points", () => {
+  const graveOutline = {
+    top: [
+      { x: "0", y: "0", z: "1" },
+      { x: "2", y: "0", z: "1" },
+    ],
+    bottom: [
+      { x: "0.2", y: "0.2", z: "0" },
+      { x: "1.8", y: "0.2", z: "0" },
+    ],
+  };
+
+  const csv = createCsv([], [2, 4, 1], [], graveOutline);
+  const opened = csvToProject(csv);
+
+  assert.equal(opened.ok, true);
+  assert.deepEqual(opened.graveOutline, graveOutline);
+});
