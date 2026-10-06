@@ -1,5 +1,10 @@
 import { JOINTS } from "./joints.js";
 import { validateImageOverlay } from "./overlayAsset.js";
+import { validateProjectView } from "./projectView.js";
+import {
+  validateContour,
+  validateContourReference,
+} from "./graveContourData.js";
 
 export const CSV_COLUMNS = [
   "individual_id",
@@ -17,7 +22,7 @@ export const APPLICATION_ID = "application";
 export const APPLICATION_LABEL = "3d_skeleton_plotter";
 export const DEFAULT_GRAVE_DIMENSIONS = [1, 1, 1];
 
-const META_JOINT_IDS = new Set(["colour", "group", "group_label"]);
+const META_JOINT_IDS = new Set(["colour", "group", "group_label", "grave"]);
 const KNOWN_JOINTS = new Set(JOINTS.map(({ id }) => id));
 
 function parseCsvRecords(csvText) {
@@ -151,6 +156,15 @@ function buildProjectFromRows(columns, rows) {
     top: [],
     bottom: [],
   };
+  const graveRecords = new Map();
+  const graveDefinitions = new Set();
+  let view = null;
+  function contourFor(id) {
+    if (!id) return graveOutline;
+    if (!graveRecords.has(id))
+      graveRecords.set(id, { id, top: [], bottom: [] });
+    return graveRecords.get(id);
+  }
 
   for (let index = 1; index < rows.length; index += 1) {
     const row = rows[index];
@@ -190,6 +204,78 @@ function buildProjectFromRows(columns, rows) {
       continue;
     }
 
+    if (sourceId === "project_view") {
+      try {
+        if (view) throw new Error("Duplicate saved camera view");
+        view = validateProjectView(JSON.parse(row.label));
+      } catch (error) {
+        return { ok: false, error: `Row ${rowNumber}: ${error.message}` };
+      }
+      continue;
+    }
+
+    if (sourceId === "grave") {
+      try {
+        if (!jointId || graveDefinitions.has(jointId))
+          throw new Error("Invalid or duplicate grave ID");
+        const info = JSON.parse(row.label);
+        if (
+          !info ||
+          typeof info.name !== "string" ||
+          !info.name.trim() ||
+          (info.colour && !/^#[\da-f]{6}$/i.test(info.colour)) ||
+          (info.cutsInto != null && typeof info.cutsInto !== "string") ||
+          (info.notes != null && typeof info.notes !== "string")
+        )
+          throw new Error("Invalid grave details");
+        Object.assign(contourFor(jointId), {
+          name: info.name,
+          colour: info.colour || "#495057",
+          cutsInto: info.cutsInto || null,
+          notes: info.notes || "",
+        });
+        graveDefinitions.add(jointId);
+      } catch (error) {
+        return { ok: false, error: `Row ${rowNumber}: ${error.message}` };
+      }
+      continue;
+    }
+
+    if (sourceId === "grave_outline_reference") {
+      let info;
+      try {
+        info = JSON.parse(row.label);
+      } catch {
+        return {
+          ok: false,
+          error: `Row ${rowNumber} has invalid contour reference JSON`,
+        };
+      }
+      if (
+        info?.graveId != null &&
+        (typeof info.graveId !== "string" || !info.graveId.trim())
+      )
+        return { ok: false, error: `Row ${rowNumber} has invalid grave ID` };
+      const contour = contourFor(info?.graveId || "");
+      if (
+        !["top", "bottom"].includes(jointId) ||
+        contour.references?.[jointId]
+      ) {
+        return {
+          ok: false,
+          error: `Row ${rowNumber} has an invalid or duplicate contour reference`,
+        };
+      }
+      try {
+        const reference = validateContourReference(info);
+        contour.references ??= {};
+        contour.references[jointId] = reference;
+      } catch (error) {
+        return { ok: false, error: `Row ${rowNumber}: ${error.message}` };
+      }
+      continue;
+    }
+
     if (sourceId === "grave_outline") {
       if (jointId !== "top" && jointId !== "bottom") {
         return {
@@ -200,8 +286,14 @@ function buildProjectFromRows(columns, rows) {
 
       const parsed = parseCoordinateTriple(row, ["x", "y", "z"], rowNumber);
       if (!parsed.ok) return parsed;
+      if (parsed.values.some((value) => value === "")) {
+        return {
+          ok: false,
+          error: `Row ${rowNumber} needs complete grave outline coordinates`,
+        };
+      }
 
-      graveOutline[jointId].push({
+      contourFor(row.label.trim())[jointId].push({
         x: parsed.values[0],
         y: parsed.values[1],
         z: parsed.values[2],
@@ -216,6 +308,15 @@ function buildProjectFromRows(columns, rows) {
 
       if (jointId === "colour") {
         if (value) individual.colour = value;
+        continue;
+      }
+      if (jointId === "grave") {
+        if (individual.graveId !== undefined)
+          return {
+            ok: false,
+            error: `Row ${rowNumber} repeats grave membership`,
+          };
+        individual.graveId = value || null;
         continue;
       }
 
@@ -285,6 +386,47 @@ function buildProjectFromRows(columns, rows) {
     }
   }
 
+  try {
+    for (const id of graveRecords.keys())
+      if (!graveDefinitions.has(id)) throw new Error(`Unknown grave ID: ${id}`);
+    if (
+      graveRecords.size &&
+      (graveOutline.top.length ||
+        graveOutline.bottom.length ||
+        graveOutline.references)
+    )
+      throw new Error(
+        "Named graves cannot mix with unassigned legacy contour rows",
+      );
+    for (const grave of [graveOutline, ...graveRecords.values()]) {
+      for (const level of ["top", "bottom"]) {
+        grave[level] = validateContour(grave[level], `${level} outline`);
+        if (grave.references?.[level] && !grave[level].length)
+          throw new Error(`${level} reference has no contour`);
+      }
+      if (
+        grave.cutsInto &&
+        (!graveDefinitions.has(grave.cutsInto) || grave.cutsInto === grave.id)
+      )
+        throw new Error(`Invalid cuts-into relation for ${grave.name}`);
+      const visited = new Set([grave.id]);
+      let next = grave.cutsInto;
+      while (next) {
+        if (visited.has(next))
+          throw new Error("Grave cutting relationships contain a cycle");
+        visited.add(next);
+        next = graveRecords.get(next)?.cutsInto;
+      }
+    }
+    for (const individual of grouped.values())
+      if (individual.graveId && !graveDefinitions.has(individual.graveId))
+        throw new Error(
+          `Individual refers to unknown grave: ${individual.graveId}`,
+        );
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+
   for (const imported of grouped.values()) {
     if (imported.groupId && !groupNames.has(imported.groupId)) {
       groupNames.set(imported.groupId, "");
@@ -303,13 +445,37 @@ function buildProjectFromRows(columns, rows) {
         ? imported.groupId
         : null,
     coords: imported.coords,
+    ...(imported.graveId ? { graveId: imported.graveId } : {}),
   }));
 
+  const graves = graveRecords.size
+    ? [...graveRecords.values()]
+    : graveOutline.top.length || graveOutline.bottom.length
+      ? [
+          {
+            id: "grave-1",
+            name: "Grave 1",
+            colour: "#495057",
+            cutsInto: null,
+            notes: "",
+            ...graveOutline,
+          },
+        ]
+      : [];
+  const firstOutline = graveRecords.size
+    ? {
+        top: graves[0].top,
+        bottom: graves[0].bottom,
+        ...(graves[0].references ? { references: graves[0].references } : {}),
+      }
+    : graveOutline;
   return {
     ok: true,
     graveDimensions,
     imageOverlay,
-    graveOutline,
+    graveOutline: firstOutline,
+    graves,
+    view,
     groups,
     individuals,
   };
