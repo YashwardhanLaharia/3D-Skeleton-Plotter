@@ -1,4 +1,5 @@
 import { JOINTS } from "./joints.js";
+import { validateImageOverlay } from "./overlayAsset.js";
 
 export const CSV_COLUMNS = [
   "individual_id",
@@ -147,6 +148,7 @@ function buildProjectFromRows(columns, rows) {
   const grouped = new Map();
   const groupNames = new Map();
   let graveDimensions = [...DEFAULT_GRAVE_DIMENSIONS];
+  let imageOverlay = null;
 
   for (let index = 1; index < rows.length; index += 1) {
     const row = rows[index];
@@ -163,6 +165,13 @@ function buildProjectFromRows(columns, rows) {
         ok: false,
         error: `Row ${rowNumber} repeats the application identity row`,
       };
+    }
+
+    if (sourceId === "image_overlay") {
+      if (imageOverlay) return { ok: false, error: `Row ${rowNumber} repeats the image overlay` };
+      try { imageOverlay = validateImageOverlay(JSON.parse(row.label)); }
+      catch (error) { return { ok: false, error: `Row ${rowNumber}: ${error.message}` }; }
+      continue;
     }
 
     if (sourceId === "grave_dimensions") {
@@ -270,6 +279,7 @@ function buildProjectFromRows(columns, rows) {
   return {
     ok: true,
     graveDimensions,
+    imageOverlay,
     groups,
     individuals,
   };

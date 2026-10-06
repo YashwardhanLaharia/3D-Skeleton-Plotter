@@ -1,4 +1,5 @@
 import { JOINTS } from "./joints.js";
+import { validateImageOverlay } from "./overlayAsset.js";
 import {
   APPLICATION_ID,
   APPLICATION_LABEL,
@@ -10,7 +11,7 @@ function escapeCsvCell(value) {
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
-export function createCsv(individuals, projectGraveDimensions, groups = []) {
+export function createCsv(individuals, projectGraveDimensions, groups = [], options = {}) {
   const lines = [CSV_COLUMNS.join(",")];
 
   lines.push(
@@ -34,6 +35,11 @@ export function createCsv(individuals, projectGraveDimensions, groups = []) {
       .map(escapeCsvCell)
       .join(","),
   );
+
+  if (options.imageOverlay) {
+    lines.push(["image_overlay", "", "", "", "", "", "", "", JSON.stringify(validateImageOverlay(options.imageOverlay))]
+      .map(escapeCsvCell).join(","));
+  }
 
   individuals.forEach((individual, individualIndex) => {
     const label = individual.label?.trim() || `Skeleton ${individualIndex + 1}`;
@@ -89,11 +95,11 @@ export function createCsv(individuals, projectGraveDimensions, groups = []) {
   return `${lines.join("\r\n")}\r\n`;
 }
 
-export async function exportCsv(individuals, projectGraveDimensions, groups, hidden) {
+export async function exportCsv(individuals, projectGraveDimensions, groups, hidden, options = {}) {
   console.log(hidden);
   const visibleIndividuals = individuals.filter((individual) => !hidden.includes(individual.id));
 
   return window.electronAPI.exportCsv(
-    createCsv(visibleIndividuals, projectGraveDimensions, groups),
+    createCsv(visibleIndividuals, projectGraveDimensions, groups, options),
   );
 }
