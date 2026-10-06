@@ -11,6 +11,11 @@ export function makeGLBExportScene(scene, camera, controls) {
       return;
     }
 
+    if (child.name === "site-image-overlay") {
+      if (child.visible) exportScene.add(child.clone(true));
+      return;
+    }
+
     // Preserve the visible viewport reference grid and lighting. UI objects
     // are not part of the Three.js scene and therefore are never exported.
     if (child.isGridHelper || child.type === "GridHelper" || child.isLight) {
