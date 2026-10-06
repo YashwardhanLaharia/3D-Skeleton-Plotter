@@ -21,8 +21,9 @@ import { createSkeletonRig } from "../rig/SkeletonRigApi.js";
 import modelUrl from "../assets/models/skeleton-male.glb";
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 import { isVisible } from "../visibility";
-import { Box3, NormalBlending, Vector2, Vector3 } from "three";
+import { Box3, BufferGeometry, NormalBlending, Vector2, Vector3 } from "three";
 import { graveDimensionsToGridScale } from "../graveDimensions.js";
+import { graveContourToSceneSpace } from "../graveOutline.js";
 import { toSceneSpace, graveOrigin } from "../sceneSpace.js";
 import ImageOverlay from "./ImageOverlay";
 import { overlayCameraView } from "../imageOverlay.js";
@@ -599,6 +600,52 @@ function OverlayCamera({ overlay, graveDimensions, request, controlsRef }) {
   return null;
 }
 
+function GraveContour({ points = [], graveDimensions, colour }) {
+  const geometry = useMemo(() => {
+    const scenePoints = graveContourToSceneSpace(
+      points,
+      graveDimensions,
+      globalScale,
+    );
+
+    return new BufferGeometry().setFromPoints(
+      scenePoints.map((point) => new Vector3(point.x, point.y, point.z)),
+    );
+  }, [points, graveDimensions]);
+
+  useEffect(() => {
+    return () => geometry.dispose();
+  }, [geometry]);
+
+  if (points.length < 2) return null;
+
+  return (
+    <lineLoop geometry={geometry}>
+      <lineBasicMaterial color={colour} />
+    </lineLoop>
+  );
+}
+
+function GraveOutline({
+  graveOutline = { top: [], bottom: [] },
+  graveDimensions,
+}) {
+  return (
+    <>
+      <GraveContour
+        points={graveOutline.top}
+        graveDimensions={graveDimensions}
+        colour="#495057"
+      />
+      <GraveContour
+        points={graveOutline.bottom}
+        graveDimensions={graveDimensions}
+        colour="#6c757d"
+      />
+    </>
+  );
+}
+
 // Ground reference under the focused specimen.
 function FocusGrid({ focusedId }) {
   const { scene } = useThree();
@@ -673,6 +720,7 @@ const MainView = forwardRef(function MainView(
   {
     individuals = [],
     graveDimensions = [1, 1, 1],
+    graveOutline = { top: [], bottom: [] },
     command,
     targetId,
     selectedId = null,
@@ -746,10 +794,16 @@ const MainView = forwardRef(function MainView(
         {focusedId ? (
           <FocusGrid focusedId={focusedId} />
         ) : (
-          <gridHelper
-            args={[globalScale, 12, "#adb5bd", "#ced4da"]}
-            scale={graveDimensionsToGridScale(graveDimensions)}
-          />
+          <>
+            <gridHelper
+              args={[globalScale, 12, "#adb5bd", "#ced4da"]}
+              scale={graveDimensionsToGridScale(graveDimensions)}
+            />
+            <GraveOutline
+              graveOutline={graveOutline}
+              graveDimensions={graveDimensions}
+            />
+          </>
         )}
         <SelectionOutline selectedId={selectedId} colour={selectedColour} />
         <IgnoreHiddenObjects />
