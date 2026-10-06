@@ -267,7 +267,10 @@ ipcMain.handle("import-overlay-image", async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: "Load site photograph",
     properties: ["openFile"],
-    filters: [{ name: "Site photographs", extensions: ["png", "jpg", "jpeg"] }],
+    filters: [
+      { name: "Site photographs", extensions: ["png", "jpg", "jpeg"] },
+      { name: "All files", extensions: ["*"] },
+    ],
   });
   if (result.canceled || !result.filePaths.length) return { ok: false, canceled: true };
   try {
