@@ -33,6 +33,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   rememberRecentProject(project) {
     return ipcRenderer.invoke('remember-recent-project', project);
   },
+  importOverlayImage() {
+    return ipcRenderer.invoke('import-overlay-image');
+  },
   importCsv() {
     return ipcRenderer.invoke('import-csv');
   },

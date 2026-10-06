@@ -1,7 +1,9 @@
-import { app, Menu, BrowserWindow, ipcMain, dialog } from "electron";
+import { app, Menu, BrowserWindow, ipcMain, dialog, nativeImage } from "electron";
 import path from "node:path";
 import fs from "node:fs/promises";
 import started from "electron-squirrel-startup";
+import { inspectRaster } from "./overlayAsset.js";
+import { MAX_IMAGE_BYTES } from "./imageOverlay.js";
 
 // Handle creating shortcuts on Windows when installing/uninstalling
 if (started) {
@@ -258,6 +260,34 @@ ipcMain.handle("open-project-path", async (_event, filePath) => {
     return { ok: true, path: filePath, text };
   } catch (error) {
     return { ok: false, error: `Could not read this file: ${error.message}` };
+  }
+});
+
+ipcMain.handle("import-overlay-image", async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: "Load site photograph",
+    properties: ["openFile"],
+    filters: [{ name: "Site photographs", extensions: ["png", "jpg", "jpeg"] }],
+  });
+  if (result.canceled || !result.filePaths.length) return { ok: false, canceled: true };
+  try {
+    const filePath = result.filePaths[0];
+    if ((await fs.stat(filePath)).size > MAX_IMAGE_BYTES) throw new Error("Choose an image no larger than 10 MB");
+    const bytes = await fs.readFile(filePath);
+    const metadata = inspectRaster(bytes);
+    const image = nativeImage.createFromBuffer(bytes);
+    const size = image.getSize();
+    if (image.isEmpty() || size.width !== metadata.pixelWidth || size.height !== metadata.pixelHeight) {
+      throw new Error("This photograph could not be decoded. Choose a valid PNG or JPEG.");
+    }
+    return { ok: true, asset: {
+      source: path.basename(filePath),
+      dataUrl: `data:${metadata.mime};base64,${bytes.toString("base64")}`,
+      pixelWidth: metadata.pixelWidth,
+      pixelHeight: metadata.pixelHeight,
+    } };
+  } catch (error) {
+    return { ok: false, error: error.message };
   }
 });
 
