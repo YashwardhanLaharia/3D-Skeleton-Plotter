@@ -11,6 +11,7 @@ export function createCsv(
   individuals,
   projectGraveDimensions,
   groups = [],
+  graveOutline = { top: [], bottom: [] },
   options = {},
 ) {
   const lines = [CSV_COLUMNS.join(",")];
@@ -55,11 +56,44 @@ export function createCsv(
     );
   }
 
+  ["top", "bottom"].forEach((level) => {
+    const points = graveOutline?.[level] ?? [];
+
+    points.forEach((point) => {
+      lines.push(
+        [
+          "grave_outline",
+          level,
+          point.x ?? "",
+          point.y ?? "",
+          point.z ?? "",
+          "",
+          "",
+          "",
+          "",
+        ]
+          .map(escapeCsvCell)
+          .join(","),
+      );
+    });
+  });
+
   individuals.forEach((individual, individualIndex) => {
-    const label = individual.label?.trim() || `Skeleton ${individualIndex + 1}`;
+    const label =
+      individual.label?.trim() || `Skeleton ${individualIndex + 1}`;
 
     lines.push(
-      [individual.id, "colour", "", "", "", "", "", "", individual.colour ?? ""]
+      [
+        individual.id,
+        "colour",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        individual.colour ?? "",
+      ]
         .map(escapeCsvCell)
         .join(","),
     );
@@ -72,8 +106,19 @@ export function createCsv(
 
     const groupName =
       groups.find((group) => group.id === individual.groupId)?.name ?? "";
+
     lines.push(
-      [individual.id, "group_label", "", "", "", "", "", "", groupName]
+      [
+        individual.id,
+        "group_label",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        groupName,
+      ]
         .map(escapeCsvCell)
         .join(","),
     );
@@ -81,6 +126,7 @@ export function createCsv(
     JOINTS.forEach((joint, index) => {
       const coordinates = individual.coords?.[joint.id] ?? {};
       const inferiorCoordinates = coordinates.inferior ?? {};
+
       const row = [
         individual.id,
         joint.id,
@@ -92,6 +138,7 @@ export function createCsv(
         inferiorCoordinates.z ?? "",
         index === 0 ? label : "",
       ];
+
       lines.push(row.map(escapeCsvCell).join(","));
     });
   });
@@ -104,14 +151,22 @@ export async function exportCsv(
   projectGraveDimensions,
   groups,
   hidden,
+  graveOutline = { top: [], bottom: [] },
   options = {},
 ) {
   console.log(hidden);
+
   const visibleIndividuals = individuals.filter(
     (individual) => !hidden.includes(individual.id),
   );
 
   return window.electronAPI.exportCsv(
-    createCsv(visibleIndividuals, projectGraveDimensions, groups, options),
+    createCsv(
+      visibleIndividuals,
+      projectGraveDimensions,
+      groups,
+      graveOutline,
+      options,
+    ),
   );
 }

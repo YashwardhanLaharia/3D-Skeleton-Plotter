@@ -147,6 +147,10 @@ function buildProjectFromRows(columns, rows) {
   const groupNames = new Map();
   let graveDimensions = [...DEFAULT_GRAVE_DIMENSIONS];
   let imageOverlay = null;
+  const graveOutline = {
+    top: [],
+    bottom: [],
+  };
 
   for (let index = 1; index < rows.length; index += 1) {
     const row = rows[index];
@@ -183,6 +187,26 @@ function buildProjectFromRows(columns, rows) {
       const parsed = parseCoordinateTriple(row, ["x", "y", "z"], rowNumber);
       if (!parsed.ok) return parsed;
       graveDimensions = normaliseGraveDimensions(parsed.values);
+      continue;
+    }
+
+    if (sourceId === "grave_outline") {
+      if (jointId !== "top" && jointId !== "bottom") {
+        return {
+          ok: false,
+          error: `Row ${rowNumber} has invalid grave outline level: ${jointId}`,
+        };
+      }
+
+      const parsed = parseCoordinateTriple(row, ["x", "y", "z"], rowNumber);
+      if (!parsed.ok) return parsed;
+
+      graveOutline[jointId].push({
+        x: parsed.values[0],
+        y: parsed.values[1],
+        z: parsed.values[2],
+      });
+
       continue;
     }
 
@@ -285,6 +309,7 @@ function buildProjectFromRows(columns, rows) {
     ok: true,
     graveDimensions,
     imageOverlay,
+    graveOutline,
     groups,
     individuals,
   };

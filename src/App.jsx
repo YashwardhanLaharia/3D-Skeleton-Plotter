@@ -547,6 +547,7 @@ export default function App() {
       graveDimensions,
       groups,
       hidden,
+      { top: [], bottom: [] },
       { imageOverlay },
     );
 
@@ -660,9 +661,13 @@ export default function App() {
 
   async function handleSave(forcePrompt) {
     const result = await window.electronAPI.saveProject({
-      payload: createCsv(individuals, graveDimensions, groups, {
-        imageOverlay,
-      }),
+      payload: createCsv(
+        individuals,
+        graveDimensions,
+        groups,
+        { top: [], bottom: [] },
+        { imageOverlay },
+      ),
       filePath: forcePrompt ? null : filePath,
     });
 
