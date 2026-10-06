@@ -1,9 +1,6 @@
 import { JOINTS } from "./joints.js";
-import {
-  APPLICATION_ID,
-  APPLICATION_LABEL,
-  CSV_COLUMNS,
-} from "./csvImport.js";
+import { validateProjectView } from "./projectView.js";
+import { APPLICATION_ID, APPLICATION_LABEL, CSV_COLUMNS } from "./csvImport.js";
 
 function escapeCsvCell(value) {
   const text = String(value ?? "");
@@ -15,6 +12,7 @@ export function createCsv(
   projectGraveDimensions,
   groups = [],
   graveOutline = { top: [], bottom: [] },
+  options = {},
 ) {
   const lines = [CSV_COLUMNS.join(",")];
 
@@ -40,60 +38,104 @@ export function createCsv(
       .join(","),
   );
 
-  ["top", "bottom"].forEach((level) => {
-    const points = graveOutline?.[level] ?? [];
-
-    points.forEach((point) => {
+  const graves = options.graves ?? [graveOutline];
+  graves.forEach((grave) => {
+    const graveId = options.graves ? grave.id : "";
+    if (graveId)
       lines.push(
         [
-          "grave_outline",
-          level,
-          point.x ?? "",
-          point.y ?? "",
-          point.z ?? "",
+          "grave",
+          graveId,
           "",
           "",
           "",
           "",
+          "",
+          "",
+          JSON.stringify({
+            name: grave.name,
+            colour: grave.colour,
+            cutsInto: grave.cutsInto || null,
+            notes: grave.notes || "",
+          }),
         ]
           .map(escapeCsvCell)
           .join(","),
       );
+    ["top", "bottom"].forEach((level) => {
+      const points = grave?.[level] ?? [];
+      const reference = grave?.references?.[level];
+      if (reference && points.length) {
+        lines.push(
+          [
+            "grave_outline_reference",
+            level,
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            JSON.stringify({ ...reference, ...(graveId ? { graveId } : {}) }),
+          ]
+            .map(escapeCsvCell)
+            .join(","),
+        );
+      }
+
+      points.forEach((point) => {
+        lines.push(
+          [
+            "grave_outline",
+            level,
+            point.x ?? "",
+            point.y ?? "",
+            point.z ?? "",
+            "",
+            "",
+            "",
+            graveId,
+          ]
+            .map(escapeCsvCell)
+            .join(","),
+        );
+      });
     });
   });
-
-  individuals.forEach((individual, individualIndex) => {
-    const label =
-      individual.label?.trim() || `Skeleton ${individualIndex + 1}`;
-
+  if (options.view)
     lines.push(
       [
-        individual.id,
-        "colour",
+        "project_view",
         "",
         "",
         "",
         "",
         "",
         "",
-        individual.colour ?? "",
+        "",
+        JSON.stringify(validateProjectView(options.view)),
       ]
         .map(escapeCsvCell)
         .join(","),
     );
 
+  individuals.forEach((individual, individualIndex) => {
+    const label = individual.label?.trim() || `Skeleton ${individualIndex + 1}`;
+    if (individual.graveId)
+      lines.push(
+        [individual.id, "grave", "", "", "", "", "", "", individual.graveId]
+          .map(escapeCsvCell)
+          .join(","),
+      );
+
     lines.push(
-      [
-        individual.id,
-        "group",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        individual.groupId ?? "",
-      ]
+      [individual.id, "colour", "", "", "", "", "", "", individual.colour ?? ""]
+        .map(escapeCsvCell)
+        .join(","),
+    );
+
+    lines.push(
+      [individual.id, "group", "", "", "", "", "", "", individual.groupId ?? ""]
         .map(escapeCsvCell)
         .join(","),
     );
@@ -102,17 +144,7 @@ export function createCsv(
       groups.find((group) => group.id === individual.groupId)?.name ?? "";
 
     lines.push(
-      [
-        individual.id,
-        "group_label",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        groupName,
-      ]
+      [individual.id, "group_label", "", "", "", "", "", "", groupName]
         .map(escapeCsvCell)
         .join(","),
     );
@@ -146,6 +178,7 @@ export async function exportCsv(
   groups,
   hidden,
   graveOutline = { top: [], bottom: [] },
+  options = {},
 ) {
   console.log(hidden);
 
@@ -159,6 +192,7 @@ export async function exportCsv(
       projectGraveDimensions,
       groups,
       graveOutline,
+      options,
     ),
   );
 }

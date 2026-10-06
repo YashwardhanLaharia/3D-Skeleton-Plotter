@@ -25,6 +25,12 @@ import FocusBar from "./components/FocusBar";
 import InspectionPanel from "./components/InspectionPanel";
 import StartupScreen from "./components/StartupScreen";
 import GraveDimensionsModal from "./components/GraveDimensionsModal";
+import GraveOutlineImportModal from "./components/GraveOutlineImportModal";
+import GravesPanel from "./components/GravesPanel";
+import {
+  importGraveContour,
+  validateGraveRelations,
+} from "./graveCollection.js";
 import { csvToProject, importCsv, rowsToIndividuals } from "./csvImport";
 import { createCsv, exportCsv } from "./csvExport";
 import "./app.css";
@@ -56,15 +62,18 @@ function makeBlankCoords() {
 }
 
 export default function App() {
+  const [graveSurvey, setGraveSurvey] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showStartup, setShowStartup] = useState(true);
   const [isGraveDimensionsModalOpen, setIsGraveDimensionsModalOpen] =
     useState(false);
   const [graveDimensions, setGraveDimensions] = useState([1, 1, 1]);
-  const [graveOutline, setGraveOutline] = useState({
-    top: [],
-    bottom: [],
-  });
+  const [graves, setGraves] = useState([]);
+  const [graveAssignments, setGraveAssignments] = useState({});
+  const [hiddenGraves, setHiddenGraves] = useState([]);
+  const [savedView, setSavedView] = useState(null);
+  const [frameRequest, setFrameRequest] = useState(null);
+  const graveOutline = graves[0] ?? { top: [], bottom: [] };
   const [recentProjects, setRecentProjects] = useState([]);
   // The data model is now an array of individuals, not one coordinate object.
   // Each carries its own label, colour, and full coordinate set.
@@ -74,7 +83,13 @@ export default function App() {
 
   const [jointDetails, setJointDetails] = useState({});
 
-  function handleJointDetailChange(individualId, jointId, position, axis, value) {
+  function handleJointDetailChange(
+    individualId,
+    jointId,
+    position,
+    axis,
+    value,
+  ) {
     setJointDetails((current) => {
       const individualDetails = current[individualId] ?? {};
       const details = individualDetails[jointId] ?? {
@@ -122,7 +137,6 @@ export default function App() {
     setSolverIssues((current) => ({ ...current, [individualId]: issues }));
   }, []);
 
-
   const [openId, setOpenId] = useState("ind-1");
   const [filePath, setFilePath] = useState(null);
   const [isDirty, setIsDirty] = useState(false);
@@ -169,7 +183,18 @@ export default function App() {
 
     // Before the grave itself, or the coordinates in it mean something else.
     setGraveDimensions(loaded.graveDimensions);
-    setGraveOutline(loaded.graveOutline ?? { top: [], bottom: [] });
+    setGraves(loaded.graves ?? []);
+    setGraveAssignments(
+      Object.fromEntries(
+        loaded.individuals
+          .filter((individual) => individual.graveId)
+          .map((individual) => [individual.id, individual.graveId]),
+      ),
+    );
+    setHiddenGraves([]);
+    setSavedView(loaded.view);
+    setFrameRequest(null);
+    setGraveSurvey(null);
 
     const numbers = loaded.individuals
       .map((individual) => Number(individual.id.replace("ind-", "")))
@@ -219,7 +244,6 @@ export default function App() {
     dispatch({ type: "toggle-joint-split", individualId, jointId });
     setIsDirty(true);
   }
-
 
   // Called on blur. Ends the current edit run so the next field starts a new
   // history entry.
@@ -414,7 +438,7 @@ export default function App() {
     }
 
     setGraveDimensions([1, 1, 1]);
-    setGraveOutline({ top: [], bottom: [] });
+    resetSurvey();
     setFilePath(null);
     setIsDirty(false);
     setHidden([]);
@@ -425,6 +449,79 @@ export default function App() {
     nextGroupId.current = 1;
     nextId.current = 2;
     setShowStartup(true);
+  }
+
+  async function handleImportGraveOutline() {
+    const survey = await window.electronAPI.importGraveOutline();
+    if (!survey.ok) {
+      if (!survey.canceled) setNotice(survey.error);
+      return;
+    }
+    setGraveSurvey(survey);
+  }
+
+  function resetSurvey() {
+    setGraves([]);
+    setGraveAssignments({});
+    setHiddenGraves([]);
+    setSavedView(null);
+    setFrameRequest(null);
+    setGraveSurvey(null);
+  }
+
+  function handleApplyGraveOutline(options) {
+    const imported = importGraveContour(graves, {
+      ...options,
+      points: graveSurvey.points,
+    });
+    setGraves(imported.graves);
+    setHiddenGraves((current) => current.filter((id) => id !== imported.id));
+    setSavedView(null);
+    setFrameRequest({ id: imported.id });
+    setFocusedId(null);
+    setGraveSurvey(null);
+    setIsDirty(true);
+    setNotice(
+      `Imported ${graveSurvey.points.length} ${options.level === "bottom" ? "base" : "top"} contour vertices`,
+    );
+  }
+
+  function handleUpdateGrave(id, patch) {
+    const updated = graves.map((grave) =>
+      grave.id === id ? { ...grave, ...patch } : grave,
+    );
+    try {
+      validateGraveRelations(updated);
+    } catch (error) {
+      setNotice(error.message);
+      return;
+    }
+    setGraves(updated);
+    setIsDirty(true);
+  }
+
+  function handleRemoveGrave(id) {
+    setGraves(
+      graves
+        .filter((grave) => grave.id !== id)
+        .map((grave) =>
+          grave.cutsInto === id ? { ...grave, cutsInto: null } : grave,
+        ),
+    );
+    setGraveAssignments((current) =>
+      Object.fromEntries(
+        Object.entries(current).filter(([, graveId]) => graveId !== id),
+      ),
+    );
+    setHiddenGraves((current) => current.filter((graveId) => graveId !== id));
+    setIsDirty(true);
+  }
+
+  function projectIndividuals() {
+    return individuals.map((individual) => ({
+      ...individual,
+      graveId: graveAssignments[individual.id] || null,
+    }));
   }
 
   async function handleImport() {
@@ -472,11 +569,12 @@ export default function App() {
 
   async function handleExportCsv() {
     const result = await exportCsv(
-      individuals,
+      projectIndividuals(),
       graveDimensions,
       groups,
       hidden,
       graveOutline,
+      { graves },
     );
 
     if (!result.ok) {
@@ -512,6 +610,8 @@ export default function App() {
     nextGroupId.current = 1;
     nextId.current = 2;
 
+    resetSurvey();
+
     setShowStartup(false);
     setIsGraveDimensionsModalOpen(true);
     setFilePath(null);
@@ -545,7 +645,7 @@ export default function App() {
       console.error(loaded.error);
       setNotice(
         loaded.error ||
-        "This project file is invalid or uses an unsupported format.",
+          "This project file is invalid or uses an unsupported format.",
       );
       return;
     }
@@ -586,8 +686,18 @@ export default function App() {
   }
 
   async function handleSave(forcePrompt) {
+    if (graves.some((grave) => !grave.name.trim())) {
+      setNotice("Enter a name for each grave before saving.");
+      return false;
+    }
     const result = await window.electronAPI.saveProject({
-      payload: createCsv(individuals, graveDimensions, groups, graveOutline),
+      payload: createCsv(
+        projectIndividuals(),
+        graveDimensions,
+        groups,
+        graveOutline,
+        { graves, view: viewportRef.current?.getView() ?? savedView },
+      ),
       filePath: forcePrompt ? null : filePath,
     });
 
@@ -657,6 +767,7 @@ export default function App() {
     handleRedo,
     handleChangeGraveDimensions,
     handleImport,
+    handleImportGraveOutline,
     handleExportCsv,
   };
 
@@ -671,6 +782,8 @@ export default function App() {
         actionsRef.current.handleExportScreenshot();
       if (action === "menu-export-glb") actionsRef.current.handleExportGLB();
       if (action === "menu-import") actionsRef.current.handleImport();
+      if (action === "menu-import-grave-outline")
+        actionsRef.current.handleImportGraveOutline();
       if (action === "menu-export-csv") actionsRef.current.handleExportCsv();
       if (action === "menu-undo") actionsRef.current.handleUndo();
       if (action === "menu-redo") actionsRef.current.handleRedo();
@@ -749,7 +862,12 @@ export default function App() {
         show={showStartup}
         recentProjects={recentProjects}
         graveDimensions={graveDimensions}
-        setGraveDimensions={setGraveDimensions}
+        setGraveDimensions={(dimensions) => {
+          setGraveDimensions(dimensions);
+          setSavedView(null);
+          setFrameRequest({ id: null });
+          setIsDirty(true);
+        }}
         onCreateConfirm={handleCreateFromStartup}
         onOpen={handleOpen}
         onOpenRecent={handleOpenRecent}
@@ -758,10 +876,66 @@ export default function App() {
         show={isGraveDimensionsModalOpen}
         onHide={() => setIsGraveDimensionsModalOpen(false)}
         graveDimensions={graveDimensions}
-        setGraveDimensions={setGraveDimensions}
+        setGraveDimensions={(dimensions) => {
+          setGraveDimensions(dimensions);
+          setSavedView(null);
+          setFrameRequest({ id: null });
+          setIsDirty(true);
+        }}
       />
+      {graveSurvey && (
+        <GraveOutlineImportModal
+          survey={graveSurvey}
+          graves={graves}
+          onHide={() => setGraveSurvey(null)}
+          onImport={handleApplyGraveOutline}
+        />
+      )}
       <div className="app-workspace d-flex flex-grow-1 overflow-hidden">
         <Sidebar
+          gravesPanel={
+            <GravesPanel
+              graves={graves}
+              individuals={individuals}
+              assignments={graveAssignments}
+              hidden={hiddenGraves}
+              onToggle={(id) =>
+                setHiddenGraves((current) =>
+                  current.includes(id)
+                    ? current.filter((value) => value !== id)
+                    : [...current, id],
+                )
+              }
+              onUpdate={handleUpdateGrave}
+              onRemove={handleRemoveGrave}
+              onAssign={(id, graveId) => {
+                setGraveAssignments((current) => ({
+                  ...current,
+                  [id]: graveId,
+                }));
+                setIsDirty(true);
+              }}
+              onImport={handleImportGraveOutline}
+              onReference={(grave, level) =>
+                setGraveSurvey({
+                  targetId: grave.id,
+                  points: grave[level],
+                  level,
+                  source: grave.references?.[level]?.source || grave.name,
+                  description: "Existing survey contour",
+                  reference: grave.references?.[level],
+                })
+              }
+              onFit={(id) => {
+                setFocusedId(null);
+                setHiddenGraves((current) =>
+                  current.filter((value) => value !== id),
+                );
+                setFrameRequest({ id });
+                setIsDirty(true);
+              }}
+            />
+          }
           individuals={individuals}
           groups={groups}
           openId={openId}
@@ -811,6 +985,11 @@ export default function App() {
             focusedId={focusedId}
             graveDimensions={graveDimensions}
             graveOutline={graveOutline}
+            graves={graves}
+            hiddenGraves={hiddenGraves}
+            savedView={savedView}
+            frameRequest={frameRequest}
+            onViewChange={() => setIsDirty(true)}
             targetId={openId ?? individuals[0]?.id}
             onSolverIssues={handleSolverIssues}
           />
@@ -821,7 +1000,6 @@ export default function App() {
               individual={focusedIndividual}
               unusualLengths={solverIssues[focusedId]?.unusualLengths}
             />
-
           ) : (
             <LayersPanel
               individuals={individuals}
