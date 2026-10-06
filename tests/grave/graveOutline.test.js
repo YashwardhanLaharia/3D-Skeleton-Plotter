@@ -16,3 +16,16 @@ test("grave contour points convert from site-grid to scene space", () => {
   ]);
 });
 
+test("grave contour conversion accepts numeric strings from CSV", () => {
+  const points = [
+    { x: "0", y: "0", z: "0" },
+    { x: "2", y: "4", z: "1" },
+  ];
+
+  const result = graveContourToSceneSpace(points, [2, 4, 1]);
+
+  assert.deepEqual(result, [
+    { x: -1, y: -1, z: 2 },
+    { x: 1, y: 0, z: -2 },
+  ]);
+});
