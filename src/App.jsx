@@ -25,6 +25,9 @@ import FocusBar from "./components/FocusBar";
 import InspectionPanel from "./components/InspectionPanel";
 import StartupScreen from "./components/StartupScreen";
 import GraveDimensionsModal from "./components/GraveDimensionsModal";
+import ImageOverlayPanel from "./components/ImageOverlayPanel";
+import { placementFromSize } from "./imageOverlay.js";
+import { validateImageOverlay } from "./overlayAsset.js";
 import { csvToProject, importCsv, rowsToIndividuals } from "./csvImport";
 import { createCsv, exportCsv } from "./csvExport";
 import "./app.css";
@@ -56,6 +59,7 @@ function makeBlankCoords() {
 }
 
 export default function App() {
+  const [imageOverlay, setImageOverlay] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showStartup, setShowStartup] = useState(true);
   const [isGraveDimensionsModalOpen, setIsGraveDimensionsModalOpen] =
@@ -70,7 +74,13 @@ export default function App() {
 
   const [jointDetails, setJointDetails] = useState({});
 
-  function handleJointDetailChange(individualId, jointId, position, axis, value) {
+  function handleJointDetailChange(
+    individualId,
+    jointId,
+    position,
+    axis,
+    value,
+  ) {
     setJointDetails((current) => {
       const individualDetails = current[individualId] ?? {};
       const details = individualDetails[jointId] ?? {
@@ -118,7 +128,6 @@ export default function App() {
     setSolverIssues((current) => ({ ...current, [individualId]: issues }));
   }, []);
 
-
   const [openId, setOpenId] = useState("ind-1");
   const [filePath, setFilePath] = useState(null);
   const [isDirty, setIsDirty] = useState(false);
@@ -165,6 +174,7 @@ export default function App() {
 
     // Before the grave itself, or the coordinates in it mean something else.
     setGraveDimensions(loaded.graveDimensions);
+    setImageOverlay(loaded.imageOverlay ?? null);
 
     const numbers = loaded.individuals
       .map((individual) => Number(individual.id.replace("ind-", "")))
@@ -214,7 +224,6 @@ export default function App() {
     dispatch({ type: "toggle-joint-split", individualId, jointId });
     setIsDirty(true);
   }
-
 
   // Called on blur. Ends the current edit run so the next field starts a new
   // history entry.
@@ -409,16 +418,59 @@ export default function App() {
     }
 
     setGraveDimensions([1, 1, 1]);
+    setImageOverlay(null);
     setFilePath(null);
     setIsDirty(false);
     setHidden([]);
     setFocusedId(null);
     setOpenId(null);
     setJointDetails({});
+    setImageOverlay(null);
     dispatch({ type: "new", individuals: STARTING_STATE, groups: [] });
     nextGroupId.current = 1;
     nextId.current = 2;
     setShowStartup(true);
+  }
+
+  async function handleLoadOverlay() {
+    const result = await window.electronAPI.importOverlayImage();
+    if (!result.ok) {
+      if (!result.canceled) setNotice(result.error);
+      return;
+    }
+    try {
+      const { asset } = result;
+      const aspect = asset.pixelWidth / asset.pixelHeight;
+      const width = Math.min(
+        Number(graveDimensions[0]),
+        Number(graveDimensions[1]) * aspect,
+      );
+      const placement =
+        imageOverlay ??
+        placementFromSize({
+          x: 0,
+          y: 0,
+          width,
+          length: width / aspect,
+          rotation: 0,
+          heightAboveFloor: 0,
+        });
+      setImageOverlay(validateImageOverlay({ ...placement, ...asset }));
+      setFocusedId(null);
+      setIsDirty(true);
+      setNotice(
+        imageOverlay
+          ? "Photograph replaced; check its alignment."
+          : "Photograph loaded. Enter its grid alignment.",
+      );
+    } catch (error) {
+      setNotice(error.message);
+    }
+  }
+
+  function handleApplyOverlay(next) {
+    setImageOverlay(next);
+    setIsDirty(true);
   }
 
   async function handleImport() {
@@ -465,7 +517,13 @@ export default function App() {
   }
 
   async function handleExportCsv() {
-    const result = await exportCsv(individuals, graveDimensions, groups, hidden);
+    const result = await exportCsv(
+      individuals,
+      graveDimensions,
+      groups,
+      hidden,
+      { imageOverlay },
+    );
 
     if (!result.ok) {
       if (!result.canceled) setNotice(result.error);
@@ -496,6 +554,7 @@ export default function App() {
     }
 
     setJointDetails({});
+    setImageOverlay(null);
     dispatch({ type: "new", individuals: STARTING_STATE, groups: [] });
     nextGroupId.current = 1;
     nextId.current = 2;
@@ -533,7 +592,7 @@ export default function App() {
       console.error(loaded.error);
       setNotice(
         loaded.error ||
-        "This project file is invalid or uses an unsupported format.",
+          "This project file is invalid or uses an unsupported format.",
       );
       return;
     }
@@ -575,7 +634,9 @@ export default function App() {
 
   async function handleSave(forcePrompt) {
     const result = await window.electronAPI.saveProject({
-      payload: createCsv(individuals, graveDimensions, groups),
+      payload: createCsv(individuals, graveDimensions, groups, {
+        imageOverlay,
+      }),
       filePath: forcePrompt ? null : filePath,
     });
 
@@ -775,6 +836,17 @@ export default function App() {
           onSetGroup={handleSetGroup}
           onLabelChange={handleLabelChange}
           onColourChange={handleColourChange}
+          overlayPanel={
+            <ImageOverlayPanel
+              overlay={imageOverlay}
+              onLoad={handleLoadOverlay}
+              onApply={handleApplyOverlay}
+              onRemove={() => {
+                setImageOverlay(null);
+                setIsDirty(true);
+              }}
+            />
+          }
           isOpen={isSidebarOpen}
         />
 
@@ -800,6 +872,8 @@ export default function App() {
             graveDimensions={graveDimensions}
             targetId={openId ?? individuals[0]?.id}
             onSolverIssues={handleSolverIssues}
+            imageOverlay={imageOverlay}
+            onOverlayError={setNotice}
           />
           <FocusBar individual={focusedIndividual} onExit={handleExitFocus} />
 
@@ -808,7 +882,6 @@ export default function App() {
               individual={focusedIndividual}
               unusualLengths={solverIssues[focusedId]?.unusualLengths}
             />
-
           ) : (
             <LayersPanel
               individuals={individuals}

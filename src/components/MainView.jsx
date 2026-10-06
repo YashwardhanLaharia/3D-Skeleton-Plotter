@@ -23,6 +23,7 @@ import { isVisible } from "../visibility";
 import { Box3, Vector2, Vector3 } from "three";
 import { graveDimensionsToGridScale } from "../graveDimensions.js";
 import { toSceneSpace, graveOrigin } from "../sceneSpace.js";
+import ImageOverlay from "./ImageOverlay";
 import { makeGLBExportScene } from "../exportScene.js";
 import { toNumericJoints } from "../solver/numericJoints.js";
 import { createSolveBone, verifyRestConvention } from "../solver/solveBone.js";
@@ -582,6 +583,8 @@ const MainView = forwardRef(function MainView(
     hidden = [],
     focusedId = null,
     onSolverIssues,
+    imageOverlay = null,
+    onOverlayError,
   },
   ref,
 ) {
@@ -625,6 +628,8 @@ const MainView = forwardRef(function MainView(
             />
           </Suspense>
         ))}
+
+        {imageOverlay && !focusedId && <ImageOverlay overlay={imageOverlay} graveDimensions={graveDimensions} scale={globalScale} onError={onOverlayError} />}
 
         {focusedId ? (
           <FocusGrid focusedId={focusedId} />

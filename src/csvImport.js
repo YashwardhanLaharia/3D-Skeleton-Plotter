@@ -93,9 +93,7 @@ function ensureIndividual(grouped, sourceId) {
 
 function parseCoordinateTriple(row, keys, rowNumber) {
   const values = keys.map((key) => String(row[key] ?? "").trim());
-  if (
-    values.some((value) => value !== "" && !Number.isFinite(Number(value)))
-  ) {
+  if (values.some((value) => value !== "" && !Number.isFinite(Number(value)))) {
     return { ok: false, error: `Row ${rowNumber} has invalid coordinates` };
   }
   return { ok: true, values };
@@ -168,9 +166,16 @@ function buildProjectFromRows(columns, rows) {
     }
 
     if (sourceId === "image_overlay") {
-      if (imageOverlay) return { ok: false, error: `Row ${rowNumber} repeats the image overlay` };
-      try { imageOverlay = validateImageOverlay(JSON.parse(row.label)); }
-      catch (error) { return { ok: false, error: `Row ${rowNumber}: ${error.message}` }; }
+      if (imageOverlay)
+        return {
+          ok: false,
+          error: `Row ${rowNumber} repeats the image overlay`,
+        };
+      try {
+        imageOverlay = validateImageOverlay(JSON.parse(row.label));
+      } catch (error) {
+        return { ok: false, error: `Row ${rowNumber}: ${error.message}` };
+      }
       continue;
     }
 

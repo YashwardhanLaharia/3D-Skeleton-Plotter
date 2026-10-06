@@ -1,17 +1,18 @@
 import { JOINTS } from "./joints.js";
 import { validateImageOverlay } from "./overlayAsset.js";
-import {
-  APPLICATION_ID,
-  APPLICATION_LABEL,
-  CSV_COLUMNS,
-} from "./csvImport.js";
+import { APPLICATION_ID, APPLICATION_LABEL, CSV_COLUMNS } from "./csvImport.js";
 
 function escapeCsvCell(value) {
   const text = String(value ?? "");
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
-export function createCsv(individuals, projectGraveDimensions, groups = [], options = {}) {
+export function createCsv(
+  individuals,
+  projectGraveDimensions,
+  groups = [],
+  options = {},
+) {
   const lines = [CSV_COLUMNS.join(",")];
 
   lines.push(
@@ -37,8 +38,21 @@ export function createCsv(individuals, projectGraveDimensions, groups = [], opti
   );
 
   if (options.imageOverlay) {
-    lines.push(["image_overlay", "", "", "", "", "", "", "", JSON.stringify(validateImageOverlay(options.imageOverlay))]
-      .map(escapeCsvCell).join(","));
+    lines.push(
+      [
+        "image_overlay",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        JSON.stringify(validateImageOverlay(options.imageOverlay)),
+      ]
+        .map(escapeCsvCell)
+        .join(","),
+    );
   }
 
   individuals.forEach((individual, individualIndex) => {
@@ -51,17 +65,7 @@ export function createCsv(individuals, projectGraveDimensions, groups = [], opti
     );
 
     lines.push(
-      [
-        individual.id,
-        "group",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        individual.groupId ?? "",
-      ]
+      [individual.id, "group", "", "", "", "", "", "", individual.groupId ?? ""]
         .map(escapeCsvCell)
         .join(","),
     );
@@ -95,9 +99,17 @@ export function createCsv(individuals, projectGraveDimensions, groups = [], opti
   return `${lines.join("\r\n")}\r\n`;
 }
 
-export async function exportCsv(individuals, projectGraveDimensions, groups, hidden, options = {}) {
+export async function exportCsv(
+  individuals,
+  projectGraveDimensions,
+  groups,
+  hidden,
+  options = {},
+) {
   console.log(hidden);
-  const visibleIndividuals = individuals.filter((individual) => !hidden.includes(individual.id));
+  const visibleIndividuals = individuals.filter(
+    (individual) => !hidden.includes(individual.id),
+  );
 
   return window.electronAPI.exportCsv(
     createCsv(visibleIndividuals, projectGraveDimensions, groups, options),
