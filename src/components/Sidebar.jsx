@@ -113,6 +113,7 @@ function JointRow({
 function IndividualSection({
   individual,
   isOpen,
+  isSelected,
   onToggle,
   onChange,
   onToggleSplit,
@@ -136,9 +137,21 @@ function IndividualSection({
     return v.x !== "" && v.y !== "" && v.z !== "";
   }).length;
 
+  const sectionRef = useRef(null);
+
+  // Selecting from the viewport has to bring the section into view.
+  useEffect(() => {
+    if (isSelected) {
+      sectionRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  }, [isSelected]);
+
   return (
     // The whole header toggles, so I used a button rather than a div
-    <section className="individual border rounded mb-2 bg-body">
+    <section
+      ref={sectionRef}
+      className={`individual border rounded mb-2 bg-body${isSelected ? " individual-selected" : ""}`}
+    >
       <button
         type="button"
         className="individual-header btn w-100 d-flex align-items-center gap-2 text-start"
@@ -453,6 +466,7 @@ export default function Sidebar({
   individuals,
   groups,
   openId,
+  selectedId,
   onChange,
   onToggleSplit,
   onOffset,
@@ -471,6 +485,7 @@ export default function Sidebar({
   onColourChange,
   onLabelChange,
   isOpen,
+  isSelected,
   highlight,
   notice,
   solverIssues = {},
@@ -494,6 +509,7 @@ export default function Sidebar({
         key={individual.id}
         individual={individual}
         isOpen={individual.id === openId}
+        isSelected={individual.id === selectedId}
         onToggle={onToggle}
         onChange={onChange}
         onToggleSplit={onToggleSplit}

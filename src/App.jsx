@@ -138,6 +138,11 @@ export default function App() {
   }, []);
 
   const [openId, setOpenId] = useState("ind-1");
+
+  // Which individual rig commands and viewport clicks act on. View state, like
+  // `hidden`: not undoable, not saved. openId is only which section is expanded.
+  const [selectedId, setSelectedId] = useState("ind-1");
+
   const [filePath, setFilePath] = useState(null);
   const [isDirty, setIsDirty] = useState(false);
   const [rigCommand, setRigCommand] = useState(null);
@@ -208,7 +213,9 @@ export default function App() {
       ? Math.max(...groupNumbers) + 1
       : 1;
 
-    setOpenId(loaded.individuals[0]?.id ?? null);
+    const firstId = loaded.individuals[0]?.id ?? null;
+    setOpenId(firstId);
+    setSelectedId(firstId);
     setFilePath(projectPath);
     setIsDirty(false);
     setHidden([]);
@@ -266,8 +273,15 @@ export default function App() {
     setIsDirty(true);
   }
 
+  // Expanding a section selects it. Collapsing leaves the selection alone.
+  function openAndSelect(individualId) {
+    setOpenId(individualId);
+    if (individualId) setSelectedId(individualId);
+  }
+
   function handleToggle(individualId) {
-    setOpenId((current) => (current === individualId ? null : individualId));
+    if (openId === individualId) setOpenId(null);
+    else openAndSelect(individualId);
   }
 
   function handleAdd() {
@@ -285,7 +299,7 @@ export default function App() {
         coords: makeBlankCoords(),
       },
     });
-    setOpenId(id);
+    openAndSelect(id);
 
     setIsDirty(true);
   }
@@ -318,6 +332,7 @@ export default function App() {
   function handleRemove(individualId) {
     dispatch({ type: "remove", individualId });
     setOpenId((current) => (current === individualId ? null : current));
+    setSelectedId((current) => (current === individualId ? null : current));
     setIsDirty(true);
     setHidden((current) =>
       pruneHidden(
@@ -366,6 +381,12 @@ export default function App() {
     setFocusedId(null);
   }
 
+  // Esc backs out one level at a time: focus first, then the selection.
+  function handleEscape() {
+    if (focusedId) setFocusedId(null);
+    else setSelectedId(null);
+  }
+
   // Reveal the effect: expand the affected individual and flash the field, so
   // an undo inside a collapsed section isn't silent.
   function revealChange(before, after) {
@@ -381,7 +402,7 @@ export default function App() {
       setNotice(
         change.field === "added" ? `Restored ${name}` : `Removed ${name}`,
       );
-      if (change.field === "added") setOpenId(change.individualId);
+      if (change.field === "added") openAndSelect(change.individualId);
       return;
     }
 
@@ -391,12 +412,12 @@ export default function App() {
     }
 
     if (change.field === "group") {
-      setOpenId(change.individualId);
+      openAndSelect(change.individualId);
       setNotice("Updated group membership");
       return;
     }
 
-    setOpenId(change.individualId);
+    openAndSelect(change.individualId);
     setHighlight(change);
   }
 
@@ -444,6 +465,7 @@ export default function App() {
     setHidden([]);
     setFocusedId(null);
     setOpenId(null);
+    setSelectedId(null);
     setJointDetails({});
     dispatch({ type: "new", individuals: STARTING_STATE, groups: [] });
     nextGroupId.current = 1;
@@ -550,7 +572,7 @@ export default function App() {
       individuals: converted.individuals,
       groups: converted.groups,
     });
-    setOpenId(converted.individuals[0]?.id ?? openId);
+    openAndSelect(converted.individuals[0]?.id ?? openId);
     const usedNumbers = [...individuals, ...converted.individuals]
       .map(({ id }) => Number(id.match(/^ind-(\d+)$/)?.[1]))
       .filter(Number.isFinite);
@@ -615,7 +637,7 @@ export default function App() {
     setShowStartup(false);
     setIsGraveDimensionsModalOpen(true);
     setFilePath(null);
-    setOpenId(STARTING_STATE[0].id);
+    openAndSelect(STARTING_STATE[0].id);
     setHidden([]);
     setFocusedId(null);
     setIsDirty(true);
@@ -769,6 +791,7 @@ export default function App() {
     handleImport,
     handleImportGraveOutline,
     handleExportCsv,
+    handleEscape,
   };
 
   useEffect(() => {
@@ -823,7 +846,7 @@ export default function App() {
   useEffect(() => {
     function onKeyDown(event) {
       if (event.key === "Escape") {
-        setFocusedId(null);
+        actionsRef.current.handleEscape();
         return;
       }
 
@@ -939,6 +962,7 @@ export default function App() {
           individuals={individuals}
           groups={groups}
           openId={openId}
+          selectedId={selectedId}
           onChange={handleChange}
           onToggleSplit={handleToggleSplit}
           onOffset={handleOffset}
@@ -990,8 +1014,11 @@ export default function App() {
             savedView={savedView}
             frameRequest={frameRequest}
             onViewChange={() => setIsDirty(true)}
-            targetId={openId ?? individuals[0]?.id}
+            targetId={selectedId}
+            selectedId={selectedId}
             onSolverIssues={handleSolverIssues}
+            onSelect={openAndSelect}
+            onClearSelection={() => setSelectedId(null)}
           />
           <FocusBar individual={focusedIndividual} onExit={handleExitFocus} />
 

@@ -170,6 +170,11 @@
   box-shadow: none;
 }
 
+.individual-selected {
+  border-color: var(--bs-primary) !important;
+  box-shadow: 0 0 0 1px var(--bs-primary);
+}
+
 .individual-header:focus-visible {
   outline: 2px solid var(--bs-primary);
   outline-offset: -2px;
