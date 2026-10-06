@@ -27,10 +27,12 @@ CSV export includes the embedded photograph. Scene/image export can include the 
 
 ## Validation
 
-The full automated suite passes: 308 tests, including placement, shared scene axes, UV orientation, invalid inputs, bounded PNG/JPEG headers, embedded CSV round trips, legacy CSV compatibility, camera framing and visible/hidden scene export. The macOS arm64 package builds and launches.
+The full automated suite passes: 312 tests, including placement, shared scene axes, UV orientation, invalid inputs, bounded PNG/JPEG headers, embedded CSV round trips, legacy CSV compatibility, camera framing and visible/hidden scene export. The macOS arm64 package builds and launches.
 
 Interactive verification passed in the packaged macOS app using a synthetic orientation grid: PNG import, rendering beneath a skeleton, 30-degree rotation, framing, opacity adjustment, hide/show, surveyed corners, saving and reopening, screenshot export and GLB export. The reopened CSV preserved the exact embedded image bytes, corner placement and opacity; joint and grave rows were unchanged. The GLB contained the photograph mesh and embedded texture. The macOS picker initially left Open disabled for the PNG; the All files option resolved this while retaining import validation.
 
 The separate development launch still stalled during Electron main/preload compilation, with an existing dev server occupying port 5173. Packaged app verification is complete; successful `npm start` startup has not been claimed.
 
 Client acceptance still needs an overhead photograph with measured local-grid corner coordinates and the intended image elevation. The corner transformation is affine; photographs with significant perspective distortion need rectification before use. This branch is based on main and is independent of the open #48 contour work.
+
+Integration with the latest main preserves skeleton click selection, selection outlines, hidden-object filtering and Escape-to-clear alongside the image overlay. The combined automated suite passes and the macOS arm64 package builds.
