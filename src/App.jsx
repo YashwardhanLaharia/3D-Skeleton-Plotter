@@ -61,6 +61,10 @@ export default function App() {
   const [isGraveDimensionsModalOpen, setIsGraveDimensionsModalOpen] =
     useState(false);
   const [graveDimensions, setGraveDimensions] = useState([1, 1, 1]);
+  const [graveOutline, setGraveOutline] = useState({
+    top: [],
+    bottom: [],
+  });
   const [recentProjects, setRecentProjects] = useState([]);
   // The data model is now an array of individuals, not one coordinate object.
   // Each carries its own label, colour, and full coordinate set.
@@ -165,6 +169,7 @@ export default function App() {
 
     // Before the grave itself, or the coordinates in it mean something else.
     setGraveDimensions(loaded.graveDimensions);
+    setGraveOutline(loaded.graveOutline ?? { top: [], bottom: [] });
 
     const numbers = loaded.individuals
       .map((individual) => Number(individual.id.replace("ind-", "")))
@@ -409,6 +414,7 @@ export default function App() {
     }
 
     setGraveDimensions([1, 1, 1]);
+    setGraveOutline({ top: [], bottom: [] });
     setFilePath(null);
     setIsDirty(false);
     setHidden([]);
@@ -465,7 +471,13 @@ export default function App() {
   }
 
   async function handleExportCsv() {
-    const result = await exportCsv(individuals, graveDimensions, groups, hidden);
+    const result = await exportCsv(
+      individuals,
+      graveDimensions,
+      groups,
+      hidden,
+      graveOutline,
+    );
 
     if (!result.ok) {
       if (!result.canceled) setNotice(result.error);
@@ -575,7 +587,7 @@ export default function App() {
 
   async function handleSave(forcePrompt) {
     const result = await window.electronAPI.saveProject({
-      payload: createCsv(individuals, graveDimensions, groups),
+      payload: createCsv(individuals, graveDimensions, groups, graveOutline),
       filePath: forcePrompt ? null : filePath,
     });
 
@@ -798,6 +810,7 @@ export default function App() {
             hidden={hidden}
             focusedId={focusedId}
             graveDimensions={graveDimensions}
+            graveOutline={graveOutline}
             targetId={openId ?? individuals[0]?.id}
             onSolverIssues={handleSolverIssues}
           />

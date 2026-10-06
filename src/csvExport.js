@@ -145,6 +145,7 @@ export async function exportCsv(
   projectGraveDimensions,
   groups,
   hidden,
+  graveOutline = { top: [], bottom: [] },
 ) {
   console.log(hidden);
 
@@ -153,6 +154,11 @@ export async function exportCsv(
   );
 
   return window.electronAPI.exportCsv(
-    createCsv(visibleIndividuals, projectGraveDimensions, groups),
+    createCsv(
+      visibleIndividuals,
+      projectGraveDimensions,
+      groups,
+      graveOutline,
+    ),
   );
 }
