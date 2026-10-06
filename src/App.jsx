@@ -66,6 +66,10 @@ export default function App() {
   const [isGraveDimensionsModalOpen, setIsGraveDimensionsModalOpen] =
     useState(false);
   const [graveDimensions, setGraveDimensions] = useState([1, 1, 1]);
+  const [graveOutline, setGraveOutline] = useState({
+    top: [],
+    bottom: [],
+  });
   const [recentProjects, setRecentProjects] = useState([]);
   // The data model is now an array of individuals, not one coordinate object.
   // Each carries its own label, colour, and full coordinate set.
@@ -180,6 +184,7 @@ export default function App() {
 
     // Before the grave itself, or the coordinates in it mean something else.
     setGraveDimensions(loaded.graveDimensions);
+    setGraveOutline(loaded.graveOutline ?? { top: [], bottom: [] });
     setImageOverlay(loaded.imageOverlay ?? null);
     setOverlayFrame(loaded.imageOverlay?.visible ? {} : null);
 
@@ -441,6 +446,7 @@ export default function App() {
     }
 
     setGraveDimensions([1, 1, 1]);
+    setGraveOutline({ top: [], bottom: [] });
     setFilePath(null);
     setIsDirty(false);
     setHidden([]);
@@ -547,7 +553,7 @@ export default function App() {
       graveDimensions,
       groups,
       hidden,
-      { top: [], bottom: [] },
+      graveOutline,
       { imageOverlay },
     );
 
@@ -665,7 +671,7 @@ export default function App() {
         individuals,
         graveDimensions,
         groups,
-        { top: [], bottom: [] },
+        graveOutline,
         { imageOverlay },
       ),
       filePath: forcePrompt ? null : filePath,
@@ -912,6 +918,7 @@ export default function App() {
             hidden={hidden}
             focusedId={focusedId}
             graveDimensions={graveDimensions}
+            graveOutline={graveOutline}
             targetId={selectedId}
             selectedId={selectedId}
             onSolverIssues={handleSolverIssues}
