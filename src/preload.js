@@ -1,6 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 contextBridge.exposeInMainWorld('electronAPI', {
+  autosaveProject(snapshot) {
+    return ipcRenderer.invoke('autosave-project', snapshot);
+  },
+  restoreAutosave() {
+    return ipcRenderer.invoke('restore-autosave');
+  },
   saveProject(request) {
     return ipcRenderer.invoke('save-project', request);
   },

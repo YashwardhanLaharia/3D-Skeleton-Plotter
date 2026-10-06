@@ -198,6 +198,7 @@ export default function App() {
   }
 
   function applyLoadedProject(loaded, projectPath) {
+    skipAutosave.current = true;
     setJointDetails({});
     dispatch({
       type: "load",
@@ -246,6 +247,79 @@ export default function App() {
     setIsGraveDimensionsModalOpen(false);
     setNotice("Project opened successfully.");
     rememberRecent(projectPath, loaded.individuals.length);
+  }
+
+  const [recoveryReady, setRecoveryReady] = useState(false);
+  const recoveryStarted = useRef(false);
+  const skipAutosave = useRef(true);
+  const lastAutosaveData = useRef(null);
+  const pendingAutosave = useRef(Promise.resolve({ ok: true }));
+
+  useEffect(() => {
+    if (recoveryStarted.current) return;
+    recoveryStarted.current = true;
+    async function recover() {
+      try {
+        const result = await window.electronAPI?.restoreAutosave?.();
+        if (result && !result.ok) throw new Error(result.error);
+        if (result?.snapshot) {
+          const document = result.snapshot.document;
+          const loaded = document
+            ? { ...document, ok: Array.isArray(document.individuals) && Array.isArray(document.groups) && Array.isArray(document.graveDimensions) }
+            : csvToProject(result.snapshot.payload);
+          if (!loaded.ok) throw new Error(loaded.error || "Invalid autosaved project");
+          skipAutosave.current = true;
+          dispatch({ type: "load", individuals: loaded.individuals, groups: loaded.groups });
+          setGraveDimensions(loaded.graveDimensions);
+          setJointDetails(result.snapshot.jointDetails ?? {});
+          setFilePath(result.snapshot.filePath ?? null);
+          nextId.current = Math.max(0, ...loaded.individuals.map(item => Number(item.id.replace("ind-", "")) || 0)) + 1;
+          nextGroupId.current = Math.max(0, ...loaded.groups.map(item => Number(item.id.replace("grp-", "")) || 0)) + 1;
+          setOpenId(loaded.individuals[0]?.id ?? null);
+          setShowStartup(false);
+          setIsGraveDimensionsModalOpen(false);
+          setIsDirty(true);
+          setNotice("Autosaved project restored. Use Save to update your project file.");
+        }
+      } catch (error) {
+        setNotice(`Could not restore autosave: ${error.message}`);
+      } finally {
+        setRecoveryReady(true);
+      }
+    }
+    recover();
+  }, []);
+
+  useEffect(() => {
+    if (!recoveryReady) return;
+    const snapshot = {
+      payload: createCsv(individuals, graveDimensions, groups),
+      document: { individuals, groups, graveDimensions },
+      jointDetails,
+    };
+    const data = JSON.stringify({ ...snapshot, filePath });
+    if (skipAutosave.current) {
+      skipAutosave.current = false;
+      lastAutosaveData.current = data;
+      return;
+    }
+    if (data === lastAutosaveData.current) return;
+    lastAutosaveData.current = data;
+    if (!window.electronAPI?.autosaveProject) return;
+    pendingAutosave.current = window.electronAPI.autosaveProject({ ...snapshot, filePath })
+      .catch(error => ({ ok: false, error: error.message }));
+    pendingAutosave.current.then(result => {
+      if (!result.ok) setNotice(`Autosave failed: ${result.error}`);
+    });
+  }, [recoveryReady, individuals, groups, graveDimensions, jointDetails, filePath]);
+
+  async function finishAutosave() {
+    const result = await pendingAutosave.current;
+    if (!result.ok) {
+      setNotice("Autosave failed. Save your project manually before continuing, then try again.");
+      return false;
+    }
+    return true;
   }
 
   useEffect(() => {
@@ -694,6 +768,7 @@ export default function App() {
   }
 
   async function handleNew() {
+    if (!recoveryReady || !await finishAutosave()) return;
     if (isDirty) {
       const choice = await window.electronAPI.confirmDiscard("new");
       if (choice === "cancel") return;
@@ -713,6 +788,7 @@ export default function App() {
       return;
     }
 
+    skipAutosave.current = true;
     setJointDetails({});
     setImageOverlay(null);
     setOverlayFrame(null);
@@ -734,6 +810,7 @@ export default function App() {
   }
 
   async function handleOpen() {
+    if (!recoveryReady || !await finishAutosave()) return;
     if (isDirty && !showStartup) {
       const choice = await window.electronAPI.confirmDiscard("open");
       if (choice === "cancel") return;
@@ -788,6 +865,7 @@ export default function App() {
   }
 
   async function handleOpenRecent(projectPath) {
+    if (!recoveryReady || !await finishAutosave()) return;
     if (isDirty && !showStartup) {
       const choice = await window.electronAPI.confirmDiscard("open");
       if (choice === "cancel") return;
@@ -848,6 +926,7 @@ export default function App() {
       return false;
     }
 
+    pendingAutosave.current = Promise.resolve({ ok: true });
     setFilePath(result.path);
     setIsDirty(false);
     setNotice("Project saved successfully.");
@@ -856,6 +935,7 @@ export default function App() {
   }
 
   async function handleRequestClose() {
+    if (!recoveryReady || !await finishAutosave()) return;
     if (isDirty) {
       const choice = await window.electronAPI.confirmDiscard("close");
       if (choice === "cancel") return;
@@ -1004,6 +1084,8 @@ export default function App() {
 
   const focusedIndividual =
     individuals.find((individual) => individual.id === focusedId) ?? null;
+
+  if (!recoveryReady) return <main className="p-3">Checking autosave…</main>;
 
   return (
     <div className="app-shell d-flex flex-column vh-100 overflow-hidden">

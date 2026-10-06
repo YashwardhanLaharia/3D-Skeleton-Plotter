@@ -5,6 +5,7 @@ import started from "electron-squirrel-startup";
 import { inspectRaster } from "./overlayAsset.js";
 import { MAX_IMAGE_BYTES } from "./imageOverlay.js";
 import { parseClientXlsx, parseClientRot } from "./clientGraveFiles.js";
+import { createAutosaveStore } from "./autosave";
 
 // Handle creating shortcuts on Windows when installing/uninstalling
 if (started) {
@@ -23,6 +24,39 @@ const loadWindow = (window) => {
     );
   }
 };
+
+let autosaveStore;
+function getAutosaveStore() {
+  return autosaveStore ??= createAutosaveStore(app.getPath("userData"));
+}
+
+ipcMain.handle("autosave-project", async (_event, snapshot) => {
+  try {
+    await getAutosaveStore().save(snapshot);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: `Autosave failed: ${error.message}` };
+  }
+});
+
+ipcMain.handle("restore-autosave", async () => {
+  try {
+    const snapshot = await getAutosaveStore().read();
+    if (!snapshot) return { ok: true };
+    const result = await dialog.showMessageBox(mainWindow, {
+      type: "question",
+      title: "Recover autosaved project",
+      message: "Restore your last autosaved project?",
+      detail: "Starting fresh keeps this backup until you edit a project.",
+      buttons: ["Restore", "Start fresh"],
+      defaultId: 0,
+      cancelId: 1,
+    });
+    return { ok: true, snapshot: result.response === 0 ? snapshot : null };
+  } catch (error) {
+    return { ok: false, error: `Could not recover autosave: ${error.message}` };
+  }
+});
 
 ipcMain.handle("save-project", async (_event, { payload, filePath }) => {
   let targetPath = filePath;
@@ -306,10 +340,10 @@ ipcMain.handle("confirm-discard", async (_event, context) => {
     title: "Unsaved changes",
     message: "This reconstruction has unsaved changes.",
     detail: isClosing
-      ? "Closing now will discard them."
+      ? "The main project file has unsaved changes. Your latest edits are kept in the autosave backup."
       : isNew
-        ? "Creating a new project will discard them."
-        : "Opening another project will discard them.",
+        ? "Your latest edits remain in the autosave backup until you edit another project."
+        : "Your latest edits remain in the autosave backup until you edit another project.",
   });
 
   if (result.response === 0) return "save";
@@ -318,6 +352,7 @@ ipcMain.handle("confirm-discard", async (_event, context) => {
 });
 
 ipcMain.handle("confirm-close", async () => {
+  await getAutosaveStore().flush();
   isQuitting = true;
   mainWindow.close();
   return { ok: true };
