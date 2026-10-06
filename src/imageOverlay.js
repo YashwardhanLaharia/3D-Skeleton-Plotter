@@ -107,3 +107,33 @@ export function overlayGeometryData(overlay, graveDimensions, scale = 1) {
     indices: [0, 1, 2, 0, 2, 3],
   };
 }
+
+export function overlayCameraView(
+  overlay,
+  graveDimensions,
+  viewport,
+  scale = 1,
+) {
+  const positions = overlayGeometryData(
+    overlay,
+    graveDimensions,
+    scale,
+  ).positions;
+  const min = [0, 1, 2].map((axis) =>
+    Math.min(...[0, 1, 2, 3].map((i) => positions[i * 3 + axis])),
+  );
+  const max = [0, 1, 2].map((axis) =>
+    Math.max(...[0, 1, 2, 3].map((i) => positions[i * 3 + axis])),
+  );
+  const target = min.map((value, axis) => (value + max[axis]) / 2);
+  const extent = Math.max(...max.map((value, axis) => value - min[axis]), 0.01);
+  return {
+    target,
+    position: [
+      target[0],
+      target[1] + Math.max(extent * 2, 2),
+      target[2] + extent * 0.05,
+    ],
+    zoom: Math.min(viewport.width, viewport.height) / (extent * 1.4),
+  };
+}

@@ -60,6 +60,7 @@ function makeBlankCoords() {
 
 export default function App() {
   const [imageOverlay, setImageOverlay] = useState(null);
+  const [overlayFrame, setOverlayFrame] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showStartup, setShowStartup] = useState(true);
   const [isGraveDimensionsModalOpen, setIsGraveDimensionsModalOpen] =
@@ -175,6 +176,7 @@ export default function App() {
     // Before the grave itself, or the coordinates in it mean something else.
     setGraveDimensions(loaded.graveDimensions);
     setImageOverlay(loaded.imageOverlay ?? null);
+    setOverlayFrame(loaded.imageOverlay?.visible ? {} : null);
 
     const numbers = loaded.individuals
       .map((individual) => Number(individual.id.replace("ind-", "")))
@@ -418,7 +420,6 @@ export default function App() {
     }
 
     setGraveDimensions([1, 1, 1]);
-    setImageOverlay(null);
     setFilePath(null);
     setIsDirty(false);
     setHidden([]);
@@ -426,6 +427,7 @@ export default function App() {
     setOpenId(null);
     setJointDetails({});
     setImageOverlay(null);
+    setOverlayFrame(null);
     dispatch({ type: "new", individuals: STARTING_STATE, groups: [] });
     nextGroupId.current = 1;
     nextId.current = 2;
@@ -456,6 +458,7 @@ export default function App() {
           heightAboveFloor: 0,
         });
       setImageOverlay(validateImageOverlay({ ...placement, ...asset }));
+      setOverlayFrame({});
       setFocusedId(null);
       setIsDirty(true);
       setNotice(
@@ -555,6 +558,7 @@ export default function App() {
 
     setJointDetails({});
     setImageOverlay(null);
+    setOverlayFrame(null);
     dispatch({ type: "new", individuals: STARTING_STATE, groups: [] });
     nextGroupId.current = 1;
     nextId.current = 2;
@@ -841,8 +845,17 @@ export default function App() {
               overlay={imageOverlay}
               onLoad={handleLoadOverlay}
               onApply={handleApplyOverlay}
+              onFrame={() => {
+                if (!imageOverlay.visible) {
+                  setImageOverlay({ ...imageOverlay, visible: true });
+                  setIsDirty(true);
+                }
+                setFocusedId(null);
+                setOverlayFrame({});
+              }}
               onRemove={() => {
                 setImageOverlay(null);
+                setOverlayFrame(null);
                 setIsDirty(true);
               }}
             />
@@ -873,6 +886,7 @@ export default function App() {
             targetId={openId ?? individuals[0]?.id}
             onSolverIssues={handleSolverIssues}
             imageOverlay={imageOverlay}
+            overlayFrame={overlayFrame}
             onOverlayError={setNotice}
           />
           <FocusBar individual={focusedIndividual} onExit={handleExitFocus} />

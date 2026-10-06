@@ -73,3 +73,16 @@ test("invalid blank, infinite, mirrored or collinear alignment cannot be applied
     }),
   );
 });
+
+test("Frame image targets surveyed bounds without modifying placement", async () => {
+  const { overlayCameraView } = await import("../../src/imageOverlay.js");
+  const original = structuredClone(placement);
+  const view = overlayCameraView(placement, [8, 10, 2], {
+    width: 1000,
+    height: 700,
+  });
+  assert.deepEqual(view.target, [0, -2, 1]);
+  assert.ok(view.position[1] > view.target[1]);
+  assert.ok(Math.abs(view.zoom - 125) < 1e-10);
+  assert.deepEqual(placement, original);
+});

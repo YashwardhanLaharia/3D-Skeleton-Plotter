@@ -24,6 +24,7 @@ import { Box3, Vector2, Vector3 } from "three";
 import { graveDimensionsToGridScale } from "../graveDimensions.js";
 import { toSceneSpace, graveOrigin } from "../sceneSpace.js";
 import ImageOverlay from "./ImageOverlay";
+import { overlayCameraView } from "../imageOverlay.js";
 import { makeGLBExportScene } from "../exportScene.js";
 import { toNumericJoints } from "../solver/numericJoints.js";
 import { createSolveBone, verifyRestConvention } from "../solver/solveBone.js";
@@ -63,7 +64,6 @@ function describeLengths(entries) {
     )
     .join("; ");
 }
-
 
 function SkeletonModel({
   id,
@@ -148,14 +148,15 @@ function SkeletonModel({
     // also restores the master meshes they were hiding.
     rig.clearSpawnedBones();
 
-    const { report, segmentScales, bodyDimensions, rootRotation } = applySolvedPose({
-      scene: clonedScene,
-      rig,
-      root: groupRef.current,
-      joints: sceneJoints,
-      solveBone: gatedSolveBone,
-      articulated,
-    });
+    const { report, segmentScales, bodyDimensions, rootRotation } =
+      applySolvedPose({
+        scene: clonedScene,
+        rig,
+        root: groupRef.current,
+        joints: sceneJoints,
+        solveBone: gatedSolveBone,
+        articulated,
+      });
 
     const origin = graveOrigin(graveDimensions);
     const unplaced = [];
@@ -173,7 +174,6 @@ function SkeletonModel({
         rig.setMasterBoneVisibility(spawnId, true);
         continue;
       }
-
 
       if (bone.mode === "absent") {
         rig.setMasterBoneVisibility(spawnId, false);
@@ -197,9 +197,7 @@ function SkeletonModel({
           measured: placed.measured,
           expected: placed.measured / placed.requested,
         });
-
       }
-
     }
 
     // Plain-language problems for this individual, shown in the sidebar until
@@ -269,7 +267,6 @@ function SkeletonModel({
       issues.push(`Unusual lengths, drawn as recorded: ${list}.`);
     }
 
-
     if (segmentScales.degenerate.length) {
       issues.push(
         `Both ends recorded at the same position: ${boneNames(segmentScales.degenerate)}.`,
@@ -295,7 +292,6 @@ function SkeletonModel({
       issues.push(`Unusual body proportions, drawn as recorded: ${list}.`);
     }
 
-
     if (issues.length) {
       console.warn("solve issues", id, {
         unsolved: unexpectedlyUnsolved,
@@ -309,7 +305,6 @@ function SkeletonModel({
         bodyDimensions: bodyDimensions.implausible,
         implausibleSpawns,
       });
-
     }
 
     onSolverIssues?.(id, { messages: issues, unusualLengths });
@@ -324,8 +319,6 @@ function SkeletonModel({
     id,
     onSolverIssues,
   ]);
-
-
 
   // Commands arrive one at a time from the Rig Controls window.
   const lastCommandRef = useRef(command ?? null);
@@ -409,7 +402,8 @@ const ViewportExport = forwardRef(function ViewportExport(
           const blob = await new Promise((resolve, reject) => {
             canvas.toBlob((nextBlob) => {
               if (nextBlob) resolve(nextBlob);
-              else reject(new Error("The viewport could not be encoded as PNG."));
+              else
+                reject(new Error("The viewport could not be encoded as PNG."));
             }, "image/png");
           });
 
@@ -431,12 +425,7 @@ const ViewportExport = forwardRef(function ViewportExport(
         );
         const exporter = new GLTFExporter();
         const data = await new Promise((resolve, reject) => {
-          exporter.parse(
-            exportScene,
-            resolve,
-            reject,
-            { binary: true },
-          );
+          exporter.parse(exportScene, resolve, reject, { binary: true });
         });
 
         return window.electronAPI.saveGLB(data);
@@ -450,10 +439,14 @@ const ViewportExport = forwardRef(function ViewportExport(
 
 // Moves the camera to frame one individual, and back again on exit.
 // Orthographic framing is zoom-based: distance only sets the view angle.
-function FocusCamera({ focusedId, controlsRef }) {
+function FocusCamera({ focusedId, controlsRef, resetKey }) {
   const { camera, scene, size: viewport } = useThree();
   const saved = useRef(null);
   const tween = useRef(null);
+  useEffect(() => {
+    tween.current = null;
+    saved.current = null;
+  }, [resetKey]);
 
   useEffect(() => {
     const controls = controlsRef.current;
@@ -537,7 +530,8 @@ function FocusCamera({ focusedId, controlsRef }) {
 
     controls.target.lerpVectors(active.from.target, active.to.target, eased);
 
-    camera.zoom = active.from.zoom + (active.to.zoom - active.from.zoom) * eased;
+    camera.zoom =
+      active.from.zoom + (active.to.zoom - active.from.zoom) * eased;
     camera.updateProjectionMatrix();
 
     controls.update();
@@ -547,6 +541,23 @@ function FocusCamera({ focusedId, controlsRef }) {
     }
   });
 
+  return null;
+}
+
+function OverlayCamera({ overlay, graveDimensions, request, controlsRef }) {
+  const { camera, size } = useThree();
+  useEffect(() => {
+    const controls = controlsRef.current;
+    if (!overlay || !request || !controls) return;
+    const view = overlayCameraView(overlay, graveDimensions, size, globalScale);
+    camera.position.fromArray(view.position);
+    camera.zoom = view.zoom;
+    controls.target.fromArray(view.target);
+    camera.updateProjectionMatrix();
+    controls.update();
+    camera.updateMatrixWorld();
+    // Explicit frame requests do not change the photograph or follow orbit/resize.
+  }, [request, camera, controlsRef]);
   return null;
 }
 
@@ -584,6 +595,7 @@ const MainView = forwardRef(function MainView(
     focusedId = null,
     onSolverIssues,
     imageOverlay = null,
+    overlayFrame,
     onOverlayError,
   },
   ref,
@@ -598,7 +610,7 @@ const MainView = forwardRef(function MainView(
           position: [0, 1.4, 40],
           zoom: 100,
           near: 0.1,
-          far: 1000
+          far: 1000,
         }}
       >
         <color attach="background" args={[focusedId ? "#1b1f24" : "#e9ecef"]} />
@@ -629,7 +641,14 @@ const MainView = forwardRef(function MainView(
           </Suspense>
         ))}
 
-        {imageOverlay && !focusedId && <ImageOverlay overlay={imageOverlay} graveDimensions={graveDimensions} scale={globalScale} onError={onOverlayError} />}
+        {imageOverlay && !focusedId && (
+          <ImageOverlay
+            overlay={imageOverlay}
+            graveDimensions={graveDimensions}
+            scale={globalScale}
+            onError={onOverlayError}
+          />
+        )}
 
         {focusedId ? (
           <FocusGrid focusedId={focusedId} />
@@ -640,7 +659,17 @@ const MainView = forwardRef(function MainView(
           />
         )}
         <CameraControls controlsRef={controlsRef} />
-        <FocusCamera focusedId={focusedId} controlsRef={controlsRef} />
+        <OverlayCamera
+          overlay={imageOverlay}
+          graveDimensions={graveDimensions}
+          request={overlayFrame}
+          controlsRef={controlsRef}
+        />
+        <FocusCamera
+          focusedId={focusedId}
+          controlsRef={controlsRef}
+          resetKey={overlayFrame}
+        />
         <ViewportExport ref={ref} controlsRef={controlsRef} />
       </Canvas>
     </main>
