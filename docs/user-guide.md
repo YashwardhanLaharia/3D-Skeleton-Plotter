@@ -38,6 +38,10 @@ Usage of these sections will be described in more detail below.
 
 ## Exporting screenshots
 
+Choose `Screenshot` from the menu, or press `Ctrl+Shift+E`, to save a PNG of the 3D viewport.
+
+Images are exported at a fixed 1920 x 1080 so that a set of figures stays consistent. The vertical framing matches the viewport, but the horizontal extent is widened or narrowed to reach 16:9, so content at the sides is cropped when the window is wider than 16:9.
+
 ## Keyboard shortcuts
 
 
