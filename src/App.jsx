@@ -352,7 +352,7 @@ export default function App() {
           .map((individual) => individual.id),
       ),
     );
-add selected when clicking and remove when esc
+
     setFocusedId((current) => (current === individualId ? null : current));
   }
 
@@ -679,7 +679,7 @@ add selected when clicking and remove when esc
     const result = await window.electronAPI.openProject();
 
     if (!result.ok) {
-      if (!result.canceled) {add selected when clicking and remove when esc
+      if (!result.canceled) {
         console.error(result.error);
         setNotice("Could not open the project file.");
       }
