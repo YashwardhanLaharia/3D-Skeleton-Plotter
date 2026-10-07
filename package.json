@@ -29,6 +29,8 @@
     "@electron-forge/plugin-fuses": "^7.11.2",
     "@electron-forge/plugin-vite": "^7.11.2",
     "@electron/fuses": "1.8.0",
+    "@types/three": "^0.185.4",
+    "@vitejs/plugin-react": "^6.0.5",
     "electron": "43.3.0",
     "electron-chromedriver": "^43.3.0",
     "selenium-webdriver": "^4.47.0",
@@ -37,8 +39,6 @@
   "dependencies": {
     "@popperjs/core": "^2.11.8",
     "@react-three/fiber": "^9.7.0",
-    "@types/three": "^0.185.4",
-    "@vitejs/plugin-react": "^6.0.5",
     "bootstrap": "^5.3.8",
     "electron-squirrel-startup": "^1.0.1",
     "react": "^19.2.8",
