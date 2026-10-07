@@ -47,7 +47,10 @@
   },
   "overrides": {
     "tmp": "^0.2.7",
-    "tar": "^7.5.22"
+    "tar": "^7.5.22",
+    "@electron/rebuild": {
+      "@electron/node-gyp": "10.2.0-electron.2"
+    }
   },
   "allowScripts": {
     "electron-chromedriver@43.7.8": true,
