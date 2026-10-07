@@ -1,63 +1,76 @@
+// Surveyed grave outlines over the viewport.
+//
+// Lives here rather than in the sidebar because show/hide and framing answer
+// what you're looking at — same role as the Skeletons layers panel. Stays
+// usable when the sidebar is collapsed.
+
 import { useState } from "react";
 
-export default function GravesPanel({
-  graves,
-  individuals,
-  assignments,
-  hidden,
+function GraveRow({
+  grave,
+  visible,
   onToggle,
   onUpdate,
-  onAssign,
-  onImport,
-  onReference,
   onFit,
+  onReference,
   onRemove,
+  otherGraves,
 }) {
   const [pendingRemoval, setPendingRemoval] = useState(null);
+  const name = grave.name?.trim() || "Unnamed grave";
+
   return (
-    <section className="border-bottom p-2" aria-label="Surveyed graves">
-      <div className="d-flex align-items-center justify-content-between gap-2 mb-2">
-        <h2 className="h6 mb-0">Grave outlines</h2>
-        <button className="btn btn-sm btn-outline-primary" onClick={onImport}>
-          Import outline
+    <li className="grave-item">
+      <div className="grave-row d-flex align-items-center gap-1">
+        <button
+          type="button"
+          className={`grave-visibility d-flex align-items-center gap-2 flex-grow-1 text-start ${
+            visible ? "" : "grave-row-off"
+          }`}
+          onClick={() => onToggle(grave.id)}
+          aria-pressed={visible}
+          aria-label={`${name}, ${visible ? "visible" : "hidden"}`}
+        >
+          <span className="layer-eye" aria-hidden="true">
+            {visible ? "●" : "○"}
+          </span>
+          <span
+            className="layer-swatch"
+            style={{ background: grave.colour }}
+            aria-hidden="true"
+          />
+          <span className="layer-name text-truncate">{name}</span>
+        </button>
+        <button
+          type="button"
+          className="btn btn-link btn-sm p-0 grave-frame-btn"
+          onClick={() => onFit(grave.id)}
+          title="Frame grave"
+          aria-label={`Frame ${name}`}
+        >
+          Frame
         </button>
       </div>
-      <p className="small text-body-secondary mb-2">
-        Drag to rotate the view. Scroll to zoom.
-      </p>
-      {!graves.length && (
-        <p className="small text-body-secondary">
-          Import a surveyed top or base contour to add a grave.
-        </p>
-      )}
-      {graves.map((grave) => (
-        <details key={grave.id} className="mb-2 border rounded p-2" open>
-          <summary className="small fw-semibold">
-            {grave.name} · {grave.top.length} top / {grave.bottom.length} base
-            points
-          </summary>
-          <div className="d-flex gap-2 align-items-center mt-2">
+
+      <details className="grave-edit">
+        <summary className="small text-body-secondary">
+          Edit · {grave.top.length} top / {grave.bottom.length} base
+        </summary>
+        <div className="grave-edit-body px-1 pb-1">
+          <div className="d-flex gap-2 align-items-center mt-1">
             <input
               type="color"
               className="form-control form-control-color form-control-sm"
-              aria-label={`${grave.name} outline colour`}
+              aria-label={`${name} outline colour`}
               value={grave.colour}
               onChange={(e) => onUpdate(grave.id, { colour: e.target.value })}
             />
             <input
               className="form-control form-control-sm"
-              aria-label={`${grave.name} name`}
+              aria-label={`${name} name`}
               value={grave.name}
               onChange={(e) => onUpdate(grave.id, { name: e.target.value })}
             />
-            <label className="small d-flex align-items-center gap-1">
-              <input
-                type="checkbox"
-                checked={!hidden.includes(grave.id)}
-                onChange={() => onToggle(grave.id)}
-              />{" "}
-              Show
-            </label>
           </div>
           <label className="small mt-2 d-block">
             Cuts into
@@ -69,13 +82,11 @@ export default function GravesPanel({
               }
             >
               <option value="">None recorded</option>
-              {graves
-                .filter((other) => other.id !== grave.id)
-                .map((other) => (
-                  <option key={other.id} value={other.id}>
-                    {other.name}
-                  </option>
-                ))}
+              {otherGraves.map((other) => (
+                <option key={other.id} value={other.id}>
+                  {other.name}
+                </option>
+              ))}
             </select>
           </label>
           <label className="small mt-2 d-block">
@@ -101,6 +112,7 @@ export default function GravesPanel({
                   </span>
                 )}
                 <button
+                  type="button"
                   className="btn btn-link btn-sm px-1"
                   onClick={() => onReference(grave, level)}
                 >
@@ -108,14 +120,9 @@ export default function GravesPanel({
                 </button>
               </div>
             ))}
-          <div className="d-flex gap-2 mt-2">
+          <div className="mt-2">
             <button
-              className="btn btn-sm btn-outline-secondary"
-              onClick={() => onFit(grave.id)}
-            >
-              Frame grave
-            </button>
-            <button
+              type="button"
               className="btn btn-sm btn-outline-danger"
               onClick={() => setPendingRemoval(grave.id)}
             >
@@ -124,15 +131,17 @@ export default function GravesPanel({
           </div>
           {pendingRemoval === grave.id && (
             <div className="small mt-2" role="alert">
-              Remove this grave's contours and its grave assignments?
+              Remove this grave&apos;s contours and its grave assignments?
               <div className="d-flex gap-2 mt-1">
                 <button
+                  type="button"
                   className="btn btn-sm btn-secondary"
                   onClick={() => setPendingRemoval(null)}
                 >
                   Cancel
                 </button>
                 <button
+                  type="button"
                   className="btn btn-sm btn-danger"
                   onClick={() => {
                     onRemove(grave.id);
@@ -144,31 +153,123 @@ export default function GravesPanel({
               </div>
             </div>
           )}
-        </details>
-      ))}
-      {graves.length > 0 && individuals.length > 0 && (
-        <details className="mt-2">
-          <summary className="small">Individuals in graves</summary>
-          {individuals.map((individual, index) => (
-            <label className="small d-block mt-2" key={individual.id}>
-              {individual.label || `Skeleton ${index + 1}`}
-              <select
-                className="form-select form-select-sm"
-                value={assignments[individual.id] || ""}
-                onChange={(e) =>
-                  onAssign(individual.id, e.target.value || null)
-                }
-              >
-                <option value="">Unassigned</option>
-                {graves.map((grave) => (
-                  <option key={grave.id} value={grave.id}>
-                    {grave.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ))}
-        </details>
+        </div>
+      </details>
+    </li>
+  );
+}
+
+export default function GravesPanel({
+  graves,
+  individuals,
+  assignments,
+  hidden,
+  onToggle,
+  onUpdate,
+  onAssign,
+  onImport,
+  onReference,
+  onFit,
+  onRemove,
+}) {
+  const [isCollapsed, setIsCollapsed] = useState(true);
+  const visibleCount = graves.filter((grave) => !hidden.includes(grave.id))
+    .length;
+
+  return (
+    <section
+      className={`graves-panel bg-body border rounded shadow-sm ${
+        isCollapsed ? "graves-panel-collapsed" : ""
+      }`}
+      aria-label="Surveyed graves"
+    >
+      <header className="graves-header d-flex align-items-center gap-1 px-2 py-1 border-bottom">
+        <button
+          type="button"
+          className="layers-collapse"
+          onClick={() => setIsCollapsed((current) => !current)}
+          aria-expanded={!isCollapsed}
+          aria-controls="graves-list"
+          title={isCollapsed ? "Expand" : "Collapse"}
+        >
+          <span
+            aria-hidden="true"
+            className={`chevron ${isCollapsed ? "" : "open"}`}
+          >
+            ▸
+          </span>
+        </button>
+
+        <span className="small fw-semibold">
+          Graves{" "}
+          <span className="layers-count">
+            ({visibleCount}/{graves.length})
+          </span>
+        </span>
+
+        {!isCollapsed && (
+          <button
+            type="button"
+            className="btn btn-link btn-sm p-0 ms-auto graves-import"
+            onClick={onImport}
+          >
+            Import
+          </button>
+        )}
+      </header>
+
+      {!isCollapsed && (
+        <>
+          {!graves.length ? (
+            <p className="small text-body-secondary px-2 py-2 mb-0">
+              Import a surveyed top or base contour to add a grave.
+            </p>
+          ) : (
+            <ul
+              id="graves-list"
+              className="graves-list list-unstyled mb-0 p-1"
+            >
+              {graves.map((grave) => (
+                <GraveRow
+                  key={grave.id}
+                  grave={grave}
+                  visible={!hidden.includes(grave.id)}
+                  onToggle={onToggle}
+                  onUpdate={onUpdate}
+                  onFit={onFit}
+                  onReference={onReference}
+                  onRemove={onRemove}
+                  otherGraves={graves.filter((other) => other.id !== grave.id)}
+                />
+              ))}
+            </ul>
+          )}
+
+          {graves.length > 0 && individuals.length > 0 && (
+            <details className="graves-assignments px-2 py-1 border-top">
+              <summary className="small">Individuals in graves</summary>
+              {individuals.map((individual, index) => (
+                <label className="small d-block mt-2" key={individual.id}>
+                  {individual.label || `Skeleton ${index + 1}`}
+                  <select
+                    className="form-select form-select-sm"
+                    value={assignments[individual.id] || ""}
+                    onChange={(e) =>
+                      onAssign(individual.id, e.target.value || null)
+                    }
+                  >
+                    <option value="">Unassigned</option>
+                    {graves.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ))}
+            </details>
+          )}
+        </>
       )}
     </section>
   );
