@@ -75,6 +75,10 @@ export default function App() {
   const [savedView, setSavedView] = useState(null);
   const [frameRequest, setFrameRequest] = useState(null);
   const graveOutline = graves[0] ?? { top: [], bottom: [] };
+  // How the recorded z is read: height above the grave floor, or RL down from
+  // the site datum with the grave floor's RL (see sceneSpace.js). Saved with
+  // the project, like the grave dimensions.
+  const [vertical, setVertical] = useState(DEFAULT_VERTICAL);
   const [recentProjects, setRecentProjects] = useState([]);
   // How the recorded z is read: height above the grave floor, or RL down from
   // the site datum with the grave floor's RL (see sceneSpace.js). Saved with
@@ -348,7 +352,7 @@ export default function App() {
           .map((individual) => individual.id),
       ),
     );
-
+add selected when clicking and remove when esc
     setFocusedId((current) => (current === individualId ? null : current));
   }
 
@@ -648,6 +652,7 @@ export default function App() {
     setJointDetails({});
     dispatch({ type: "new", individuals: STARTING_STATE, groups: [] });
     nextGroupId.current = 1;
+    setVertical(DEFAULT_VERTICAL);
     nextId.current = 2;
     setVertical(DEFAULT_VERTICAL);
 
@@ -674,7 +679,7 @@ export default function App() {
     const result = await window.electronAPI.openProject();
 
     if (!result.ok) {
-      if (!result.canceled) {
+      if (!result.canceled) {add selected when clicking and remove when esc
         console.error(result.error);
         setNotice("Could not open the project file.");
       }
@@ -691,6 +696,28 @@ export default function App() {
       return;
     }
 
+    setJointDetails({});
+    dispatch({
+      type: "load",
+      individuals: loaded.individuals,
+      groups: loaded.groups,
+    });
+
+    // Before the grave itself, or the coordinates in it mean something else.
+    setGraveDimensions(loaded.graveDimensions);
+    setVertical(loaded.vertical);
+
+    const numbers = loaded.individuals
+      .map((individual) => Number(individual.id.replace("ind-", "")))
+      .filter((value) => Number.isFinite(value));
+    nextId.current = numbers.length ? Math.max(...numbers) + 1 : 1;
+
+    const groupNumbers = loaded.groups
+      .map((group) => Number(group.id.replace("grp-", "")))
+      .filter((value) => Number.isFinite(value));
+    nextGroupId.current = groupNumbers.length
+      ? Math.max(...groupNumbers) + 1
+      : 1;
     applyLoadedProject(loaded, result.path);
   }
 
