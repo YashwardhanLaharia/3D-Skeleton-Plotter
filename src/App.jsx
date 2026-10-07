@@ -23,7 +23,8 @@ import MainView from "./components/MainView";
 import LayersPanel from "./components/LayersPanel";
 import FocusBar from "./components/FocusBar";
 import InspectionPanel from "./components/InspectionPanel";
-import NewProjectModal from "./components/NewProjectModal";
+import StartupScreen from "./components/StartupScreen";
+import GraveDimensionsModal from "./components/GraveDimensionsModal";
 import { csvToProject, importCsv, rowsToIndividuals } from "./csvImport";
 import { createCsv, exportCsv } from "./csvExport";
 import { DEFAULT_VERTICAL } from "./sceneSpace";
@@ -57,12 +58,15 @@ function makeBlankCoords() {
 
 export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(true);
+  const [showStartup, setShowStartup] = useState(true);
+  const [isGraveDimensionsModalOpen, setIsGraveDimensionsModalOpen] =
+    useState(false);
   const [graveDimensions, setGraveDimensions] = useState([1, 1, 1]);
   // How the recorded z is read: height above the grave floor, or RL down from
   // the site datum with the grave floor's RL (see sceneSpace.js). Saved with
   // the project, like the grave dimensions.
   const [vertical, setVertical] = useState(DEFAULT_VERTICAL);
+  const [recentProjects, setRecentProjects] = useState([]);
   // The data model is now an array of individuals, not one coordinate object.
   // Each carries its own label, colour, and full coordinate set.
   const [history, dispatch] = useReducer(historyReducer, undefined, () =>
@@ -121,6 +125,11 @@ export default function App() {
 
 
   const [openId, setOpenId] = useState("ind-1");
+
+  // Which individual rig commands and viewport clicks act on. View state, like
+  // `hidden`: not undoable, not saved. openId is only which section is expanded.
+  const [selectedId, setSelectedId] = useState("ind-1");
+
   const [filePath, setFilePath] = useState(null);
   const [isDirty, setIsDirty] = useState(false);
   const [rigCommand, setRigCommand] = useState(null);
@@ -128,9 +137,77 @@ export default function App() {
   const nextId = useRef(2);
   const nextGroupId = useRef(1);
 
+  async function refreshRecentProjects() {
+    if (!window.electronAPI?.getRecentProjects) return;
+    try {
+      const recent = await window.electronAPI.getRecentProjects();
+      setRecentProjects(Array.isArray(recent) ? recent : []);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async function rememberRecent(projectPath, skeletonCount) {
+    if (!window.electronAPI?.rememberRecentProject || !projectPath) return;
+    try {
+      const result = await window.electronAPI.rememberRecentProject({
+        path: projectPath,
+        name: projectPath.split(/[\\/]/).pop(),
+        skeletonCount,
+      });
+      if (result?.ok && Array.isArray(result.recent)) {
+        setRecentProjects(result.recent);
+      } else {
+        await refreshRecentProjects();
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  function applyLoadedProject(loaded, projectPath) {
+    setJointDetails({});
+    dispatch({
+      type: "load",
+      individuals: loaded.individuals,
+      groups: loaded.groups,
+    });
+
+    // Before the grave itself, or the coordinates in it mean something else.
+    setGraveDimensions(loaded.graveDimensions);
+
+    const numbers = loaded.individuals
+      .map((individual) => Number(individual.id.replace("ind-", "")))
+      .filter((value) => Number.isFinite(value));
+    nextId.current = numbers.length ? Math.max(...numbers) + 1 : 1;
+
+    const groupNumbers = loaded.groups
+      .map((group) => Number(group.id.replace("grp-", "")))
+      .filter((value) => Number.isFinite(value));
+    nextGroupId.current = groupNumbers.length
+      ? Math.max(...groupNumbers) + 1
+      : 1;
+
+    const firstId = loaded.individuals[0]?.id ?? null;
+    setOpenId(firstId);
+    setSelectedId(firstId);
+    setFilePath(projectPath);
+    setIsDirty(false);
+    setHidden([]);
+    setFocusedId(null);
+    setShowStartup(false);
+    setIsGraveDimensionsModalOpen(false);
+    setNotice("Project opened successfully.");
+    rememberRecent(projectPath, loaded.individuals.length);
+  }
+
   useEffect(() => {
     const unsubscribe = window.electronAPI?.onRigCommand(setRigCommand);
     return () => unsubscribe?.();
+  }, []);
+
+  useEffect(() => {
+    refreshRecentProjects();
   }, []);
 
   function handleChange(individualId, jointId, axis, rawValue, part = "point") {
@@ -172,8 +249,15 @@ export default function App() {
     setIsDirty(true);
   }
 
+  // Expanding a section selects it. Collapsing leaves the selection alone.
+  function openAndSelect(individualId) {
+    setOpenId(individualId);
+    if (individualId) setSelectedId(individualId);
+  }
+
   function handleToggle(individualId) {
-    setOpenId((current) => (current === individualId ? null : individualId));
+    if (openId === individualId) setOpenId(null);
+    else openAndSelect(individualId);
   }
 
   function handleAdd() {
@@ -191,7 +275,7 @@ export default function App() {
         coords: makeBlankCoords(),
       },
     });
-    setOpenId(id);
+    openAndSelect(id);
 
     setIsDirty(true);
   }
@@ -224,6 +308,7 @@ export default function App() {
   function handleRemove(individualId) {
     dispatch({ type: "remove", individualId });
     setOpenId((current) => (current === individualId ? null : current));
+    setSelectedId((current) => (current === individualId ? null : current));
     setIsDirty(true);
     setHidden((current) =>
       pruneHidden(
@@ -233,7 +318,7 @@ export default function App() {
           .map((individual) => individual.id),
       ),
     );
-
+add selected when clicking and remove when esc
     setFocusedId((current) => (current === individualId ? null : current));
   }
 
@@ -272,6 +357,12 @@ export default function App() {
     setFocusedId(null);
   }
 
+  // Esc backs out one level at a time: focus first, then the selection.
+  function handleEscape() {
+    if (focusedId) setFocusedId(null);
+    else setSelectedId(null);
+  }
+
   // Reveal the effect: expand the affected individual and flash the field, so
   // an undo inside a collapsed section isn't silent.
   function revealChange(before, after) {
@@ -287,7 +378,7 @@ export default function App() {
       setNotice(
         change.field === "added" ? `Restored ${name}` : `Removed ${name}`,
       );
-      if (change.field === "added") setOpenId(change.individualId);
+      if (change.field === "added") openAndSelect(change.individualId);
       return;
     }
 
@@ -297,12 +388,12 @@ export default function App() {
     }
 
     if (change.field === "group") {
-      setOpenId(change.individualId);
+      openAndSelect(change.individualId);
       setNotice("Updated group membership");
       return;
     }
 
-    setOpenId(change.individualId);
+    openAndSelect(change.individualId);
     setHighlight(change);
   }
 
@@ -325,7 +416,36 @@ export default function App() {
   }
 
   function handleChangeGraveDimensions() {
-    setIsNewProjectModalOpen(true);
+    setIsGraveDimensionsModalOpen(true);
+  }
+
+  function handleCreateFromStartup() {
+    setShowStartup(false);
+    setIsDirty(true);
+  }
+
+  async function handleHome() {
+    if (isDirty) {
+      const choice = await window.electronAPI.confirmDiscard("new");
+      if (choice === "cancel") return;
+      if (choice === "save") {
+        const saved = await handleSave(false);
+        if (!saved) return;
+      }
+    }
+
+    setGraveDimensions([1, 1, 1]);
+    setFilePath(null);
+    setIsDirty(false);
+    setHidden([]);
+    setFocusedId(null);
+    setOpenId(null);
+    setSelectedId(null);
+    setJointDetails({});
+    dispatch({ type: "new", individuals: STARTING_STATE, groups: [] });
+    nextGroupId.current = 1;
+    nextId.current = 2;
+    setShowStartup(true);
   }
 
   async function handleImport() {
@@ -354,7 +474,7 @@ export default function App() {
       individuals: converted.individuals,
       groups: converted.groups,
     });
-    setOpenId(converted.individuals[0]?.id ?? openId);
+    openAndSelect(converted.individuals[0]?.id ?? openId);
     const usedNumbers = [...individuals, ...converted.individuals]
       .map(({ id }) => Number(id.match(/^ind-(\d+)$/)?.[1]))
       .filter(Number.isFinite);
@@ -423,15 +543,19 @@ export default function App() {
     dispatch({ type: "new", individuals: STARTING_STATE, groups: [] });
     nextGroupId.current = 1;
     setVertical(DEFAULT_VERTICAL);
+    nextId.current = 2;
 
-    setIsNewProjectModalOpen(true);
+    setShowStartup(false);
+    setIsGraveDimensionsModalOpen(true);
     setFilePath(null);
-    setOpenId(STARTING_STATE[0].id);
+    openAndSelect(STARTING_STATE[0].id);
+    setHidden([]);
+    setFocusedId(null);
     setIsDirty(true);
   }
 
   async function handleOpen() {
-    if (isDirty) {
+    if (isDirty && !showStartup) {
       const choice = await window.electronAPI.confirmDiscard("open");
       if (choice === "cancel") return;
       if (choice === "save") {
@@ -442,7 +566,7 @@ export default function App() {
     const result = await window.electronAPI.openProject();
 
     if (!result.ok) {
-      if (!result.canceled) {
+      if (!result.canceled) {add selected when clicking and remove when esc
         console.error(result.error);
         setNotice("Could not open the project file.");
       }
@@ -454,7 +578,7 @@ export default function App() {
       console.error(loaded.error);
       setNotice(
         loaded.error ||
-        "This project file is invalid or uses an unsupported format.",
+          "This project file is invalid or uses an unsupported format.",
       );
       return;
     }
@@ -481,17 +605,39 @@ export default function App() {
     nextGroupId.current = groupNumbers.length
       ? Math.max(...groupNumbers) + 1
       : 1;
+    applyLoadedProject(loaded, result.path);
+  }
 
-    setOpenId(loaded.individuals[0]?.id ?? null);
+  async function handleOpenRecent(projectPath) {
+    if (isDirty && !showStartup) {
+      const choice = await window.electronAPI.confirmDiscard("open");
+      if (choice === "cancel") return;
+      if (choice === "save") {
+        const saved = await handleSave(false);
+        if (!saved) return;
+      }
+    }
 
-    setFilePath(result.path);
+    const result = await window.electronAPI.openProjectPath(projectPath);
 
-    setIsDirty(false);
+    if (!result.ok) {
+      console.error(result.error);
+      setNotice(result.error || "Could not open the project file.");
+      await refreshRecentProjects();
+      return;
+    }
 
-    setHidden([]);
+    const loaded = csvToProject(result.text);
+    if (!loaded.ok) {
+      console.error(loaded.error);
+      setNotice(
+        loaded.error ||
+          "This project file is invalid or uses an unsupported format.",
+      );
+      return;
+    }
 
-    setFocusedId(null);
-    setNotice("Project opened successfully.");
+    applyLoadedProject(loaded, result.path);
   }
 
   async function handleSave(forcePrompt) {
@@ -511,6 +657,7 @@ export default function App() {
     setFilePath(result.path);
     setIsDirty(false);
     setNotice("Project saved successfully.");
+    await rememberRecent(result.path, individuals.length);
     return true;
   }
 
@@ -553,8 +700,10 @@ export default function App() {
   // it was on first render, so saving would write an empty project forever.
   const actionsRef = useRef(null);
   actionsRef.current = {
+    handleHome,
     handleNew,
     handleOpen,
+    handleOpenRecent,
     handleSave,
     handleRequestClose,
     handleExportScreenshot,
@@ -564,10 +713,12 @@ export default function App() {
     handleChangeGraveDimensions,
     handleImport,
     handleExportCsv,
+    handleEscape,
   };
 
   useEffect(() => {
     const unsubscribe = window.electronAPI?.onMenuAction((action) => {
+      if (action === "menu-home") actionsRef.current.handleHome();
       if (action === "menu-new") actionsRef.current.handleNew();
       if (action === "menu-open") actionsRef.current.handleOpen();
       if (action === "menu-save") actionsRef.current.handleSave(false);
@@ -615,7 +766,7 @@ export default function App() {
   useEffect(() => {
     function onKeyDown(event) {
       if (event.key === "Escape") {
-        setFocusedId(null);
+        actionsRef.current.handleEscape();
         return;
       }
 
@@ -650,9 +801,18 @@ export default function App() {
 
   return (
     <div className="app-shell d-flex flex-column vh-100 overflow-hidden">
-      <NewProjectModal
-        show={isNewProjectModalOpen}
-        onHide={() => setIsNewProjectModalOpen(false)}
+      <StartupScreen
+        show={showStartup}
+        recentProjects={recentProjects}
+        graveDimensions={graveDimensions}
+        setGraveDimensions={setGraveDimensions}
+        onCreateConfirm={handleCreateFromStartup}
+        onOpen={handleOpen}
+        onOpenRecent={handleOpenRecent}
+      />
+      <GraveDimensionsModal
+        show={isGraveDimensionsModalOpen}
+        onHide={() => setIsGraveDimensionsModalOpen(false)}
         graveDimensions={graveDimensions}
         setGraveDimensions={setGraveDimensions}
       />
@@ -661,6 +821,7 @@ export default function App() {
           individuals={individuals}
           groups={groups}
           openId={openId}
+          selectedId={selectedId}
           onChange={handleChange}
           onToggleSplit={handleToggleSplit}
           onOffset={handleOffset}
@@ -707,8 +868,11 @@ export default function App() {
             focusedId={focusedId}
             graveDimensions={graveDimensions}
             vertical={vertical}
-            targetId={openId ?? individuals[0]?.id}
+            targetId={selectedId}
+            selectedId={selectedId}
             onSolverIssues={handleSolverIssues}
+            onSelect={openAndSelect}
+            onClearSelection={() => setSelectedId(null)}
           />
           <FocusBar individual={focusedIndividual} onExit={handleExitFocus} />
 

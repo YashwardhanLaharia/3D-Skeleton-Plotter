@@ -18,7 +18,10 @@ import { Group, Quaternion, Vector3 } from "three";
 import { createSkeletonRig } from "../../src/rig/SkeletonRigApi.js";
 import { SEGMENT_SCALES } from "../../src/rig/scaling/segmentConfig.js";
 import { applySolvedPose } from "../../src/solver/applyPose.js";
-import { solveRootRotation } from "../../src/solver/bodyFrame.js";
+import {
+  computeBodyDimensions,
+  solveRootRotation,
+} from "../../src/solver/bodyFrame.js";
 import { LANDMARK_OBJECTS } from "../../src/solver/modelLandmarks.js";
 import { toNumericJoints } from "../../src/solver/numericJoints.js";
 import {
@@ -368,6 +371,30 @@ test("the whole-body rotation is declined when the landmarks cannot define one",
   assert.equal(solveRootRotation(joints, scene), null);
 });
 
+test("the whole-body rotation falls back to the hips when the shoulders are in line with the spine", async () => {
+  const scene = await loadFreshTestScene();
+
+  // Shoulders recorded one above the other along the body's own axis, as can
+  // happen with commingled remains. Their midpoint is unchanged, so the
+  // superior axis is too, but they no longer say which way is left.
+  const joints = toSceneJoints({
+    ...coordsFrom(SUPINE),
+    shoulder_l: { x: "1.500", y: "5.900", z: "0.370" },
+    shoulder_r: { x: "1.500", y: "6.060", z: "0.370" },
+  });
+
+  const solved = solveRootRotation(joints, scene);
+  assert.ok(solved, "the hip pair should frame the body");
+
+  const hips = vector(joints.acetabulum_r)
+    .sub(vector(joints.acetabulum_l))
+    .normalize();
+  assert.ok(
+    degreesBetween(solved.lateral.measured, hips) < 0.5,
+    "the lateral axis should come from the hips",
+  );
+});
+
 test("the whole-body rotation is a rotation, not a reflection", async () => {
   const scene = await loadFreshTestScene();
   const solved = solveRootRotation(toSceneJoints(coordsFrom(SUPINE)), scene);
@@ -387,4 +414,35 @@ test("the whole-body rotation is a rotation, not a reflection", async () => {
     degreesBetween(rotatedLateral, solved.lateral.measured) < 0.5,
     "the lateral axis should land on the recorded one",
   );
+});
+
+test("torso length is not measured across a split spine", async () => {
+  const scene = await loadFreshTestScene();
+
+  // The sacral_promontory row's own point is the pelvis end of a spine that
+  // was recorded somewhere else: 85cm from the manubrium, like ind-7.
+  const joints = toSceneJoints({
+    ...coordsFrom(SUPINE),
+    sacral_promontory: { x: "1.500", y: "6.800", z: "0.360" },
+  });
+
+  const unsplit = computeBodyDimensions(joints, scene);
+  assert.ok(
+    unsplit.implausible.some((entry) => entry.dimensionId === "torso_length"),
+    "measured across the gap, the torso reads as implausible",
+  );
+
+  const split = computeBodyDimensions(
+    joints,
+    scene,
+    new Set(["sacral_promontory"]),
+  );
+  assert.equal(split.dimensions.torso_length, undefined);
+  assert.ok(
+    !split.implausible.some((entry) => entry.dimensionId === "torso_length"),
+  );
+
+  // The widths keep their rows' own points, which are on the torso.
+  assert.ok(split.dimensions.shoulder_width > 0);
+  assert.ok(split.dimensions.pelvis_width > 0);
 });

@@ -170,6 +170,11 @@
   box-shadow: none;
 }
 
+.individual-selected {
+  border-color: var(--bs-primary) !important;
+  box-shadow: 0 0 0 1px var(--bs-primary);
+}
+
 .individual-header:focus-visible {
   outline: 2px solid var(--bs-primary);
   outline-offset: -2px;
@@ -736,6 +741,221 @@
 
 .new-project-modal-backdrop.show {
   opacity: 1 !important;
+}
+
+.startup-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  overflow: auto;
+  background-color: var(--bs-body-bg);
+  color: var(--bs-body-color);
+}
+
+.startup-screen-inner {
+  width: min(920px, 100%);
+  margin: 0 auto;
+  padding: 2.75rem 2rem 3rem;
+}
+
+.startup-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 1.25rem;
+  margin-bottom: 1.75rem;
+  border-bottom: 1px solid var(--bs-secondary-bg);
+}
+
+.startup-product {
+  margin: 0 0 0.2rem;
+  color: var(--bs-secondary-color);
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.startup-title {
+  margin: 0;
+  font-size: 1.85rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.startup-version {
+  color: var(--startup-muted);
+  font-size: 0.9rem;
+  padding-top: 0.35rem;
+}
+
+.startup-section {
+  margin-bottom: 2rem;
+}
+
+.startup-section-label {
+  margin: 0 0 0.85rem;
+  color: var(--startup-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.startup-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.startup-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
+  min-height: 8.5rem;
+  padding: 1.15rem 1.2rem;
+  border: 1px solid var(--bs-secondary-bg);
+  border-radius: 0.75rem;
+  background: rgba(var(--bs-secondary-bg-rgb), 0.3);
+  color: inherit;
+  text-align: left;
+  transition: border-color 160ms ease
+}
+
+.startup-card:focus-visible {
+  box-shadow: 0 0 0 3px var(--bs-primary-bg-subtle);
+}
+
+.startup-card:active {
+  transform: translateY(1px);
+}
+
+.startup-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.4rem;
+  background: var(--bs-primary-bg-subtle);
+  color: var(--bs-primary);
+}
+
+.startup-card-icon-svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.startup-card-title {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.startup-card-desc {
+  color: var(--bs-secondary-color);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.startup-recent {
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.startup-recent-empty {
+  margin: 0;
+  padding: 1.25rem 1.2rem;
+  color: var(--bs-secondary-color);
+  font-size: 0.92rem;
+}
+
+.startup-recent-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.startup-recent-list > li + li {
+  border-top: 1px solid var(--bs-secondary-bg);
+}
+
+.startup-recent-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  padding: 0.95rem 1.15rem;
+  border: 1px solid var(--bs-secondary-bg);
+  border-radius: 0.75rem;
+  background: rgba(var(--bs-secondary-bg-rgb), 0.3);;
+  color: inherit;
+  text-align: left;
+  transition: border-color 160ms ease;
+}
+
+.startup-card:hover,
+.startup-card:focus-visible,
+.startup-recent-item:hover,
+.startup-recent-item:focus-visible {
+  border-color: var(--bs-primary-border-subtle);
+  background: rgba(var(--bs-secondary-bg-rgb), 0.3);
+  outline: none;
+}
+
+.startup-recent-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.startup-recent-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.startup-recent-meta {
+  color: var(--bs-secondary-color);
+  font-size: 0.82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.startup-recent-date {
+  flex: 0 0 auto;
+  color: var(--bs-secondary-color);
+  font-size: 0.82rem;
+}
+
+.startup-dimensions-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin-bottom: 1.5rem;
+}
+
+.startup-dimensions-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
+}
+
+@media (max-width: 720px) {
+  .startup-cards,
+  .startup-dimensions-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .startup-screen-inner {
+    padding: 1.75rem 1.15rem 2rem;
+  }
 }
 
 /* A bone recorded away from the rest of the skeleton. Muted, because it

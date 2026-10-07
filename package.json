@@ -1,8 +1,8 @@
 {
-  "name": "skeletonplotter",
+  "name": "Skeleton Plotter",
   "productName": "skeletonplotter",
   "version": "1.0.0",
-  "description": "My Electron application description",
+  "description": "A tool for plotting 3D skeletons of human remains",
   "main": ".vite/build/main.js",
   "private": true,
   "scripts": {

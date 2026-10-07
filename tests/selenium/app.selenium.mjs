@@ -39,6 +39,15 @@ async function buttonWithText(driver, text) {
   );
 }
 
+async function dismissStartup(driver) {
+  await driver.wait(until.elementLocated(By.id("startup-create")), WAIT_TIME).click();
+  await driver.wait(until.elementLocated(By.id("confirm-grave-dimensions")), WAIT_TIME).click();
+  await driver.wait(async () => {
+    const screens = await driver.findElements(By.id("startup-screen"));
+    return screens.length === 0;
+  }, WAIT_TIME, "Startup screen did not dismiss");
+}
+
 async function setColourInput(driver, input, colour) {
   await driver.executeScript(
     `
@@ -120,8 +129,8 @@ test("accepts decimal coordinates, rejects letters, and updates progress", async
 test("adds independent individuals with different default colours", async (t) => {
   const driver = await openApp(t);
 
-  // Close the new project modal
-  await driver.findElement(By.id("confirm-grave-dimensions")).click();
+  // Leave the startup screen
+  await dismissStartup(driver);
 
   // Hide the layers header, which can overlap wth sidebar at very small screen sizes
   const layersHeader = await driver.wait(until.elementLocated(By.className("layers-panel")), WAIT_TIME);
@@ -151,8 +160,8 @@ test("adds independent individuals with different default colours", async (t) =>
 test("changes an individual's colour and supports undo and redo", async (t) => {
   const driver = await openApp(t);
 
-  // Close the new project modal
-  await driver.findElement(By.id("confirm-grave-dimensions")).click();
+  // Leave the startup screen
+  await dismissStartup(driver);
 
   // Hide the layers header, which can overlap wth sidebar at very small screen sizes
   const layersHeader = await driver.wait(until.elementLocated(By.className("layers-panel")), WAIT_TIME);
@@ -191,8 +200,8 @@ test("changes an individual's colour and supports undo and redo", async (t) => {
 test("cancels and confirms deletion of an additional individual", async (t) => {
   const driver = await openApp(t);
 
-  // Close the new project modal
-  await driver.findElement(By.id("confirm-grave-dimensions")).click();
+  // Leave the startup screen
+  await dismissStartup(driver);
 
   // Hide the layers header, which can overlap wth sidebar at very small screen sizes
   const layersHeader = await driver.wait(until.elementLocated(By.className("layers-panel")), WAIT_TIME);
@@ -230,8 +239,8 @@ test("cancels and confirms deletion of an additional individual", async (t) => {
 test("moves between coordinate rows with the keyboard", async (t) => {
   const driver = await openApp(t);
 
-  // Close the new project modal
-  await driver.findElement(By.id("confirm-grave-dimensions")).click();
+  // Leave the startup screen
+  await dismissStartup(driver);
 
   const kneeX = await driver.findElement(By.css('[aria-label="left knee, X"]'));
 
@@ -252,8 +261,8 @@ test("moves between coordinate rows with the keyboard", async (t) => {
 test("toggles the sidebar and collapses and expands an individual", async (t) => {
   const driver = await openApp(t);
 
-  // Close the new project modal
-  await driver.findElement(By.id("confirm-grave-dimensions")).click();
+  // Leave the startup screen
+  await dismissStartup(driver);
 
   // Hide the layers header, which can overlap wth sidebar at very small screen sizes
   const layersHeader = await driver.wait(until.elementLocated(By.className("layers-panel")), WAIT_TIME);
@@ -284,15 +293,20 @@ test("toggles the sidebar and collapses and expands an individual", async (t) =>
 
 test("sets the grave dimensions", async (t) => {
   const driver = await openApp(t);
-  await driver.wait(until.elementLocated(By.id("set-grave-dimensions-modal")), WAIT_TIME);
-  const widthInput = await driver.findElement(By.id("width"));
+  await driver.wait(until.elementLocated(By.id("startup-screen")), WAIT_TIME);
+  await driver.findElement(By.id("startup-create")).click();
+  const widthInput = await driver.wait(until.elementLocated(By.id("width")), WAIT_TIME);
   const lengthInput = await driver.findElement(By.id("length"));
   const depthInput = await driver.findElement(By.id("depth"));
   await widthInput.sendKeys("1");
   await lengthInput.sendKeys("2");
   await depthInput.sendKeys("3");
-  await driver.findElement(By.id("confirm-grave-dimensions")).click();
   assert.equal(await widthInput.getAttribute("value"), "11");
   assert.equal(await lengthInput.getAttribute("value"), "12");
   assert.equal(await depthInput.getAttribute("value"), "13");
+  await driver.findElement(By.id("confirm-grave-dimensions")).click();
+  await driver.wait(async () => {
+    const screens = await driver.findElements(By.id("startup-screen"));
+    return screens.length === 0;
+  }, WAIT_TIME, "Startup screen did not dismiss");
 });   
