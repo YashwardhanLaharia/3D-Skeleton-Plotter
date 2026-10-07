@@ -143,3 +143,32 @@ test("export writes empty cells for a null groupId", () => {
   assert.equal(parsed.rows[4].label, "");
   assert.doesNotMatch(csv, /undefined/);
 });
+
+test("an RL project round-trips its vertical reference", () => {
+  const coords = blankCoords();
+  coords.head_proximal = { x: "1.5", y: "5.62", z: "1.61" };
+  const csv = createCsv(
+    [{ id: "ind-1", label: "A", colour: "blue", groupId: null, coords }],
+    [3, 9, 1],
+    [],
+    { convention: "rl", floorRL: 1.98 },
+  );
+
+  const parsed = parseCsv(csv);
+  assert.equal(parsed.rows[2].individual_id, "vertical_reference");
+
+  const reopened = csvToProject(csv);
+  assert.equal(reopened.ok, true);
+  assert.deepEqual(reopened.vertical, { convention: "rl", floorRL: 1.98 });
+  assert.equal(reopened.individuals[0].coords.head_proximal.z, "1.61");
+});
+
+test("a height project is written without a vertical reference row", () => {
+  const csv = createCsv([], [3, 9, 1], [], {
+    convention: "height",
+    floorRL: null,
+  });
+
+  assert.equal(csv, createCsv([], [3, 9, 1], []));
+  assert.ok(!csv.includes("vertical_reference"));
+});

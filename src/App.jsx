@@ -27,6 +27,7 @@ import StartupScreen from "./components/StartupScreen";
 import GraveDimensionsModal from "./components/GraveDimensionsModal";
 import { csvToProject, importCsv, rowsToIndividuals } from "./csvImport";
 import { createCsv, exportCsv } from "./csvExport";
+import { DEFAULT_VERTICAL } from "./sceneSpace";
 import "./app.css";
 
 const PALETTE = [
@@ -61,6 +62,10 @@ export default function App() {
   const [isGraveDimensionsModalOpen, setIsGraveDimensionsModalOpen] =
     useState(false);
   const [graveDimensions, setGraveDimensions] = useState([1, 1, 1]);
+  // How the recorded z is read: height above the grave floor, or RL down from
+  // the site datum with the grave floor's RL (see sceneSpace.js). Saved with
+  // the project, like the grave dimensions.
+  const [vertical, setVertical] = useState(DEFAULT_VERTICAL);
   const [recentProjects, setRecentProjects] = useState([]);
   // The data model is now an array of individuals, not one coordinate object.
   // Each carries its own label, colour, and full coordinate set.
@@ -313,7 +318,7 @@ export default function App() {
           .map((individual) => individual.id),
       ),
     );
-
+add selected when clicking and remove when esc
     setFocusedId((current) => (current === individualId ? null : current));
   }
 
@@ -483,11 +488,28 @@ export default function App() {
       : nextGroupId.current;
 
     setIsDirty(true);
-    setNotice(`Imported ${converted.individuals.length} individuals`);
+
+    // Imported coordinates are drawn with this project's setting, not the
+    // file's. If they differ, the new individuals are at the wrong depth.
+    const sameVertical =
+      converted.vertical.convention === vertical.convention &&
+      (vertical.convention !== "rl" ||
+        converted.vertical.floorRL === vertical.floorRL);
+    setNotice(
+      sameVertical
+        ? `Imported ${converted.individuals.length} individuals`
+        : `Imported ${converted.individuals.length} individuals, but the file records depth differently from this project. Check they sit at the right depth.`,
+    );
   }
 
   async function handleExportCsv() {
-    const result = await exportCsv(individuals, graveDimensions, groups, hidden);
+    const result = await exportCsv(
+      individuals,
+      graveDimensions,
+      groups,
+      hidden,
+      vertical,
+    );
 
     if (!result.ok) {
       if (!result.canceled) setNotice(result.error);
@@ -520,6 +542,7 @@ export default function App() {
     setJointDetails({});
     dispatch({ type: "new", individuals: STARTING_STATE, groups: [] });
     nextGroupId.current = 1;
+    setVertical(DEFAULT_VERTICAL);
     nextId.current = 2;
 
     setShowStartup(false);
@@ -543,7 +566,7 @@ export default function App() {
     const result = await window.electronAPI.openProject();
 
     if (!result.ok) {
-      if (!result.canceled) {
+      if (!result.canceled) {add selected when clicking and remove when esc
         console.error(result.error);
         setNotice("Could not open the project file.");
       }
@@ -560,6 +583,28 @@ export default function App() {
       return;
     }
 
+    setJointDetails({});
+    dispatch({
+      type: "load",
+      individuals: loaded.individuals,
+      groups: loaded.groups,
+    });
+
+    // Before the grave itself, or the coordinates in it mean something else.
+    setGraveDimensions(loaded.graveDimensions);
+    setVertical(loaded.vertical);
+
+    const numbers = loaded.individuals
+      .map((individual) => Number(individual.id.replace("ind-", "")))
+      .filter((value) => Number.isFinite(value));
+    nextId.current = numbers.length ? Math.max(...numbers) + 1 : 1;
+
+    const groupNumbers = loaded.groups
+      .map((group) => Number(group.id.replace("grp-", "")))
+      .filter((value) => Number.isFinite(value));
+    nextGroupId.current = groupNumbers.length
+      ? Math.max(...groupNumbers) + 1
+      : 1;
     applyLoadedProject(loaded, result.path);
   }
 
@@ -597,7 +642,7 @@ export default function App() {
 
   async function handleSave(forcePrompt) {
     const result = await window.electronAPI.saveProject({
-      payload: createCsv(individuals, graveDimensions, groups),
+      payload: createCsv(individuals, graveDimensions, groups, vertical),
       filePath: forcePrompt ? null : filePath,
     });
 
@@ -822,6 +867,7 @@ export default function App() {
             hidden={hidden}
             focusedId={focusedId}
             graveDimensions={graveDimensions}
+            vertical={vertical}
             targetId={selectedId}
             selectedId={selectedId}
             onSolverIssues={handleSolverIssues}
