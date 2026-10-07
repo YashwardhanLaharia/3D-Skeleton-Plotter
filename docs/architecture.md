@@ -164,10 +164,8 @@ coordinate system.
 A caller using recorded site-grid coordinates must therefore convert those
 coordinates with `toSceneSpace()` before calling the spawn API.
 
-The manual Bone Controls window is a rig-testing interface and can operate
-directly in scene space. Site-grid conversion belongs at the application
-integration boundary when recorded coordinate inputs are connected to bone
-spawning.
+Site-grid conversion belongs at the application integration boundary when
+recorded coordinate inputs are connected to bone spawning.
 
 See the "Spawned Bones" section of `src/rig/README.md` for placement, scaling,
 instance, and master-mesh behaviour.

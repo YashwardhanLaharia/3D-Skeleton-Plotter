@@ -9,78 +9,17 @@ if (started) {
 }
 
 let mainWindow;
-let rigControlsWindow;
-let boneControlsWindow;
 let isQuitting = false;
 
-const loadWindow = (window, query = {}) => {
+const loadWindow = (window) => {
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-    const params = new URLSearchParams(query).toString();
-    const url = params
-      ? `${MAIN_WINDOW_VITE_DEV_SERVER_URL}?${params}`
-      : MAIN_WINDOW_VITE_DEV_SERVER_URL;
-    window.loadURL(url);
+    window.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
     window.loadFile(
       path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
-      { query },
     );
   }
 };
-
-const createRigControlsWindow = () => {
-  if (rigControlsWindow && !rigControlsWindow.isDestroyed()) {
-    rigControlsWindow.show();
-    rigControlsWindow.focus();
-    return;
-  }
-
-  rigControlsWindow = new BrowserWindow({
-    parent: mainWindow,
-    width: 380,
-    height: 560,
-    title: "Rig Controls",
-    webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
-    },
-  });
-
-  rigControlsWindow.on("closed", () => {
-    rigControlsWindow = null;
-  });
-
-  loadWindow(rigControlsWindow, { window: "rig-controls" });
-};
-
-const createBoneControlsWindow = () => {
-  if (boneControlsWindow && !boneControlsWindow.isDestroyed()) {
-    boneControlsWindow.show();
-    boneControlsWindow.focus();
-    return;
-  }
-
-  boneControlsWindow = new BrowserWindow({
-    parent: mainWindow,
-    width: 420,
-    height: 640,
-    title: "Bone Controls",
-    webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
-    },
-  });
-
-  boneControlsWindow.on("closed", () => {
-    boneControlsWindow = null;
-  });
-
-  loadWindow(boneControlsWindow, { window: "bone-controls" });
-};
-
-ipcMain.on("rig-command", (_event, command) => {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send("rig-command", command);
-  }
-});
 
 ipcMain.handle("save-project", async (_event, { payload, filePath }) => {
   let targetPath = filePath;
@@ -391,13 +330,6 @@ const menuTemplate = [
       { label: "Visible skeletons (CSV)", accelerator: "CmdOrCtrl+Shift+C", click: () => sendToRenderer("menu-export-csv") },
       { label: "Screenshot", accelerator: "CmdOrCtrl+Shift+E", click: () => sendToRenderer("menu-export-screenshot") },
       { label: "GLB", accelerator: "CmdOrCtrl+Shift+G", click: () => sendToRenderer("menu-export-glb") },
-    ],
-  },
-  {
-    label: "Rig",
-    submenu: [
-      { label: "Open Rig Controls", click: createRigControlsWindow },
-      { label: "Open Bone Controls", click: createBoneControlsWindow },
     ],
   },
 ];

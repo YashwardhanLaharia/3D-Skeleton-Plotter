@@ -91,8 +91,6 @@ function SkeletonModel({
   coords = EMPTY_POSE,
   graveDimensions,
   visible = true,
-  command,
-  isTarget,
   onSolverIssues,
   onSelect,
 }) {
@@ -348,30 +346,13 @@ function SkeletonModel({
 
 
 
-  // Commands arrive one at a time from the Rig Controls window.
-  const lastCommandRef = useRef(command ?? null);
-
-  useEffect(() => {
-    if (!command || !isTarget) return;
-
-    if (command.id != null && lastCommandRef.current?.id === command.id) {
-      return;
-    }
-
-    lastCommandRef.current = command;
-    rig.execute(command);
-  }, [command, isTarget, rig]);
-
-  // Re-anchor after an interactive rig command, which can move the anchor bone
-  // without changing the coordinates. The solve effect already places the
-  // skeleton; this only keeps it placed.
   useEffect(() => {
     placeSkeleton({
       scene: clonedScene,
       root: groupRef.current,
       joints: sceneJoints,
     });
-  }, [sceneJoints, clonedScene, command]);
+  }, [sceneJoints, clonedScene]);
 
   return (
     <group
@@ -660,8 +641,6 @@ const MainView = forwardRef(function MainView(
   {
     individuals = [],
     graveDimensions = [1, 1, 1],
-    command,
-    targetId,
     selectedId = null,
     hidden = [],
     focusedId = null,
@@ -705,8 +684,6 @@ const MainView = forwardRef(function MainView(
               colour={individual.colour}
               coords={individual.coords}
               graveDimensions={graveDimensions}
-              command={command}
-              isTarget={individual.id === targetId}
               onSolverIssues={onSolverIssues}
               onSelect={onSelect}
               visible={

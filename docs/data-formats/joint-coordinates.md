@@ -185,9 +185,6 @@ Therefore, if `superior` and `inferior` originate from recorded site-grid data,
 the application layer must convert both points using `toSceneSpace()` before
 calling the spawn API.
 
-The manual Bone Controls interface is intended for rig testing and may use
-scene-space coordinates directly.
-
 ## Two-Point Orientation Limitation
 
 Two endpoints define the direction and measured length of a bone, but they do
