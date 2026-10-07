@@ -462,7 +462,6 @@ function DeleteConfirmation({
 
 // The panel itself: an add button and the list of sections.
 export default function Sidebar({
-  gravesPanel,
   individuals,
   groups,
   openId,
@@ -594,7 +593,6 @@ export default function Sidebar({
             {overlayPanel}
 
             <div className="p-2">
-              {gravesPanel}
               {groups.length === 0 ? (
                 ungrouped.map(renderIndividual)
               ) : (

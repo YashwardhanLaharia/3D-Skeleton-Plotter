@@ -973,49 +973,6 @@ export default function App() {
       )}
       <div className="app-workspace d-flex flex-grow-1 overflow-hidden">
         <Sidebar
-          gravesPanel={
-            <GravesPanel
-              graves={graves}
-              individuals={individuals}
-              assignments={graveAssignments}
-              hidden={hiddenGraves}
-              onToggle={(id) =>
-                setHiddenGraves((current) =>
-                  current.includes(id)
-                    ? current.filter((value) => value !== id)
-                    : [...current, id],
-                )
-              }
-              onUpdate={handleUpdateGrave}
-              onRemove={handleRemoveGrave}
-              onAssign={(id, graveId) => {
-                setGraveAssignments((current) => ({
-                  ...current,
-                  [id]: graveId,
-                }));
-                setIsDirty(true);
-              }}
-              onImport={handleImportGraveOutline}
-              onReference={(grave, level) =>
-                setGraveSurvey({
-                  targetId: grave.id,
-                  points: grave[level],
-                  level,
-                  source: grave.references?.[level]?.source || grave.name,
-                  description: "Existing survey contour",
-                  reference: grave.references?.[level],
-                })
-              }
-              onFit={(id) => {
-                setFocusedId(null);
-                setHiddenGraves((current) =>
-                  current.filter((value) => value !== id),
-                );
-                setFrameRequest({ id });
-                setIsDirty(true);
-              }}
-            />
-          }
           individuals={individuals}
           groups={groups}
           openId={openId}
@@ -1102,24 +1059,72 @@ export default function App() {
           />
           <FocusBar individual={focusedIndividual} onExit={handleExitFocus} />
 
-          {focusedId ? (
-            <InspectionPanel
-              individual={focusedIndividual}
-              unusualLengths={solverIssues[focusedId]?.unusualLengths}
-            />
-          ) : (
-            <LayersPanel
-              individuals={individuals}
-              groups={groups}
-              hidden={hidden}
-              onToggleVisibility={handleToggleVisibility}
-              onToggleGroupVisibility={handleToggleGroupVisibility}
-              onIsolate={handleIsolate}
-              onShowAll={handleShowAll}
-              focusedId={focusedId}
-              onFocus={handleFocus}
-            />
-          )}
+          <div
+            className={`viewport-panels ${focusedId ? "viewport-panels-focused" : ""}`}
+          >
+            {!focusedId && (
+              <GravesPanel
+                graves={graves}
+                individuals={individuals}
+                assignments={graveAssignments}
+                hidden={hiddenGraves}
+                onToggle={(id) =>
+                  setHiddenGraves((current) =>
+                    current.includes(id)
+                      ? current.filter((value) => value !== id)
+                      : [...current, id],
+                  )
+                }
+                onUpdate={handleUpdateGrave}
+                onRemove={handleRemoveGrave}
+                onAssign={(id, graveId) => {
+                  setGraveAssignments((current) => ({
+                    ...current,
+                    [id]: graveId,
+                  }));
+                  setIsDirty(true);
+                }}
+                onImport={handleImportGraveOutline}
+                onReference={(grave, level) =>
+                  setGraveSurvey({
+                    targetId: grave.id,
+                    points: grave[level],
+                    level,
+                    source: grave.references?.[level]?.source || grave.name,
+                    description: "Existing survey contour",
+                    reference: grave.references?.[level],
+                  })
+                }
+                onFit={(id) => {
+                  setFocusedId(null);
+                  setHiddenGraves((current) =>
+                    current.filter((value) => value !== id),
+                  );
+                  setFrameRequest({ id });
+                  setIsDirty(true);
+                }}
+              />
+            )}
+
+            {focusedId ? (
+              <InspectionPanel
+                individual={focusedIndividual}
+                unusualLengths={solverIssues[focusedId]?.unusualLengths}
+              />
+            ) : (
+              <LayersPanel
+                individuals={individuals}
+                groups={groups}
+                hidden={hidden}
+                onToggleVisibility={handleToggleVisibility}
+                onToggleGroupVisibility={handleToggleGroupVisibility}
+                onIsolate={handleIsolate}
+                onShowAll={handleShowAll}
+                focusedId={focusedId}
+                onFocus={handleFocus}
+              />
+            )}
+          </div>
         </div>
       </div>
     </div>

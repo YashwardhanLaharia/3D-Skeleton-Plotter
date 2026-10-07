@@ -377,15 +377,127 @@
   backdrop-filter: blur(2px);
 }
 
-/* Floating over the viewport, top-right. Stays reachable when the sidebar is
-   collapsed, which is when you're most likely to be managing what's on screen. */
-.layers-panel {
+/* Stacked floating controls, top-right. Graves then Skeletons */
+.viewport-panels {
   position: absolute;
   top: 0.75rem;
   right: 0.75rem;
   z-index: 5;
-  width: 13rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 17rem;
   max-height: calc(100% - 1.5rem);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.viewport-panels > * {
+  pointer-events: auto;
+  min-height: 0;
+}
+
+.viewport-panels-focused {
+  top: 2.75rem;
+  max-height: calc(100% - 3.5rem);
+}
+
+.graves-panel {
+  width: 100%;
+  flex: 0 1 auto;
+  max-height: 55%;
+  overflow-y: auto;
+}
+
+.graves-header {
+  position: sticky;
+  top: 0;
+  background: var(--bs-body-bg);
+  z-index: 1;
+}
+
+.graves-import {
+  font-size: 0.7rem;
+  text-decoration: none;
+}
+
+.graves-list {
+  max-height: none;
+}
+
+.grave-item + .grave-item {
+  margin-top: 0.15rem;
+  padding-top: 0.15rem;
+  border-top: 1px solid var(--bs-border-color-translucent);
+}
+
+.grave-visibility {
+  padding: 0.3rem 0.4rem;
+  border: 0;
+  border-radius: var(--bs-border-radius-sm);
+  background: transparent;
+  min-width: 0;
+}
+
+.grave-visibility:hover {
+  background: var(--bs-secondary-bg);
+}
+
+.grave-visibility:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: -2px;
+}
+
+.grave-row-off .layer-eye,
+.grave-row-off .layer-name {
+  opacity: 0.4;
+}
+
+.grave-row-off .layer-name {
+  text-decoration: line-through;
+}
+
+.grave-row-off .layer-swatch {
+  opacity: 0.25;
+}
+
+.grave-frame-btn {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  text-decoration: none;
+  padding: 0.2rem 0.35rem !important;
+}
+
+.grave-edit {
+  margin: 0 0.35rem 0.15rem 1.1rem;
+}
+
+.grave-edit > summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.68rem;
+}
+
+.grave-edit > summary::-webkit-details-marker {
+  display: none;
+}
+
+.grave-edit-body {
+  margin-top: 0.25rem;
+}
+
+.graves-assignments {
+  font-size: 0.75rem;
+}
+
+.graves-assignments > summary {
+  cursor: pointer;
+}
+
+.layers-panel {
+  width: 100%;
+  flex: 0 1 auto;
+  max-height: 55%;
   overflow-y: auto;
 }
 
@@ -617,19 +729,13 @@
   }
 }
 
-.layers-panel-focused {
-  top: 2.75rem;
-}
-
 .inspection-panel {
-  position: absolute;
-  top: 2.75rem;
-  right: 0.75rem;
-  z-index: 5;
-  width: 13.5rem;
-  max-height: calc(100% - 3.5rem);
+  width: 100%;
+  flex: 0 1 auto;
+  max-height: 55%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .inspection-sub {
