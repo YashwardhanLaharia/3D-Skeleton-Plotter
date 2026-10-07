@@ -144,6 +144,27 @@ test("export writes empty cells for a null groupId", () => {
   assert.doesNotMatch(csv, /undefined/);
 });
 
+test("exported CSV preserves grave outline points", () => {
+  const graveOutline = {
+    top: [
+      { x: "0", y: "0", z: "1" },
+      { x: "2", y: "0", z: "1" },
+      { x: "1", y: "2", z: "1" },
+    ],
+    bottom: [
+      { x: "0.2", y: "0.2", z: "0" },
+      { x: "1.8", y: "0.2", z: "0" },
+      { x: "1", y: "1.8", z: "0" },
+    ],
+  };
+
+  const csv = createCsv([], [2, 4, 1], [], graveOutline);
+  const opened = csvToProject(csv);
+
+  assert.equal(opened.ok, true);
+  assert.deepEqual(opened.graveOutline, graveOutline);
+});
+
 test("an RL project round-trips its vertical reference", () => {
   const coords = blankCoords();
   coords.head_proximal = { x: "1.5", y: "5.62", z: "1.61" };
@@ -151,6 +172,8 @@ test("an RL project round-trips its vertical reference", () => {
     [{ id: "ind-1", label: "A", colour: "blue", groupId: null, coords }],
     [3, 9, 1],
     [],
+    undefined,
+    undefined,
     { convention: "rl", floorRL: 1.98 },
   );
 
@@ -164,7 +187,7 @@ test("an RL project round-trips its vertical reference", () => {
 });
 
 test("a height project is written without a vertical reference row", () => {
-  const csv = createCsv([], [3, 9, 1], [], {
+  const csv = createCsv([], [3, 9, 1], [], undefined, undefined, {
     convention: "height",
     floorRL: null,
   });

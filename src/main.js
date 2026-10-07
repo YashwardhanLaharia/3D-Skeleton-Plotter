@@ -2,6 +2,7 @@ import { app, Menu, BrowserWindow, ipcMain, dialog } from "electron";
 import path from "node:path";
 import fs from "node:fs/promises";
 import started from "electron-squirrel-startup";
+import { parseClientXlsx, parseClientRot } from "./clientGraveFiles.js";
 
 // Handle creating shortcuts on Windows when installing/uninstalling
 if (started) {
@@ -261,6 +262,26 @@ ipcMain.handle("open-project-path", async (_event, filePath) => {
   }
 });
 
+ipcMain.handle("import-grave-outline", async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: "Import surveyed grave outline",
+    properties: ["openFile"],
+    filters: [{ name: "Client grave survey", extensions: ["xlsx", "rot"] }],
+  });
+  if (result.canceled || !result.filePaths.length) return { ok: false, canceled: true };
+  try {
+    const filePath = result.filePaths[0];
+    if ((await fs.stat(filePath)).size > 16 * 1024 * 1024) throw new Error("Survey file exceeds 16 MB");
+    const buffer = await fs.readFile(filePath);
+    const extension = path.extname(filePath).toLowerCase();
+    if (![".xlsx", ".rot"].includes(extension)) throw new Error("Choose an XLSX or ROT survey file");
+    const survey = extension === ".xlsx" ? parseClientXlsx(buffer) : parseClientRot(buffer.toString("utf8"));
+    return { ok: true, ...survey, source: path.basename(filePath) };
+  } catch (error) {
+    return { ok: false, error: `Could not import grave outline: ${error.message}` };
+  }
+});
+
 ipcMain.handle("import-csv", async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: "Import skeleton CSV",
@@ -360,6 +381,10 @@ const menuTemplate = [
         label: "Add Skeletons…",
         accelerator: "CmdOrCtrl+Shift+I",
         click: () => sendToRenderer("menu-import"),
+      },
+      {
+        label: "Import Grave Outline…",
+        click: () => sendToRenderer("menu-import-grave-outline"),
       },
       { type: "separator" },
       {

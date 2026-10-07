@@ -1,4 +1,5 @@
 import { JOINTS } from "./joints.js";
+import { validateProjectView } from "./projectView.js";
 import {
   APPLICATION_ID,
   APPLICATION_LABEL,
@@ -16,6 +17,8 @@ export function createCsv(
   individuals,
   projectGraveDimensions,
   groups = [],
+  graveOutline = { top: [], bottom: [] },
+  options = {},
   vertical = DEFAULT_VERTICAL,
 ) {
   const lines = [CSV_COLUMNS.join(",")];
@@ -51,8 +54,95 @@ export function createCsv(
     );
   }
 
+  const graves = options.graves ?? [graveOutline];
+  graves.forEach((grave) => {
+    const graveId = options.graves ? grave.id : "";
+    if (graveId)
+      lines.push(
+        [
+          "grave",
+          graveId,
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          JSON.stringify({
+            name: grave.name,
+            colour: grave.colour,
+            cutsInto: grave.cutsInto || null,
+            notes: grave.notes || "",
+          }),
+        ]
+          .map(escapeCsvCell)
+          .join(","),
+      );
+    ["top", "bottom"].forEach((level) => {
+      const points = grave?.[level] ?? [];
+      const reference = grave?.references?.[level];
+      if (reference && points.length) {
+        lines.push(
+          [
+            "grave_outline_reference",
+            level,
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            JSON.stringify({ ...reference, ...(graveId ? { graveId } : {}) }),
+          ]
+            .map(escapeCsvCell)
+            .join(","),
+        );
+      }
+
+      points.forEach((point) => {
+        lines.push(
+          [
+            "grave_outline",
+            level,
+            point.x ?? "",
+            point.y ?? "",
+            point.z ?? "",
+            "",
+            "",
+            "",
+            graveId,
+          ]
+            .map(escapeCsvCell)
+            .join(","),
+        );
+      });
+    });
+  });
+  if (options.view)
+    lines.push(
+      [
+        "project_view",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        JSON.stringify(validateProjectView(options.view)),
+      ]
+        .map(escapeCsvCell)
+        .join(","),
+    );
+
   individuals.forEach((individual, individualIndex) => {
     const label = individual.label?.trim() || `Skeleton ${individualIndex + 1}`;
+    if (individual.graveId)
+      lines.push(
+        [individual.id, "grave", "", "", "", "", "", "", individual.graveId]
+          .map(escapeCsvCell)
+          .join(","),
+      );
 
     lines.push(
       [individual.id, "colour", "", "", "", "", "", "", individual.colour ?? ""]
@@ -61,23 +151,14 @@ export function createCsv(
     );
 
     lines.push(
-      [
-        individual.id,
-        "group",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        individual.groupId ?? "",
-      ]
+      [individual.id, "group", "", "", "", "", "", "", individual.groupId ?? ""]
         .map(escapeCsvCell)
         .join(","),
     );
 
     const groupName =
       groups.find((group) => group.id === individual.groupId)?.name ?? "";
+
     lines.push(
       [individual.id, "group_label", "", "", "", "", "", "", groupName]
         .map(escapeCsvCell)
@@ -87,6 +168,7 @@ export function createCsv(
     JOINTS.forEach((joint, index) => {
       const coordinates = individual.coords?.[joint.id] ?? {};
       const inferiorCoordinates = coordinates.inferior ?? {};
+
       const row = [
         individual.id,
         joint.id,
@@ -98,6 +180,7 @@ export function createCsv(
         inferiorCoordinates.z ?? "",
         index === 0 ? label : "",
       ];
+
       lines.push(row.map(escapeCsvCell).join(","));
     });
   });
@@ -110,12 +193,24 @@ export async function exportCsv(
   projectGraveDimensions,
   groups,
   hidden,
+  graveOutline = { top: [], bottom: [] },
+  options = {},
   vertical = DEFAULT_VERTICAL,
 ) {
   console.log(hidden);
-  const visibleIndividuals = individuals.filter((individual) => !hidden.includes(individual.id));
+
+  const visibleIndividuals = individuals.filter(
+    (individual) => !hidden.includes(individual.id),
+  );
 
   return window.electronAPI.exportCsv(
-    createCsv(visibleIndividuals, projectGraveDimensions, groups, vertical),
+    createCsv(
+      visibleIndividuals,
+      projectGraveDimensions,
+      groups,
+      graveOutline,
+      options,
+      vertical,
+    ),
   );
 }

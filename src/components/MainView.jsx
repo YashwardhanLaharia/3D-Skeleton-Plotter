@@ -21,9 +21,11 @@ import { createSkeletonRig } from "../rig/SkeletonRigApi.js";
 import modelUrl from "../assets/models/skeleton-male.glb";
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 import { isVisible } from "../visibility";
-import { Box3, NormalBlending, Vector2, Vector3 } from "three";
+import { Box3, BufferGeometry, NormalBlending, Vector2, Vector3 } from "three";
 import { graveDimensionsToGridScale } from "../graveDimensions.js";
+import { graveContourToSceneSpace } from "../graveOutline.js";
 import { toSceneSpace, graveOrigin, DEFAULT_VERTICAL } from "../sceneSpace.js";
+import { captureProjectView, applyProjectView } from "../projectView.js";
 import { makeGLBExportScene } from "../exportScene.js";
 import { outlineColours } from "../outlineColour.js";
 import { toNumericJoints } from "../solver/numericJoints.js";
@@ -175,15 +177,16 @@ function SkeletonModel({
     // also restores the master meshes they were hiding.
     rig.clearSpawnedBones();
 
-    const { report, segmentScales, bodyDimensions, rootRotation } = applySolvedPose({
-      scene: clonedScene,
-      rig,
-      root: groupRef.current,
-      joints: sceneJoints,
-      solveBone: gatedSolveBone,
-      articulated,
-      splitJoints,
-    });
+    const { report, segmentScales, bodyDimensions, rootRotation } =
+      applySolvedPose({
+        scene: clonedScene,
+        rig,
+        root: groupRef.current,
+        joints: sceneJoints,
+        solveBone: gatedSolveBone,
+        articulated,
+        splitJoints,
+      });
 
     const origin = graveOrigin(graveDimensions);
     const unplaced = [];
@@ -201,7 +204,6 @@ function SkeletonModel({
         rig.setMasterBoneVisibility(spawnId, true);
         continue;
       }
-
 
       if (bone.mode === "absent") {
         rig.setMasterBoneVisibility(spawnId, false);
@@ -225,9 +227,7 @@ function SkeletonModel({
           measured: placed.measured,
           expected: placed.measured / placed.requested,
         });
-
       }
-
     }
 
     // Plain-language problems for this individual, shown in the sidebar until
@@ -305,7 +305,6 @@ function SkeletonModel({
       issues.push(`Unusual lengths, drawn as recorded: ${list}.`);
     }
 
-
     if (segmentScales.degenerate.length) {
       issues.push(
         `Both ends recorded at the same position: ${boneNames(segmentScales.degenerate)}.`,
@@ -331,7 +330,6 @@ function SkeletonModel({
       issues.push(`Unusual body proportions, drawn as recorded: ${list}.`);
     }
 
-
     if (issues.length) {
       console.warn("solve issues", id, {
         unsolved: unexpectedlyUnsolved,
@@ -345,7 +343,6 @@ function SkeletonModel({
         bodyDimensions: bodyDimensions.implausible,
         implausibleSpawns,
       });
-
     }
 
     onSolverIssues?.(id, { messages: issues, unusualLengths });
@@ -361,8 +358,6 @@ function SkeletonModel({
     id,
     onSolverIssues,
   ]);
-
-
 
   // Commands arrive one at a time from the Rig Controls window.
   const lastCommandRef = useRef(command ?? null);
@@ -436,7 +431,7 @@ const SCREENSHOT_HEIGHT = 1080;
 
 // Capture the WebGL scene itself, independent of the surrounding React UI.
 const ViewportExport = forwardRef(function ViewportExport(
-  { controlsRef },
+  { controlsRef, overviewRef, focusedId },
   ref,
 ) {
   const { camera, gl, scene } = useThree();
@@ -444,6 +439,13 @@ const ViewportExport = forwardRef(function ViewportExport(
   useImperativeHandle(
     ref,
     () => ({
+      getView() {
+        return focusedId
+          ? overviewRef.current
+          : controlsRef.current
+            ? captureProjectView(camera, controlsRef.current)
+            : null;
+      },
       async captureScreenshot() {
         const canvas = gl.domElement;
         const previousSize = gl.getSize(new Vector2());
@@ -461,7 +463,8 @@ const ViewportExport = forwardRef(function ViewportExport(
           const blob = await new Promise((resolve, reject) => {
             canvas.toBlob((nextBlob) => {
               if (nextBlob) resolve(nextBlob);
-              else reject(new Error("The viewport could not be encoded as PNG."));
+              else
+                reject(new Error("The viewport could not be encoded as PNG."));
             }, "image/png");
           });
 
@@ -483,18 +486,13 @@ const ViewportExport = forwardRef(function ViewportExport(
         );
         const exporter = new GLTFExporter();
         const data = await new Promise((resolve, reject) => {
-          exporter.parse(
-            exportScene,
-            resolve,
-            reject,
-            { binary: true },
-          );
+          exporter.parse(exportScene, resolve, reject, { binary: true });
         });
 
         return window.electronAPI.saveGLB(data);
       },
     }),
-    [camera, controlsRef, gl, scene],
+    [camera, controlsRef, gl, scene, focusedId, overviewRef],
   );
 
   return null;
@@ -502,10 +500,14 @@ const ViewportExport = forwardRef(function ViewportExport(
 
 // Moves the camera to frame one individual, and back again on exit.
 // Orthographic framing is zoom-based: distance only sets the view angle.
-function FocusCamera({ focusedId, controlsRef }) {
+function FocusCamera({ focusedId, controlsRef, savedView, frameRequest }) {
   const { camera, scene, size: viewport } = useThree();
   const saved = useRef(null);
   const tween = useRef(null);
+  useEffect(() => {
+    saved.current = null;
+    tween.current = null;
+  }, [savedView, frameRequest]);
 
   useEffect(() => {
     const controls = controlsRef.current;
@@ -589,7 +591,8 @@ function FocusCamera({ focusedId, controlsRef }) {
 
     controls.target.lerpVectors(active.from.target, active.to.target, eased);
 
-    camera.zoom = active.from.zoom + (active.to.zoom - active.from.zoom) * eased;
+    camera.zoom =
+      active.from.zoom + (active.to.zoom - active.from.zoom) * eased;
     camera.updateProjectionMatrix();
 
     controls.update();
@@ -599,6 +602,138 @@ function FocusCamera({ focusedId, controlsRef }) {
     }
   });
 
+  return null;
+}
+
+function GraveContour({ points = [], graveDimensions, colour, reference }) {
+  const geometry = useMemo(() => {
+    const scenePoints = graveContourToSceneSpace(
+      points,
+      graveDimensions,
+      globalScale,
+      reference,
+    );
+
+    return new BufferGeometry().setFromPoints(
+      scenePoints.map((point) => new Vector3(point.x, point.y, point.z)),
+    );
+  }, [points, graveDimensions, reference]);
+
+  useEffect(() => {
+    return () => geometry.dispose();
+  }, [geometry]);
+
+  if (geometry.getAttribute("position").count < 3) return null;
+
+  return (
+    <lineLoop geometry={geometry}>
+      <lineBasicMaterial color={colour} />
+    </lineLoop>
+  );
+}
+
+function GraveOutline({
+  graveOutline = { top: [], bottom: [] },
+  graveDimensions,
+}) {
+  return (
+    <>
+      <GraveContour
+        points={graveOutline.top}
+        reference={graveOutline.references?.top}
+        graveDimensions={graveDimensions}
+        colour={graveOutline.colour || "#495057"}
+      />
+      <GraveContour
+        points={graveOutline.bottom}
+        reference={graveOutline.references?.bottom}
+        graveDimensions={graveDimensions}
+        colour={graveOutline.colour || "#6c757d"}
+      />
+    </>
+  );
+}
+
+// A surveyed outline can lie well outside the initial skeleton camera view.
+// Frame its coordinates and the site grid together without moving either.
+function GraveCamera({
+  graves,
+  graveDimensions,
+  focusedId,
+  controlsRef,
+  savedView,
+  frameRequest,
+  overviewRef,
+  onViewChange,
+}) {
+  const { camera, size: viewport } = useThree();
+  const currentViewChange = useRef(onViewChange);
+  currentViewChange.current = onViewChange;
+  const focused = useRef(focusedId);
+  focused.current = focusedId;
+  useEffect(() => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+    const changed = () => {
+      if (!focused.current) {
+        overviewRef.current = captureProjectView(camera, controls);
+        currentViewChange.current?.();
+      }
+    };
+    controls.addEventListener("end", changed);
+    return () => controls.removeEventListener("end", changed);
+  }, [camera, controlsRef, overviewRef]);
+  useEffect(() => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+    if (savedView && !frameRequest) {
+      applyProjectView(camera, controls, savedView);
+      overviewRef.current = captureProjectView(camera, controls);
+      return;
+    }
+    const framed = frameRequest?.id
+      ? graves.filter((grave) => grave.id === frameRequest.id)
+      : graves;
+    const points = framed.flatMap((grave) =>
+      ["top", "bottom"].flatMap((level) =>
+        graveContourToSceneSpace(
+          grave[level] ?? [],
+          graveDimensions,
+          globalScale,
+          grave.references?.[level],
+        ),
+      ),
+    );
+    if (focusedId || (!points.length && !frameRequest)) {
+      if (!focusedId)
+        overviewRef.current = captureProjectView(camera, controls);
+      return;
+    }
+    const [width, length, depth] = graveDimensions.map(Number);
+    const box = new Box3().setFromPoints(
+      frameRequest?.id && points.length
+        ? points.map((point) => new Vector3(point.x, point.y, point.z))
+        : [
+            ...points.map((point) => new Vector3(point.x, point.y, point.z)),
+            new Vector3(-width / 2, -depth, -length / 2),
+            new Vector3(width / 2, 0, length / 2),
+          ],
+    );
+    const centre = box.getCenter(new Vector3());
+    const size = box.getSize(new Vector3());
+    const extent = Math.max(size.x, size.y, size.z, 0.01);
+    camera.zoom = Math.min(viewport.width, viewport.height) / (extent * 1.8);
+    camera.position.copy(centre).add(new Vector3(extent, extent, extent * 1.5));
+    controls.target.copy(centre);
+    camera.updateProjectionMatrix();
+    controls.update();
+    overviewRef.current = captureProjectView(camera, controls);
+    // Framing is triggered by changed survey data/dimensions, not orbit or resize.
+  }, [graveDimensions, camera, controlsRef, savedView, frameRequest]);
+  useFrame(() => {
+    if (!focusedId && controlsRef.current)
+      overviewRef.current = captureProjectView(camera, controlsRef.current);
+  });
   return null;
 }
 
@@ -676,6 +811,12 @@ const MainView = forwardRef(function MainView(
   {
     individuals = [],
     graveDimensions = [1, 1, 1],
+    graveOutline = { top: [], bottom: [] },
+    graves = [graveOutline],
+    hiddenGraves = [],
+    savedView = null,
+    frameRequest = null,
+    onViewChange,
     vertical = DEFAULT_VERTICAL,
     command,
     targetId,
@@ -689,6 +830,7 @@ const MainView = forwardRef(function MainView(
   ref,
 ) {
   const controlsRef = useRef(null);
+  const overviewRef = useRef(null);
 
   const selectedColour = individuals.find(
     (individual) => individual.id === selectedId,
@@ -702,7 +844,7 @@ const MainView = forwardRef(function MainView(
           position: [0, 1.4, 40],
           zoom: 100,
           near: 0.1,
-          far: 1000
+          far: 1000,
         }}
         onPointerMissed={() => onClearSelection?.()}
       >
@@ -739,16 +881,47 @@ const MainView = forwardRef(function MainView(
         {focusedId ? (
           <FocusGrid focusedId={focusedId} />
         ) : (
-          <gridHelper
-            args={[globalScale, 12, "#adb5bd", "#ced4da"]}
-            scale={graveDimensionsToGridScale(graveDimensions)}
-          />
+          <>
+            <gridHelper
+              args={[globalScale, 12, "#adb5bd", "#ced4da"]}
+              scale={graveDimensionsToGridScale(graveDimensions)}
+            />
+            {graves
+              .filter((grave) => !hiddenGraves.includes(grave.id))
+              .map((grave, index) => (
+                <GraveOutline
+                  key={grave.id || index}
+                  graveOutline={grave}
+                  graveDimensions={graveDimensions}
+                />
+              ))}
+          </>
         )}
         <SelectionOutline selectedId={selectedId} colour={selectedColour} />
         <IgnoreHiddenObjects />
         <CameraControls controlsRef={controlsRef} />
-        <FocusCamera focusedId={focusedId} controlsRef={controlsRef} />
-        <ViewportExport ref={ref} controlsRef={controlsRef} />
+        <GraveCamera
+          graves={graves}
+          graveDimensions={graveDimensions}
+          focusedId={focusedId}
+          controlsRef={controlsRef}
+          savedView={savedView}
+          frameRequest={frameRequest}
+          overviewRef={overviewRef}
+          onViewChange={onViewChange}
+        />
+        <FocusCamera
+          focusedId={focusedId}
+          controlsRef={controlsRef}
+          savedView={savedView}
+          frameRequest={frameRequest}
+        />
+        <ViewportExport
+          ref={ref}
+          controlsRef={controlsRef}
+          overviewRef={overviewRef}
+          focusedId={focusedId}
+        />
       </Canvas>
     </main>
   );
