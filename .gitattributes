@@ -1,0 +1,11 @@
+# Canonicalise all text to LF in the repository and in the working tree.
+#
+# Every source file here is LF, but package-lock.json was historically committed
+# with CRLF. npm always rewrites the lockfile with LF, so each install turned into
+# a ~16k-line diff that was pure line-ending churn. Fixing the format explicitly
+# also stops a global core.autocrlf=true on a Windows machine from reintroducing
+# CRLF and re-creating the same noise for everyone else.
+* text=auto eol=lf
+
+# Binary assets must never be run through text conversion.
+*.glb binary
