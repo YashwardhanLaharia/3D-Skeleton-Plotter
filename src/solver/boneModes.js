@@ -48,6 +48,48 @@ export const FOLLOWER_BONE_IDS = Object.freeze({
 // fixed.
 export const UNSCALABLE_SPAWN_IDS = Object.freeze(new Set(["skull", "jaw"]));
 
+// What the skull's and jaw's own landmarks span on the model, in metres, by
+// topology bone id (the "measured" column above). Neither bone is a scalable
+// segment and both spawn unscaled, so nothing else ever checks their length;
+// these are the lengths they are checked against instead.
+export const LANDMARK_SPANS = Object.freeze({ head: 0.09, jaw: 0.079 });
+
+// Advisory, like every other length check: outside it the bone is still drawn
+// as recorded, only flagged. Same range as the spawned bones' own check.
+const LANDMARK_SPAN_LIMITS = [0.5, 1.5];
+
+/**
+ * Skull and jaw lengths far from what their landmarks span on the model,
+ * whether drawn articulated or placed on their own.
+ *
+ * @param {ReturnType<typeof planBones>} plan
+ * @returns {{boneId:string, measured:number, expected:number}[]}  metres
+ */
+export function unusualLandmarkSpans(plan = []) {
+  const unusual = [];
+  const [min, max] = LANDMARK_SPAN_LIMITS;
+
+  for (const bone of plan) {
+    const expected = LANDMARK_SPANS[bone.id];
+    if (!expected || !bone.proximal || !bone.distal) continue;
+
+    const measured = Math.hypot(
+      bone.distal.x - bone.proximal.x,
+      bone.distal.y - bone.proximal.y,
+      bone.distal.z - bone.proximal.z,
+    );
+    // Two points at the same position have no length to judge.
+    if (measured === 0) continue;
+
+    const factor = measured / expected;
+    if (factor < min || factor > max) {
+      unusual.push({ boneId: bone.id, measured, expected });
+    }
+  }
+
+  return unusual;
+}
+
 // Topology bone id -> spawn catalog id (src/rig/spawn/boneCatalog.js). They
 // agree except for the head, which the catalog calls the skull.
 export const SPAWN_BONE_IDS = Object.freeze({

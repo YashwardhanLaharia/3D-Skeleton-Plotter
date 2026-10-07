@@ -1,7 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { planBones } from "../../src/solver/boneModes.js";
+import {
+  planBones,
+  unusualLandmarkSpans,
+} from "../../src/solver/boneModes.js";
 
 // Mirrors /Downloads/error.csv ind-1 left arm: humerus recorded away from the
 // body at the site origin, forearm and hand still in the supine layout.
@@ -101,4 +104,48 @@ test("the jaw moves with a displaced skull when the chin was not split", () => {
   assert.ok(Math.abs(jaw.distal.z - 0.3) < 1e-9);
   // The mandible's own span, not the 44cm gap back to the body.
   assert.ok(Math.abs(length(jaw) - Math.hypot(0.07, 0.04)) < 1e-9);
+});
+
+test("a skull and jaw at their own size are not flagged", () => {
+  assert.deepEqual(unusualLandmarkSpans(planBones(MOVED_SKULL)), []);
+});
+
+// The ossuary data's pattern: the skull was moved, but head_proximal was left
+// at its position on the body, so the skull spans back to the body.
+const SKULL_LEFT_BEHIND = {
+  head_proximal: { x: "1.500", y: "5.620", z: "0.390" },
+  head_centre: {
+    x: "1.500",
+    y: "5.710",
+    z: "0.390",
+    split: true,
+    inferior: { x: "0.500", y: "0.500", z: "0.300" },
+  },
+  chin: { x: "1.500", y: "5.780", z: "0.350" },
+};
+
+test("a displaced skull spanning back to the body is flagged", () => {
+  const unusual = unusualLandmarkSpans(planBones(SKULL_LEFT_BEHIND));
+
+  // Only the skull: the chin is carried along with it, so the jaw is fine.
+  assert.deepEqual(
+    unusual.map((entry) => entry.boneId),
+    ["head"],
+  );
+  assert.equal(unusual[0].expected, 0.09);
+  assert.ok(unusual[0].measured > 5);
+});
+
+test("an articulated skull of the wrong length is flagged", () => {
+  const unusual = unusualLandmarkSpans(
+    planBones({
+      head_proximal: { x: "1.500", y: "5.310", z: "0.390" },
+      head_centre: { x: "1.500", y: "5.710", z: "0.390" },
+      chin: { x: "1.500", y: "5.780", z: "0.350" },
+    }),
+  );
+
+  assert.equal(unusual.length, 1);
+  assert.equal(unusual[0].boneId, "head");
+  assert.ok(Math.abs(unusual[0].measured - 0.4) < 1e-9);
 });
