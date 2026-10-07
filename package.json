@@ -47,10 +47,7 @@
     "three": "^0.185.1"
   },
   "overrides": {
-    "@electron-forge/plugin-fuses": {
-      "@electron/fuses": "^2.0.0",
-      "tar": "^7.5.21",
-      "tmp": "0.2.4"
-    }
+    "tmp": "^0.2.7",
+    "tar": "^7.5.22"
   }
 }
