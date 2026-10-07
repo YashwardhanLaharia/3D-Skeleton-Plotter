@@ -2,141 +2,113 @@
 
 ## Overview
 
-The application ships as a packaged Electron app. Everything a user runs is
-bundled into `resources/app.asar` at package time, and no dependency is
-included as a `node_modules` directory.
+The app ships bundled: everything runs from `resources/app.asar`, and no
+dependency is included as a `node_modules` directory. Even
+`electron-squirrel-startup` is inlined into the main-process bundle.
 
-This is the key fact when reading `npm audit` output here. Most advisories in
-this project belong to Electron Forge and its toolchain, which run on developer
-machines during `npm start`, `npm run package` and `npm run test:selenium`. They
-never reach a user.
+So most `npm audit` output here belongs to Electron Forge and its toolchain,
+which run on developer machines during `npm start`, `npm run package` and
+`npm run test:selenium`. None of it reaches a user.
 
-`npm audit --omit=dev` reflects shipped surface and is expected to stay at
-zero. A non-zero result there means a runtime dependency has been misfiled as a
-build dependency. Check it with:
-
-```bash
-npm audit --omit=dev
-```
-
-`npm audit`, which includes the toolchain, is expected to be non-zero and is not
-a useful regression signal on its own. The next section explains exactly which
-advisories are accepted.
+`npm audit --omit=dev` is the closest proxy for shipped surface and should stay
+at zero. It is not exact - some `@types/*` packages show as production only
+because `@react-three/fiber` declares them as real dependencies - so treat a
+non-zero result as a prompt to check, not proof of exposure.
 
 ## Accepted advisories
 
-Five packages have advisories that **cannot be fixed**, because the advisory
-range is `*` or `>=0.2.0`, meaning no fixed release has ever been published, and
-each package is already at its latest version:
+Three packages have advisories that cannot be fixed. Each advisory covers every
+published version, and each package is already at its latest release:
 
 | Package | Latest | Reached via | Does what |
 |---|---|---|---|
 | `extract-zip` | 2.0.1 | `@electron/packager` | Unpacks the downloaded Electron zip |
 | `sprintf-js` | 1.1.3 | `roarr` → `global-agent` → `@electron/get` | Format strings in download logging |
 | `braces` | 3.0.3 | `micromatch` → `fast-glob` → Forge | Glob pattern expansion |
-| `micromatch` | 4.0.8 | `fast-glob` → Forge | Filename matching |
-| `fast-glob` | 3.3.3 | Forge core | File discovery during packaging |
 
-Forge itself is also reported, purely because npm attributes a parent's
-severity to a parent whose descendants are flagged. The five leaves above are
-the whole story.
+`npm audit` also lists `micromatch` and `fast-glob`, and various Forge packages,
+only because a parent inherits the severity of a flagged descendant. They are
+not a second thing to fix.
 
-All five run only on a developer machine. `extract-zip` handles an archive npm
-has already fetched and checksummed; the rest are used while building the app.
+All are build-time. `extract-zip` handles an archive npm has already fetched and
+checksummed. Anything reported outside this set is new and needs looking at.
 
-If `npm audit` reports anything outside this set, that is new and needs
-looking at.
+Removing these means removing their parents, which means `@electron-forge/*`
+7.x → 8.x. That changes the compile-time globals Forge injects into
+`src/main.js` and the FuseVersion handling in `forge.config.js`, so it needs its
+own change with a full test run.
 
-Removing them means removing their parents, which means moving
-`@electron-forge/*` from 7.x to 8.x. That is a breaking toolchain change: it
-alters the compile-time globals Forge injects into `src/main.js`, and it changes
-FuseVersion handling in `forge.config.js`. Treat it as its own piece of work
-with a full test run rather than a version bump.
-
-**Never run `npm audit fix --force` in this repository.** It proposes
-`electron-chromedriver@1.4.0`, which predates versioned chromedriver releases
-entirely and breaks `npm run test:selenium` outright.
+**Never run `npm audit fix --force`.** It proposes `electron-chromedriver@1.4.0`,
+which predates versioned chromedriver entirely and breaks
+`npm run test:selenium` outright.
 
 ## Overrides
 
-`tmp` and `tar` are pinned globally in `package.json`. Both are load-bearing:
+`tmp` and `tar` are pinned globally, and both are load-bearing:
 
-- Every `tar` consumer in the tree requests `^6.x`, but the advisory covers
-  `<=7.5.20` and no fixed 6.x exists. Without the override a clean install
-  resolves `tar@6.2.1`.
+- Every `tar` consumer requests `^6.x`, but the advisory covers `<=7.5.20`, so
+  every 6.x release is affected. Without the override a clean install resolves
+  `tar@6.2.1`.
 - `tmp` arrives via `@electron-forge/cli → @inquirer/prompts → @inquirer/editor
   → external-editor`, which requests the vulnerable `0.0.33`. Forge 7 cannot
-  route around this: the 6.x line of `@inquirer/prompts` contains only 6.0.0 and
-  6.0.1, and both depend on `@inquirer/editor` v3. Forge 8 drops
-  `@inquirer/prompts` entirely.
+  route around it: the 6.x line of `@inquirer/prompts` only depends on
+  `@inquirer/editor` v3. Forge 8 drops the chain entirely.
 
-`external-editor` calls exactly one `tmp` API, `tmpNameSync`, which is unchanged
-in 0.2.7.
+`@electron/rebuild`'s `@electron/node-gyp` is also pinned, to the registry
+release. Electron's fork is published there, so pinning it removes a git+ssh
+dependency that no fresh clone could satisfy without a GitHub SSH key.
 
-Keep these overrides at the top level of `package.json`. Scoping an override to
-a package that does not actually depend on the target makes it silently
-ineffective.
+Keep overrides at the top level of `package.json`. One nested under a package
+that does not depend on the target is silently ignored.
 
 ## Pins that must move together
 
-- `electron` and `electron-chromedriver` are both pinned to an exact version and
-  must match on major and minor. A caret on either lets them drift apart and the
-  Selenium driver fails to attach.
-- `@electron/fuses` is pinned to the range `@electron-forge/plugin-fuses@7.x`
-  accepts as a peer (`^1.0.0`). A mismatch makes any full re-resolution fail
-  with `ERESOLVE`, which blocks `npm audit fix` and `npm update`. The lockfile
-  hides this from `npm ci`, which trusts the lock, so the failure only appears
-  once someone tries to change a dependency.
+- `electron` and `electron-chromedriver` are pinned to an exact version and must
+  match on major and minor. A caret on either lets them drift apart and the
+  Selenium driver cannot attach.
+- `@electron/fuses` must satisfy `@electron-forge/plugin-fuses@7.x`'s peer range
+  of `^1.0.0`. A mismatch makes any re-resolution fail with `ERESOLVE`, blocking
+  `npm install` and `npm audit fix`. The lockfile hides this from `npm ci`, so
+  it only surfaces once someone changes a dependency.
 
-After any build that touches the fuses, confirm they were actually written to
-the binary rather than assuming the plugin ran:
+After a build that touches the fuses, confirm they reached the binary rather
+than assuming the plugin ran. The path is Windows-only:
 
 ```bash
 node -e "require('@electron/fuses').getCurrentFuseWire('out/skeletonplotter-win32-x64/skeletonplotter.exe').then(console.log)"
 ```
 
-## Line endings
-
-All text is stored and checked out as LF, enforced by `.gitattributes`.
-
-This is not cosmetic. npm rewrites `package-lock.json` with LF endings, so if
-the lockfile is ever committed with CRLF, every install produces a diff of
-roughly sixteen thousand lines containing no real change, which buries genuine
-dependency changes. The `eol=lf` rule also stops a global `core.autocrlf=true`
-on a Windows machine from reintroducing CRLF for everyone else.
-
-If a spurious whole-file diff ever appears, check line endings before reading
-the diff.
-
 ## Install gating under npm 12
 
-npm 12 blocks install scripts by default and refuses git-typed dependencies.
-Two committed pieces keep a clean install working:
+npm 12 blocks install scripts unless they are opted into, which is what
+`allowScripts` in `package.json` does. `electron-chromedriver`'s script downloads
+the binary that `tests/selenium/driver.mjs` asserts on, so a blocked script means
+the Selenium suite cannot run at all. Electron needs no entry; it ships no
+install script and fetches its binary lazily on first require.
 
-- `.npmrc` sets `allow-git=all`, required because `@electron/node-gyp` is pulled
-  from a GitHub ref. Without it `npm ci` fails with `EALLOWGIT`.
-- `allowScripts` in `package.json` permits the two install scripts that download
-  the chromedriver binary and select the Squirrel 7-Zip arch. `tests/selenium/
-  driver.mjs` asserts that the chromedriver binary exists, so a blocked script
-  means the Selenium suite cannot run.
-
-The `allowScripts` entries are pinned to exact versions, so bumping
-`electron-chromedriver` requires re-approving:
+Entries are pinned to exact versions, so bumping a package needs re-approving:
 
 ```bash
 npm install-scripts approve electron-chromedriver@<version>
 ```
 
-Electron needs no entry. It ships no install script and downloads its binary
-lazily on first require.
+`electron-winstaller` is the fragile one. Its script copies the correct 7-Zip
+binary into `vendor/`, and `@electron-forge/maker-squirrel` needs it to build
+the installer. If the entry stops matching, `npm run make` fails deep inside
+`createWindowsInstaller` with no useful message, because Forge's check is a
+`require.resolve` that succeeds even with scripts blocked.
 
-## Known pre-existing issues
+Node must be `>= 22.12.0` and npm `>= 12`; both are declared in `package.json`.
 
-Unrelated to dependencies, recorded so they are not rediscovered:
+## Line endings
 
-- The Selenium suite fails 11 of 15 tests. This is reproducible on `main` and is
-  not caused by dependency versions. The app starts with the startup screen up
-  and its modal covers the sidebar, so the `.coord-input` elements the tests wait
-  for are never interactable. Tests that do not need the sidebar still pass.
-- `docs/development/setup.md` is empty.
-- There is no CI, and `npm run lint` is a stub that prints a message.
+All text is stored and checked out as LF, enforced by `.gitattributes`. npm
+rewrites `package-lock.json` with LF, so if that file is ever committed with
+CRLF, every install shows a diff of thousands of lines containing no real change.
+If a whole-file diff appears, check line endings before reading the diff.
+
+## Known issues
+
+The Selenium suite fails 11 of 15 tests, reproducibly on `main`. Two unrelated
+causes, tracked in #92 and #93: a broken window handoff in `tests/selenium/driver.mjs`,
+and tests that do not get past the startup screen.
