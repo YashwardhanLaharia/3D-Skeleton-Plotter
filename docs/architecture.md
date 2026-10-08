@@ -195,3 +195,32 @@ surface readable messages to the researcher.
 - `docs/data-formats/joint-coordinates.md` — coordinate conventions
 - `docs/data-formats/project-file.md` — saved project structure
 - `docs/development/testing.md` — testing commands and structure
+
+## Excavation context layers (#47 and #48)
+
+`App.jsx` owns named graves, individual-to-grave assignments, the project overview
+camera and the optional photograph. `GravesPanel` presents these in the viewport
+View panel; `ImageOverlayBar` opens `ImageOverlaySettingsModal` for alignment.
+These layers do not alter landmark coordinates or the skeleton solver.
+
+`clientGraveFiles.js` reads the supported client XLSX and ROT layouts.
+`graveContourData.js` validates ordered points and converts a contour's saved
+reference into site-grid heights above floor. `graveOutline.js` then applies
+`graveOrigin()` and `toSceneSpace()` for line rendering in `MainView`. The contour
+conversion is separate from the project vertical setting used for skeletons;
+RL is converted once at each appropriate input boundary.
+
+`imageOverlay.js` calculates three-corner placement, geometry, UVs and framing.
+`overlayAsset.js` validates embedded PNG/JPEG data. `ImageOverlay` owns its texture
+and geometry lifecycle and renders the photograph at its height above floor.
+The export scene includes a visible photograph mesh and texture.
+
+`csvImport.js` and `csvExport.js` read/write reserved rows for grave metadata,
+contours, references, assignments, photographs and the camera. `projectView.js`
+validates and captures camera state independently of survey values. Framing changes
+the camera; it does not recenter the survey data. A visible photograph is framed
+on load, which can supersede the apparent saved overview.
+
+See [grave formats](data-formats/grave-outline.md),
+[photograph formats](data-formats/image-overlay.md) and
+[project CSV records](data-formats/project-file.md).

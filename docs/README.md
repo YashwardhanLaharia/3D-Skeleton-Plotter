@@ -17,7 +17,9 @@ docs/
 ├── rig-api.md                # SkeletonRig API overview
 ├── data-formats/
 │   ├── joint-coordinates.md  # Joint IDs, axes, expected input format
-│   └── project-file.md       # Schema, schemaVersion, individuals structure
+│   ├── project-file.md       # Saved project CSV and reserved records
+│   ├── grave-outline.md      # Client contours, references and named graves
+│   └── image-overlay.md      # Photograph placement, persistence and export
 └── development/
     ├── setup.md              # npm scripts, Electron Forge, Vite configs
     ├── testing.md            # Testing information
@@ -44,7 +46,17 @@ More detailed system inforamation can be found in `architecture`, `rig-api`, `de
 - data-formats
   - [joint-coordinates.md](./data-formats/joint-coordinates.md)
   - [project-file.md](./data-formats/project-file.md)
+  - [grave-outline.md](./data-formats/grave-outline.md)
+  - [image-overlay.md](./data-formats/image-overlay.md)
 - development
-  - [setup.md](./setup.md)
-  - [testing.md](./testing.md)
-  - [dependencies.md](./dependencies.md)
+  - [setup.md](./development/setup.md)
+  - [testing.md](./development/testing.md)
+  - [dependencies.md](./development/dependencies.md)
+
+
+## Excavation context workflows
+
+For surveyed grave boundaries and site photographs, start with the
+[grave and photograph workflows](./user-guide.md#surveyed-grave-outlines) in the user guide.
+The format references above explain client file layouts, coordinate references,
+CSV persistence and the remaining client validation requirements.
