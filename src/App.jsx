@@ -25,8 +25,12 @@ import FocusBar from "./components/FocusBar";
 import InspectionPanel from "./components/InspectionPanel";
 import StartupScreen from "./components/StartupScreen";
 import GraveDimensionsModal from "./components/GraveDimensionsModal";
+import { placementFromSize } from "./imageOverlay.js";
+import { validateImageOverlay } from "./overlayAsset.js";
 import GraveOutlineImportModal from "./components/GraveOutlineImportModal";
 import GravesPanel from "./components/GravesPanel";
+import ImageOverlayBar from "./components/ImageOverlayBar";
+import ImageOverlaySettingsModal from "./components/ImageOverlaySettingsModal";
 import {
   importGraveContour,
   validateGraveRelations,
@@ -63,6 +67,9 @@ function makeBlankCoords() {
 }
 
 export default function App() {
+  const [imageOverlay, setImageOverlay] = useState(null);
+  const [overlayFrame, setOverlayFrame] = useState(null);
+  const [showOverlaySettings, setShowOverlaySettings] = useState(false);
   const [graveSurvey, setGraveSurvey] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showStartup, setShowStartup] = useState(true);
@@ -75,10 +82,6 @@ export default function App() {
   const [savedView, setSavedView] = useState(null);
   const [frameRequest, setFrameRequest] = useState(null);
   const graveOutline = graves[0] ?? { top: [], bottom: [] };
-  // How the recorded z is read: height above the grave floor, or RL down from
-  // the site datum with the grave floor's RL (see sceneSpace.js). Saved with
-  // the project, like the grave dimensions.
-  const [vertical, setVertical] = useState(DEFAULT_VERTICAL);
   const [recentProjects, setRecentProjects] = useState([]);
   // How the recorded z is read: height above the grave floor, or RL down from
   // the site datum with the grave floor's RL (see sceneSpace.js). Saved with
@@ -210,6 +213,8 @@ export default function App() {
     setSavedView(loaded.view);
     setFrameRequest(null);
     setGraveSurvey(null);
+    setImageOverlay(loaded.imageOverlay ?? null);
+    setOverlayFrame(loaded.imageOverlay?.visible ? {} : null);
 
     const numbers = loaded.individuals
       .map((individual) => Number(individual.id.replace("ind-", "")))
@@ -477,10 +482,54 @@ export default function App() {
     setOpenId(null);
     setSelectedId(null);
     setJointDetails({});
+    setImageOverlay(null);
+    setOverlayFrame(null);
     dispatch({ type: "new", individuals: STARTING_STATE, groups: [] });
     nextGroupId.current = 1;
     nextId.current = 2;
     setShowStartup(true);
+  }
+
+  async function handleLoadOverlay() {
+    const result = await window.electronAPI.importOverlayImage();
+    if (!result.ok) {
+      if (!result.canceled) setNotice(result.error);
+      return;
+    }
+    try {
+      const { asset } = result;
+      const aspect = asset.pixelWidth / asset.pixelHeight;
+      const width = Math.min(
+        Number(graveDimensions[0]),
+        Number(graveDimensions[1]) * aspect,
+      );
+      const placement =
+        imageOverlay ??
+        placementFromSize({
+          x: 0,
+          y: 0,
+          width,
+          length: width / aspect,
+          rotation: 0,
+          heightAboveFloor: 0,
+        });
+      setImageOverlay(validateImageOverlay({ ...placement, ...asset }));
+      setOverlayFrame({});
+      setFocusedId(null);
+      setIsDirty(true);
+      setNotice(
+        imageOverlay
+          ? "Photograph replaced; check its alignment."
+          : "Photograph loaded. Enter its grid alignment.",
+      );
+    } catch (error) {
+      setNotice(error.message);
+    }
+  }
+
+  function handleApplyOverlay(next) {
+    setImageOverlay(next);
+    setIsDirty(true);
   }
 
   async function handleImportGraveOutline() {
@@ -617,7 +666,7 @@ export default function App() {
       groups,
       hidden,
       graveOutline,
-      { graves },
+      { graves, imageOverlay },
       vertical,
     );
 
@@ -650,6 +699,8 @@ export default function App() {
     }
 
     setJointDetails({});
+    setImageOverlay(null);
+    setOverlayFrame(null);
     dispatch({ type: "new", individuals: STARTING_STATE, groups: [] });
     nextGroupId.current = 1;
     setVertical(DEFAULT_VERTICAL);
@@ -764,7 +815,11 @@ export default function App() {
         graveDimensions,
         groups,
         graveOutline,
-        { graves, view: viewportRef.current?.getView() ?? savedView },
+        {
+          graves,
+          view: viewportRef.current?.getView() ?? savedView,
+          imageOverlay,
+        },
         vertical,
       ),
       filePath: forcePrompt ? null : filePath,
@@ -961,6 +1016,35 @@ export default function App() {
           onImport={handleApplyGraveOutline}
         />
       )}
+      <ImageOverlaySettingsModal
+        show={showOverlaySettings}
+        overlay={imageOverlay}
+        onHide={() => setShowOverlaySettings(false)}
+        onApply={handleApplyOverlay}
+        onLoad={handleLoadOverlay}
+        onFrame={() => {
+          if (!imageOverlay?.visible) {
+            setImageOverlay({ ...imageOverlay, visible: true });
+            setIsDirty(true);
+          }
+          setFocusedId(null);
+          setOverlayFrame({});
+        }}
+        onRemove={() => {
+          setImageOverlay(null);
+          setOverlayFrame(null);
+          setShowOverlaySettings(false);
+          setIsDirty(true);
+        }}
+      />
+      {graveSurvey && (
+        <GraveOutlineImportModal
+          survey={graveSurvey}
+          graves={graves}
+          onHide={() => setGraveSurvey(null)}
+          onImport={handleApplyGraveOutline}
+        />
+      )}
       <div className="app-workspace d-flex flex-grow-1 overflow-hidden">
         <Sidebar
           individuals={individuals}
@@ -1022,10 +1106,34 @@ export default function App() {
             selectedId={selectedId}
             vertical={vertical}
             onSolverIssues={handleSolverIssues}
+            imageOverlay={imageOverlay}
+            overlayFrame={overlayFrame}
+            onOverlayError={setNotice}
             onSelect={openAndSelect}
             onClearSelection={() => setSelectedId(null)}
           />
           <FocusBar individual={focusedIndividual} onExit={handleExitFocus} />
+          {!focusedId && imageOverlay && (
+            <ImageOverlayBar
+              overlay={imageOverlay}
+              onOpenSettings={() => setShowOverlaySettings(true)}
+              onFrame={() => {
+                if (!imageOverlay.visible) {
+                  setImageOverlay({ ...imageOverlay, visible: true });
+                  setIsDirty(true);
+                }
+                setFocusedId(null);
+                setOverlayFrame({});
+              }}
+              onToggleVisible={() => {
+                setImageOverlay({
+                  ...imageOverlay,
+                  visible: !imageOverlay.visible,
+                });
+                setIsDirty(true);
+              }}
+            />
+          )}
 
           <div
             className={`viewport-panels ${focusedId ? "viewport-panels-focused" : ""}`}
@@ -1071,6 +1179,8 @@ export default function App() {
                   setFrameRequest({ id });
                   setIsDirty(true);
                 }}
+                overlay={imageOverlay}
+                onLoadOverlay={handleLoadOverlay}
               />
             )}
 

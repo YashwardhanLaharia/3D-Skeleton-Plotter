@@ -1,4 +1,5 @@
 import { JOINTS } from "./joints.js";
+import { validateImageOverlay } from "./overlayAsset.js";
 import { validateProjectView } from "./projectView.js";
 import {
   APPLICATION_ID,
@@ -49,6 +50,24 @@ export function createCsv(
   if (vertical?.convention === "rl") {
     lines.push(
       [VERTICAL_ROW_ID, "", "", "", vertical.floorRL, "", "", "", "rl"]
+        .map(escapeCsvCell)
+        .join(","),
+    );
+  }
+
+  if (options.imageOverlay) {
+    lines.push(
+      [
+        "image_overlay",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        JSON.stringify(validateImageOverlay(options.imageOverlay)),
+      ]
         .map(escapeCsvCell)
         .join(","),
     );

@@ -405,7 +405,7 @@
 .graves-panel {
   width: 100%;
   flex: 0 1 auto;
-  max-height: 55%;
+  max-height: 70%;
   overflow-y: auto;
 }
 
@@ -492,6 +492,66 @@
 
 .graves-assignments > summary {
   cursor: pointer;
+}
+
+.graves-empty-copy {
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.graves-section-header {
+  background: var(--bs-body-bg);
+  font-size: 0.75rem;
+}
+
+.graves-section-header .fw-semibold {
+  font-size: inherit;
+}
+
+.graves-photo {
+  font-size: 0.75rem;
+}
+
+.graves-photo-body {
+  font-size: 0.75rem;
+}
+
+/* Chrome over the site photograph (bottom of the viewport). */
+.image-overlay-bar {
+  position: absolute;
+  left: 50%;
+  bottom: 0.75rem;
+  transform: translateX(-50%);
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: min(28rem, calc(100% - 2rem));
+  padding: 0.35rem 0.5rem;
+  border-radius: var(--bs-border-radius);
+  background: color-mix(in srgb, var(--bs-body-bg) 92%, transparent);
+  border: 1px solid var(--bs-border-color);
+  box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.12);
+  pointer-events: auto;
+}
+
+.image-overlay-bar-label {
+  min-width: 0;
+  flex: 1 1 auto;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0 0.25rem;
+}
+
+.image-overlay-bar-hidden {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+
+.image-overlay-bar-btn {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  padding: 0.15rem 0.5rem;
 }
 
 .layers-panel {
