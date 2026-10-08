@@ -33,14 +33,18 @@ affected bones are marked in the inspection panel. Lengths are never
 corrected: a bone flagged as unusual is still drawn exactly as recorded, so the
 warning is a prompt to check the coordinates, not a change to them.
 
-### Fully disarticulated individuals
+### Empty and partial individuals
 
-When the sacrum, shoulders and hips are all recorded as displaced, there is no
-articulated torso to measure. The app still draws the model's ribcage and
-pelvis, placed at the skull's recorded position. Their orientation, and the
-shoulder- and pelvis-width warnings, are not meaningful for these individuals
-and can be ignored. Displaced bones are drawn at their own recorded positions
-and are unaffected.
+A new individual stays hidden until the recorded coordinates place a part of
+it. If no body placement anchor is available, attached model parts stay
+hidden. If an anchor is available but the hip and shoulder points do not give
+a usable body orientation, the torso stays hidden and the sidebar explains
+why. Add or correct the relevant coordinates to show it again.
+
+Displaced bones with usable endpoints remain visible at their own recorded
+positions, even when the attached body is hidden. Missing endpoints still
+leave that bone hidden; entering a single point does not reveal an unplaced
+ribcage or pelvis.
 
 ## Viewing skeletons
 

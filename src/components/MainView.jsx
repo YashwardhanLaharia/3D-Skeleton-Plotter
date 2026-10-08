@@ -44,6 +44,7 @@ import {
   UNSCALABLE_SPAWN_IDS,
   unusualLandmarkSpans,
 } from "../solver/boneModes.js";
+import { createReconstructionVisibility } from "../solver/reconstructionVisibility.js";
 import { boneName } from "../inspection/boneLabels.js";
 import { BODY_DIMENSIONS } from "../rig/scaling/dimensionConfig.js";
 
@@ -113,6 +114,11 @@ function SkeletonModel({
 
   const rig = useMemo(() => createSkeletonRig(clonedScene), [clonedScene]);
 
+  const reconstructionVisibility = useMemo(
+    () => createReconstructionVisibility(clonedScene),
+    [clonedScene],
+  );
+
   // Creates the one-bone solver using this skeleton's cloned scene.
   const solveBone = useMemo(() => createSolveBone(clonedScene), [clonedScene]);
 
@@ -180,8 +186,9 @@ function SkeletonModel({
     // Start clean: spawned copies from the previous solve are removed, which
     // also restores the master meshes they were hiding.
     rig.clearSpawnedBones();
+    reconstructionVisibility.reset();
 
-    const { report, segmentScales, bodyDimensions, rootRotation } =
+    const { report, segmentScales, bodyDimensions, rootRotation, anchor } =
       applySolvedPose({
         scene: clonedScene,
         rig,
@@ -233,6 +240,8 @@ function SkeletonModel({
         });
       }
     }
+
+    reconstructionVisibility.apply({ anchor, rootRotation });
 
     // Plain-language problems for this individual, shown in the sidebar until
     // the data causing them changes. Reported even when empty, so a problem
@@ -317,7 +326,7 @@ function SkeletonModel({
 
     if (hasCoordinates && !rootRotation) {
       issues.push(
-        "Body orientation could not be worked out from the hip and shoulder points, so the torso is shown upright.",
+        "Body orientation could not be worked out from the hip and shoulder points, so the torso is hidden.",
       );
     }
 
@@ -361,6 +370,7 @@ function SkeletonModel({
     label,
     id,
     onSolverIssues,
+    reconstructionVisibility,
   ]);
 
   useEffect(() => {
