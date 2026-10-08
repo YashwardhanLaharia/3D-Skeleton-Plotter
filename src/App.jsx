@@ -1031,6 +1031,7 @@ export default function App() {
         <GraveOutlineImportModal
           survey={graveSurvey}
           graves={graves}
+          vertical={vertical}
           onHide={() => setGraveSurvey(null)}
           onImport={handleApplyGraveOutline}
         />
@@ -1056,14 +1057,6 @@ export default function App() {
           setIsDirty(true);
         }}
       />
-      {graveSurvey && (
-        <GraveOutlineImportModal
-          survey={graveSurvey}
-          graves={graves}
-          onHide={() => setGraveSurvey(null)}
-          onImport={handleApplyGraveOutline}
-        />
-      )}
       <div className="app-workspace d-flex flex-grow-1 overflow-hidden">
         <Sidebar
           individuals={individuals}

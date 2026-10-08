@@ -4,6 +4,7 @@ import { validateContourReference } from "../graveContourData.js";
 export default function GraveOutlineImportModal({
   survey,
   graves = [],
+  vertical,
   onHide,
   onImport,
 }) {
@@ -16,8 +17,21 @@ export default function GraveOutlineImportModal({
         ? "LN24"
         : "Grave outline",
   );
-  const [mode, setMode] = useState(survey.reference?.mode || "");
-  const [floorRL, setFloorRL] = useState(survey.reference?.floorRL ?? "");
+
+  // A new contour in an RL project starts from the project's floor RL, so the
+  // outline and the skeletons are converted to height the same way.
+  const projectRL = vertical?.convention === "rl" ? vertical.floorRL : null;
+  const [mode, setMode] = useState(
+    survey.reference?.mode || (projectRL !== null ? "rl" : ""),
+  );
+  const [floorRL, setFloorRL] = useState(
+    survey.reference?.floorRL ?? projectRL ?? "",
+  );
+  const floorDiffers =
+    projectRL !== null &&
+    String(floorRL).trim() !== "" &&
+    Number(floorRL) !== projectRL;
+
   const [xOffset, setXOffset] = useState(survey.reference?.xOffset ?? "0");
   const [yOffset, setYOffset] = useState(survey.reference?.yOffset ?? "0");
   const [keepOther, setKeepOther] = useState(true);
@@ -162,6 +176,12 @@ export default function GraveOutlineImportModal({
                       Use the recorded floor RL. It cannot be inferred from
                       these files.
                     </div>
+                    {floorDiffers && (
+                      <div className="form-text text-warning-emphasis">
+                        Differs from the project's floor RL ({projectRL} m).
+                        The outline won't line up with the skeletons.
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
