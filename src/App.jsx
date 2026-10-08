@@ -11,10 +11,8 @@ import {
 import {
   toggleHidden,
   toggleGroupHidden,
-  isolateOnly,
   showAll,
   pruneHidden,
-  isIsolated,
 } from "./visibility";
 
 import { JOINTS } from "./joints";
@@ -132,9 +130,10 @@ export default function App() {
   const [hidden, setHidden] = useState([]);
 
   // Which individual is being examined close-up. View state, like `hidden` —
-  // not undoable, not saved. Separate from `hidden` on purpose so the two
-  // mechanisms can be compared before deciding whether they merge.
+  // not undoable, not saved. Focus/context never rewrites manual visibility.
   const [focusedId, setFocusedId] = useState(null);
+  const [showEnvironment, setShowEnvironment] = useState(true);
+  const [contextOpacity, setContextOpacity] = useState(0.25);
 
   // Transient message for changes such as adding individuals, which are inconvenient to highlight in place
   const [notice, setNotice] = useState(null);
@@ -357,19 +356,18 @@ export default function App() {
 
   function handleToggleVisibility(individualId) {
     setHidden((current) => toggleHidden(current, individualId));
+    if (individualId === focusedId) setFocusedId(null);
   }
 
   function handleToggleGroupVisibility(memberIds) {
     setHidden((current) => toggleGroupHidden(current, memberIds));
+    if (memberIds.includes(focusedId)) setFocusedId(null);
   }
 
-  function handleIsolate(individualId) {
-    const allIds = individuals.map((individual) => individual.id);
-    setHidden((current) =>
-      isIsolated(current, individualId, allIds)
-        ? showAll()
-        : isolateOnly(individualId, allIds),
-    );
+  function handleFocusAlone(individualId) {
+    setFocusedId(individualId);
+    setShowEnvironment(false);
+    setHidden((current) => current.filter((id) => id !== individualId));
   }
 
   function handleShowAll() {
@@ -379,6 +377,7 @@ export default function App() {
   function handleFocus(individualId) {
     const next = focusedId === individualId ? null : individualId;
     setFocusedId(next);
+    if (next) setShowEnvironment(true);
     // Focusing must not leave the individual hidden underneath — otherwise
     // exiting reveals a stale hide and the skeleton vanishes.
     if (next) {
@@ -1088,6 +1087,9 @@ export default function App() {
             individuals={individuals}
             hidden={hidden}
             focusedId={focusedId}
+            showEnvironment={showEnvironment}
+            contextOpacity={contextOpacity}
+            onFocusAlone={handleFocusAlone}
             graveDimensions={graveDimensions}
             graveOutline={graveOutline}
             graves={graves}
@@ -1105,7 +1107,14 @@ export default function App() {
             onSelect={openAndSelect}
             onClearSelection={() => setSelectedId(null)}
           />
-          <FocusBar individual={focusedIndividual} onExit={handleExitFocus} />
+          <FocusBar
+            individual={focusedIndividual}
+            onExit={handleExitFocus}
+            showEnvironment={showEnvironment}
+            onShowEnvironment={setShowEnvironment}
+            contextOpacity={contextOpacity}
+            onContextOpacity={setContextOpacity}
+          />
           {!focusedId && imageOverlay && (
             <ImageOverlayBar
               overlay={imageOverlay}
@@ -1177,24 +1186,23 @@ export default function App() {
               />
             )}
 
-            {focusedId ? (
+            {focusedId && (
               <InspectionPanel
                 individual={focusedIndividual}
                 unusualLengths={solverIssues[focusedId]?.unusualLengths}
               />
-            ) : (
-              <LayersPanel
-                individuals={individuals}
-                groups={groups}
-                hidden={hidden}
-                onToggleVisibility={handleToggleVisibility}
-                onToggleGroupVisibility={handleToggleGroupVisibility}
-                onIsolate={handleIsolate}
-                onShowAll={handleShowAll}
-                focusedId={focusedId}
-                onFocus={handleFocus}
-              />
             )}
+            <LayersPanel
+              individuals={individuals}
+              groups={groups}
+              hidden={hidden}
+              onToggleVisibility={handleToggleVisibility}
+              onToggleGroupVisibility={handleToggleGroupVisibility}
+              onFocusAlone={handleFocusAlone}
+              onShowAll={handleShowAll}
+              focusedId={focusedId}
+              onFocus={handleFocus}
+            />
           </div>
         </div>
       </div>

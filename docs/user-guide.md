@@ -46,6 +46,20 @@ and are unaffected.
 
 ### Orbit, panning and zooming
 
+### Focus and surrounding context
+
+Use the focus button beside an individual in the Skeletons panel. The camera
+frames that individual, the inspection panel opens, and **Show environment**
+keeps the grave grid, visible contours and site photograph in view. The
+**Context** slider dims the other visible skeletons from 0% to 100%; they can
+still be clicked to select them. Manually hidden individuals stay hidden.
+
+Turn off **Show environment** to see the focused individual alone, without the
+grave grid, contours or photograph. Double-click a skeleton or its row as a
+shortcut to this view. Choose **Exit** or press **Esc** to return to the saved
+grave view. Focus changes do not change coordinates or the other individuals'
+visibility toggles, and are not saved as project settings.
+
 ### Mass grave view
 
 ## Undo and redo operations
