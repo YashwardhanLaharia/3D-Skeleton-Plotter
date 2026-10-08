@@ -24,8 +24,10 @@ As per the Electron docs, these are the minimum requirements for running the sys
 
 The software is built using [node.js](https://nodejs.org/en) and is packaged using `npm`, which handles all the software requirements of the project. As such, to work on the project, the developer must have the following versions of `node` and `npm` installed:
 
-- `node`: >= 12.X.X
-- `npm`: >= 11.6.X
+- `node`: >= 22.12.0
+- `npm`: >= 12
+
+npm 12 is required because it is the first version that enforces the install-script approval in `package.json`; on older versions the approval is advisory and the required scripts silently do not run. See [development/dependencies.md](./development/dependencies.md).
 
 
 ## Installation
