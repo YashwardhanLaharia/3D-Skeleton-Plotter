@@ -73,3 +73,21 @@ export function fromSceneSpace(point, origin, scale, vertical = DEFAULT_VERTICAL
     z: heightAboveFloor(point.y / scale - origin.z, vertical),
   };
 }
+
+/**
+ * What the project settings form typed → a vertical setting, or a message
+ * saying what to fix. The floor RL arrives as the text in the input box.
+ */
+export function parseVerticalInput(convention, floorRLText) {
+  if (convention !== "rl") {
+    return { ok: true, vertical: { ...DEFAULT_VERTICAL } };
+  }
+
+  const text = String(floorRLText ?? "").trim();
+  const floorRL = Number(text);
+  if (text === "" || !Number.isFinite(floorRL)) {
+    return { ok: false, error: "Enter the RL of the grave floor, in metres." };
+  }
+
+  return { ok: true, vertical: { convention: "rl", floorRL } };
+}
