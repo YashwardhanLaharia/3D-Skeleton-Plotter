@@ -29,6 +29,10 @@ import ImageOverlay from "./ImageOverlay";
 import { overlayCameraView } from "../imageOverlay.js";
 import { captureProjectView, applyProjectView } from "../projectView.js";
 import { makeGLBExportScene } from "../exportScene.js";
+import {
+  applyExportFrustum,
+  restoreExportFrustum,
+} from "../screenshotFrustum.js";
 import { outlineColours } from "../outlineColour.js";
 import { toNumericJoints } from "../solver/numericJoints.js";
 import { createSolveBone, verifyRestConvention } from "../solver/solveBone.js";
@@ -452,10 +456,12 @@ const ViewportExport = forwardRef(function ViewportExport(
         const canvas = gl.domElement;
         const previousSize = gl.getSize(new Vector2());
         const previousPixelRatio = gl.getPixelRatio();
-        const previousAspect = camera.aspect;
 
-        camera.aspect = SCREENSHOT_WIDTH / SCREENSHOT_HEIGHT;
-        camera.updateProjectionMatrix();
+        const previousFrustum = applyExportFrustum(
+          camera,
+          SCREENSHOT_WIDTH / SCREENSHOT_HEIGHT,
+        );
+
         gl.setPixelRatio(1);
         gl.setSize(SCREENSHOT_WIDTH, SCREENSHOT_HEIGHT, false);
 
@@ -472,10 +478,9 @@ const ViewportExport = forwardRef(function ViewportExport(
 
           return window.electronAPI.saveScreenshot(await blob.arrayBuffer());
         } finally {
-          camera.aspect = previousAspect;
-          camera.updateProjectionMatrix();
-          gl.setPixelRatio(previousPixelRatio);
-          gl.setSize(previousSize.x, previousSize.y, false);
+            restoreExportFrustum(camera, previousFrustum);
+            gl.setPixelRatio(previousPixelRatio);
+            gl.setSize(previousSize.x, previousSize.y, false);
           controlsRef.current?.update();
           gl.render(scene, camera);
         }
