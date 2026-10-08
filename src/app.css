@@ -503,8 +503,8 @@
 }
 
 .viewport-panels-focused {
-  top: 2.75rem;
-  max-height: calc(100% - 3.5rem);
+  top: 5rem;
+  max-height: calc(100% - 5.75rem);
 }
 
 .graves-panel {
@@ -747,10 +747,6 @@
 .layer-row:focus-visible {
   outline: 2px solid var(--bs-primary);
   outline-offset: -2px;
-}
-
-.layer-row-isolated {
-  background: var(--bs-primary-bg-subtle);
 }
 
 /* Status, not a button */
@@ -1262,3 +1258,6 @@
 .joint-coordinate-row .joint-label {
   width: 7rem;
 }
+
+.focus-bar { flex-wrap: wrap; }
+.focus-bar input[type="range"] { width: 6rem; }

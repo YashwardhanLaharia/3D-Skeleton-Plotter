@@ -202,7 +202,7 @@ export function createCsv(
 
       const row = [
         individual.id,
-        joint.id, 
+        joint.id,
         coordinates.x ?? "",
         coordinates.y ?? "",
         coordinates.z ?? "",

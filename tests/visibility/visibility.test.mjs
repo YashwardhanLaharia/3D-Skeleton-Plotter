@@ -3,10 +3,8 @@ import assert from "node:assert/strict";
 import {
   isVisible,
   toggleHidden,
-  isolateOnly,
   showAll,
   pruneHidden,
-  isIsolated,
   isGroupFullyHidden,
   setGroupHidden,
   toggleGroupHidden,
@@ -41,30 +39,8 @@ test("toggling returns a new array rather than mutating", () => {
 
 const ALL = ["ind-1", "ind-2", "ind-3"];
 
-test("isolating hides everything except the target", () => {
-  assert.deepEqual(isolateOnly("ind-2", ALL), ["ind-1", "ind-3"]);
-});
-
-test("isolating replaces any previous hidden state", () => {
-  assert.deepEqual(isolateOnly("ind-1", ALL), ["ind-2", "ind-3"]);
-});
-
-test("isolating a lone individual hides nothing", () => {
-  assert.deepEqual(isolateOnly("ind-1", ["ind-1"]), []);
-});
-
 test("show all clears the hidden list", () => {
   assert.deepEqual(showAll(), []);
-});
-
-test("isIsolated is true only when one individual is the sole visible one", () => {
-  assert.equal(isIsolated(["ind-1", "ind-3"], "ind-2", ALL), true);
-  assert.equal(isIsolated(["ind-3"], "ind-2", ALL), false);
-  assert.equal(isIsolated([], "ind-2", ALL), false);
-});
-
-test("isIsolated is false when there is only one individual", () => {
-  assert.equal(isIsolated([], "ind-1", ["ind-1"]), false);
 });
 
 // Same bug class as the nextId collision after loading a project: state that

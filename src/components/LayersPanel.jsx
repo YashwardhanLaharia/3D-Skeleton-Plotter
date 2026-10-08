@@ -6,32 +6,37 @@
 // stays usable when the sidebar is collapsed, which is exactly when you'd want
 // to be focusing on the viewport.
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   isVisible,
-  isIsolated,
   isGroupFullyHidden,
 } from "../visibility";
 
 function LayerRow({
   individual,
   visible,
-  isolated,
   focused,
   onToggleVisibility,
-  onIsolate,
+  onFocusAlone,
   onFocus,
 }) {
   const name = individual.label.trim() || "Unlabelled";
+  const pendingToggle = useRef(null);
+  useEffect(() => () => clearTimeout(pendingToggle.current), []);
 
-  // The row is the control. Click hides, double-click isolates — the click
-  // handler fires first on a double-click, so isolate reverses it before
-  // acting. Cleaner than a timer, and the intermediate state is never painted.
-  // Click fires first on a double-click, so undo it before focusing.
-  function handleDoubleClick() {
-    onToggleVisibility(individual.id);
-    onIsolate(individual.id);
+  function cancelToggle() {
+    clearTimeout(pendingToggle.current);
+    pendingToggle.current = null;
   }
+
+  // Wait briefly so a quick double-click does not hide the focused body
+  // or starts restoring the overview camera before focus-alone is entered.
+  function handleClick(event) {
+    if (event.detail > 1) return;
+    cancelToggle();
+    pendingToggle.current = setTimeout(() => onToggleVisibility(individual.id), 250);
+  }
+
 
   return (
     <li className="layer-item d-flex align-items-center">
@@ -39,11 +44,12 @@ function LayerRow({
         type="button"
         className={`layer-row d-flex align-items-center gap-2 flex-grow-1 text-start ${
           visible ? "" : "layer-row-off"
-        } ${isolated ? "layer-row-isolated" : ""} ${
-          focused ? "layer-row-focused" : ""
-        }`}
-        onClick={() => onToggleVisibility(individual.id)}
-        onDoubleClick={handleDoubleClick}
+        } ${focused ? "layer-row-focused" : ""}`}
+        onClick={handleClick}
+        onDoubleClick={() => {
+          cancelToggle();
+          onFocusAlone(individual.id);
+        }}
         aria-pressed={visible}
         aria-label={`${name}, ${visible ? "visible" : "hidden"}`}
       >
@@ -64,10 +70,6 @@ function LayerRow({
             <span className="layer-tag layer-tag-focus" aria-hidden="true">
               focus
             </span>
-          ) : isolated ? (
-            <span className="layer-tag" aria-hidden="true">
-              only
-            </span>
           ) : null}
         </span>
       </button>
@@ -75,7 +77,10 @@ function LayerRow({
       <button
         type="button"
         className="layer-focus-btn"
-        onClick={() => onFocus(individual.id)}
+        onClick={() => {
+          cancelToggle();
+          onFocus(individual.id);
+        }}
         title={focused ? "Exit focus" : "Focus"}
         aria-label={`${focused ? "Exit focus on" : "Focus"} ${name}`}
       >
@@ -154,7 +159,7 @@ export default function LayersPanel({
   hidden,
   onToggleVisibility,
   onToggleGroupVisibility,
-  onIsolate,
+  onFocusAlone,
   onShowAll,
   focusedId,
   onFocus,
@@ -177,7 +182,6 @@ export default function LayersPanel({
     });
   }
 
-  const allIds = individuals.map((individual) => individual.id);
   const hiddenCount = hidden.length;
   const visibleCount = individuals.length - hiddenCount;
   const knownGroupIds = new Set(groups.map((group) => group.id));
@@ -191,9 +195,8 @@ export default function LayersPanel({
         key={individual.id}
         individual={individual}
         visible={isVisible(hidden, individual.id)}
-        isolated={isIsolated(hidden, individual.id, allIds)}
         onToggleVisibility={onToggleVisibility}
-        onIsolate={onIsolate}
+        onFocusAlone={onFocusAlone}
         focused={individual.id === focusedId}
         onFocus={onFocus}
       />
@@ -292,7 +295,7 @@ export default function LayersPanel({
 
           <footer className="layers-hint px-2 py-1 border-top">
             {hoveredId
-              ? "Click to hide · Group header hides all · Double-click to isolate"
+              ? "Click to hide · Group header hides all · Double-click to focus alone"
               : "\u00A0"}
           </footer>
         </>
