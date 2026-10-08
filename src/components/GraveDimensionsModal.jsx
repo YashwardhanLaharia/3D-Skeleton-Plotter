@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import VerticalReferenceFields from "./VerticalReferenceFields";
 
 function GraveDimensionsModal({
   show,
@@ -9,6 +10,12 @@ function GraveDimensionsModal({
   const [temporaryGraveDimensions, setTemporaryGraveDimensions] = useState([
     ...graveDimensions,
   ]);
+
+  // The floor RL is kept as the typed text until Confirm, like the dimensions.
+  const [temporaryVertical, setTemporaryVertical] = useState({
+    convention: "height",
+    floorRL: "",
+  });
 
   useEffect(() => {
     if (show) {
@@ -108,8 +115,15 @@ function GraveDimensionsModal({
                   />
                 </div>
               </div>
+              <VerticalReferenceFields
+                convention={temporaryVertical.convention}
+                floorRL={temporaryVertical.floorRL}
+                error={null}
+                onChange={setTemporaryVertical}
+              />
             </div>
             <div className="modal-footer">
+
               <button type="button" className="btn btn-secondary" onClick={onHide}>
                 Cancel
               </button>
