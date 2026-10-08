@@ -363,23 +363,6 @@ function SkeletonModel({
     onSolverIssues,
   ]);
 
-  // Commands arrive one at a time from the Rig Controls window.
-  const lastCommandRef = useRef(command ?? null);
-
-  useEffect(() => {
-    if (!command || !isTarget) return;
-
-    if (command.id != null && lastCommandRef.current?.id === command.id) {
-      return;
-    }
-
-    lastCommandRef.current = command;
-    rig.execute(command);
-  }, [command, isTarget, rig]);
-
-  // Re-anchor after an interactive rig command, which can move the anchor bone
-  // without changing the coordinates. The solve effect already places the
-  // skeleton; this only keeps it placed.
   useEffect(() => {
     placeSkeleton({
       scene: clonedScene,
