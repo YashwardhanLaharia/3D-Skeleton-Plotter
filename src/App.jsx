@@ -157,7 +157,6 @@ export default function App() {
 
   const [filePath, setFilePath] = useState(null);
   const [isDirty, setIsDirty] = useState(false);
-  const [rigCommand, setRigCommand] = useState(null);
   const viewportRef = useRef(null);
   const nextId = useRef(2);
   const nextGroupId = useRef(1);
@@ -240,11 +239,6 @@ export default function App() {
     setNotice("Project opened successfully.");
     rememberRecent(projectPath, loaded.individuals.length);
   }
-
-  useEffect(() => {
-    const unsubscribe = window.electronAPI?.onRigCommand(setRigCommand);
-    return () => unsubscribe?.();
-  }, []);
 
   useEffect(() => {
     refreshRecentProjects();
@@ -1092,7 +1086,6 @@ export default function App() {
           <MainView
             ref={viewportRef}
             individuals={individuals}
-            command={rigCommand}
             hidden={hidden}
             focusedId={focusedId}
             graveDimensions={graveDimensions}

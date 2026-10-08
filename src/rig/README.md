@@ -254,11 +254,9 @@ console.log(RIG_SPAWNABLE_BONE_IDS);
 
 ## Commands
 
-`execute()` accepts the low-level command format used by the Electron control
-windows (Rig Controls, Bone Controls), which send commands over IPC to the
-targeted skeleton. `RigCommandValidator` checks shape first — unknown types
-and malformed payloads are rejected before touching the scene — and each
-command maps to the facade method of the same name:
+`execute()` accepts a low-level command format. `RigCommandValidator` checks
+shape first — unknown types and malformed payloads are rejected before touching
+the scene — and each command maps to the facade method of the same name:
 
 `rotate-joint`, `rotate-digit`, `reset-joint`, `reset-digit`, `reset-all`,
 `set-segment-scale`, `set-segment-group-scale`, `reset-segment-scale`,
@@ -267,8 +265,8 @@ command maps to the facade method of the same name:
 `reset-uniform-scale`, `spawn-bone`, `update-spawned-bone`, `despawn-bone`,
 `clear-spawned-bones`, `set-spawned-bone-visibility`.
 
-Prefer the facade methods in-process; reach for `execute()` when crossing the
-IPC boundary or dispatching stored commands.
+Prefer the facade methods in-process; reach for `execute()` when dispatching a
+command built at runtime rather than calling a known method.
 
 ## Model Bindings
 

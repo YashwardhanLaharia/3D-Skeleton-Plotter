@@ -117,9 +117,8 @@ const { pose, solved, unsolved, ignored, unknown, invalid, failed } =
 ```
 
 `pose` goes to `replacePose()` or `patchPose()`, which set absolute rotations.
-**Not** `rotateJoint()`, which accumulates — that one is built for hold-down
-buttons in the rig controls window, and feeding absolute solver output into it
-would compound.
+**Not** `rotateJoint()`, which accumulates, so feeding absolute solver output
+into it would compound.
 
 ## The Whole-Body Rotation
 
