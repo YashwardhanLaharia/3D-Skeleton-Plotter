@@ -488,7 +488,6 @@ export default function Sidebar({
   highlight,
   notice,
   solverIssues = {},
-  overlayPanel,
 }) {
   const [pendingRemoval, setPendingRemoval] = useState(null);
   const [pendingGroupRemoval, setPendingGroupRemoval] = useState(null);
@@ -589,8 +588,6 @@ export default function Sidebar({
                 {notice}
               </div>
             )}
-
-            {overlayPanel}
 
             <div className="p-2">
               {groups.length === 0 ? (

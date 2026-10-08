@@ -1,6 +1,6 @@
 # Site photograph overlay (#47)
 
-Load an overhead PNG or JPEG from **Site photograph → Load image**. One photograph is supported per project. Images must be at most 10 MiB, 8192 pixels on either side and 16 million pixels overall. Import checks the encoded format and dimensions before decoding; unsupported or damaged images report an error. The picker includes an All files option for macOS selection compatibility; choosing it does not bypass these checks.
+Load an overhead PNG or JPEG from **Graves → Site photograph → Load image**. Alignment, opacity and other photograph controls open from **Settings** on the photograph bar over the viewport. One photograph is supported per project. Images must be at most 10 MiB, 8192 pixels on either side and 16 million pixels overall. Import checks the encoded format and dimensions before decoding; unsupported or damaged images report an error. The picker includes an All files option for macOS selection compatibility; choosing it does not bypass these checks.
 
 ## Place the photograph
 

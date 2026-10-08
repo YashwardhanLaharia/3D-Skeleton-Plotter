@@ -25,11 +25,12 @@ import FocusBar from "./components/FocusBar";
 import InspectionPanel from "./components/InspectionPanel";
 import StartupScreen from "./components/StartupScreen";
 import GraveDimensionsModal from "./components/GraveDimensionsModal";
-import ImageOverlayPanel from "./components/ImageOverlayPanel";
 import { placementFromSize } from "./imageOverlay.js";
 import { validateImageOverlay } from "./overlayAsset.js";
 import GraveOutlineImportModal from "./components/GraveOutlineImportModal";
 import GravesPanel from "./components/GravesPanel";
+import ImageOverlayBar from "./components/ImageOverlayBar";
+import ImageOverlaySettingsModal from "./components/ImageOverlaySettingsModal";
 import {
   importGraveContour,
   validateGraveRelations,
@@ -68,6 +69,7 @@ function makeBlankCoords() {
 export default function App() {
   const [imageOverlay, setImageOverlay] = useState(null);
   const [overlayFrame, setOverlayFrame] = useState(null);
+  const [showOverlaySettings, setShowOverlaySettings] = useState(false);
   const [graveSurvey, setGraveSurvey] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showStartup, setShowStartup] = useState(true);
@@ -991,6 +993,27 @@ export default function App() {
           onImport={handleApplyGraveOutline}
         />
       )}
+      <ImageOverlaySettingsModal
+        show={showOverlaySettings}
+        overlay={imageOverlay}
+        onHide={() => setShowOverlaySettings(false)}
+        onApply={handleApplyOverlay}
+        onLoad={handleLoadOverlay}
+        onFrame={() => {
+          if (!imageOverlay?.visible) {
+            setImageOverlay({ ...imageOverlay, visible: true });
+            setIsDirty(true);
+          }
+          setFocusedId(null);
+          setOverlayFrame({});
+        }}
+        onRemove={() => {
+          setImageOverlay(null);
+          setOverlayFrame(null);
+          setShowOverlaySettings(false);
+          setIsDirty(true);
+        }}
+      />
       <div className="app-workspace d-flex flex-grow-1 overflow-hidden">
         <Sidebar
           individuals={individuals}
@@ -1019,26 +1042,6 @@ export default function App() {
           onSetGroup={handleSetGroup}
           onLabelChange={handleLabelChange}
           onColourChange={handleColourChange}
-          overlayPanel={
-            <ImageOverlayPanel
-              overlay={imageOverlay}
-              onLoad={handleLoadOverlay}
-              onApply={handleApplyOverlay}
-              onFrame={() => {
-                if (!imageOverlay.visible) {
-                  setImageOverlay({ ...imageOverlay, visible: true });
-                  setIsDirty(true);
-                }
-                setFocusedId(null);
-                setOverlayFrame({});
-              }}
-              onRemove={() => {
-                setImageOverlay(null);
-                setOverlayFrame(null);
-                setIsDirty(true);
-              }}
-            />
-          }
           isOpen={isSidebarOpen}
         />
 
@@ -1079,6 +1082,27 @@ export default function App() {
             onClearSelection={() => setSelectedId(null)}
           />
           <FocusBar individual={focusedIndividual} onExit={handleExitFocus} />
+          {!focusedId && imageOverlay && (
+            <ImageOverlayBar
+              overlay={imageOverlay}
+              onOpenSettings={() => setShowOverlaySettings(true)}
+              onFrame={() => {
+                if (!imageOverlay.visible) {
+                  setImageOverlay({ ...imageOverlay, visible: true });
+                  setIsDirty(true);
+                }
+                setFocusedId(null);
+                setOverlayFrame({});
+              }}
+              onToggleVisible={() => {
+                setImageOverlay({
+                  ...imageOverlay,
+                  visible: !imageOverlay.visible,
+                });
+                setIsDirty(true);
+              }}
+            />
+          )}
 
           <div
             className={`viewport-panels ${focusedId ? "viewport-panels-focused" : ""}`}
@@ -1124,6 +1148,8 @@ export default function App() {
                   setFrameRequest({ id });
                   setIsDirty(true);
                 }}
+                overlay={imageOverlay}
+                onLoadOverlay={handleLoadOverlay}
               />
             )}
 
