@@ -16,6 +16,7 @@ docs/
 ├── architecture.md           # High-level: main / renderer / preload, data flow
 ├── rig-api.md                # SkeletonRig API overview
 ├── tech-stack.md             # Runtime, build and test technologies
+├── directory-layout.md       # Source, tests and generated outputs
 ├── data-formats/
 │   ├── joint-coordinates.md  # Joint IDs, axes, expected input format
 │   ├── project-file.md       # Saved project CSV and reserved records
@@ -45,6 +46,7 @@ More detailed system inforamation can be found in `architecture`, `rig-api`, `de
 - [architecture.md](./architecture.md)
 - [rig-api.md](./rig-api.md)
 - [tech-stack.md](./tech-stack.md)
+- [directory-layout.md](./directory-layout.md)
 - data-formats
   - [joint-coordinates.md](./data-formats/joint-coordinates.md)
   - [project-file.md](./data-formats/project-file.md)
