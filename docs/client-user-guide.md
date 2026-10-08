@@ -30,6 +30,21 @@ Do not save the GitHub webpage as the CSV.
 To inspect the sample alone without an initial blank individual, use **Open
 project** on Home instead of the New/Add steps. This also loads its grave dimensions.
 
+## Your data stays on your computer
+
+The current packaged app reads and writes the project files you choose. Project
+files are plain CSV, with photograph bytes embedded when present. It has no
+configured project-upload, analytics, sign-in or cloud-sync feature. The skeleton
+model is bundled with the app. The recent-project list is kept in the application's
+local user-data folder, separately from your selected project folder.
+
+Installing/building the source downloads development dependencies, and development
+mode loads a local Vite server. These are different from sending a project to a
+service. Files saved in a cloud-synchronised folder may be uploaded by that folder's
+sync software; the app does not control that software. Sharing a CSV shares its
+embedded photograph and labels too. Use your team's chosen storage location and
+save a backup before making large changes.
+
 ## Create a project and set its dimensions
 
 **New project** on Home and **File → New…** start a project. Width, length and
@@ -173,8 +188,14 @@ and group edits, including coordinate changes, offsets, labels, colours and
 adding/removing individuals. Camera moves, focus and temporary visibility are
 view controls, rather than joint edits. Do not assume Undo reverses every project
 setting or file operation. Individual deletion requires confirmation; the last
-remaining individual cannot be deleted. Review group deletion's confirmation
-before accepting it.
+remaining individual cannot be deleted.
+
+Deleting a group removes the grouping, not its skeletons: its members become
+ungrouped. The confirmation explicitly states this. Undo restores the group and
+membership. Deleting an individual removes its coordinate data after confirmation;
+Undo restores the individual. After undoing, making a new recorded edit replaces
+the redo path. Undo history is kept for the current editing session, not as a
+permanent revision history inside the CSV.
 
 ## Export
 
@@ -185,13 +206,30 @@ before accepting it.
 | Export → Screenshot | A 1920 × 1080 PNG of the 3D view, without sidebar controls. Horizontal extent adjusts to 16:9; check edges for cropping. |
 | Export → GLB | Visible skeleton models, reference grid/lighting, camera and a visible photograph texture when present. Survey contour lines and editable project metadata are not included. |
 
-A GLB needs a viewer or modelling application with glTF/GLB support. Keep the
-project CSV as your editable source; neither PNG nor GLB replaces it. Photograph
+### Open a GLB in Blender
+
+Blender supports glTF/GLB import. In Blender, choose **File → Import → glTF 2.0
+(.glb, .gltf)**, select the exported `.glb` and import it. This is an import operation,
+rather than opening a native Blender project. See the
+[official Blender glTF manual](https://docs.blender.org/manual/en/5.1/addons/import_export/scene_gltf2.html)
+for the importer and supported features. The exported scene's appearance can vary
+with another application's lighting and material settings; compare against the
+saved PNG when documenting a particular view.
+
+Keep the project CSV as your editable source; neither PNG nor GLB replaces it. Photograph
 visibility and individual inspection affect what is in the scene export.
 
 For site-specific work, follow the existing
 [grave contour workflow](user-guide.md#surveyed-grave-outlines) and
 [photograph workflow](user-guide.md#site-photograph-overlay).
+
+## Import errors and fixes
+
+If an import fails, use the reported row and message to check a copy of the source
+file. Do not overwrite the original survey. The
+[import-error reference](client-import-errors.md) lists the current CSV, grave survey
+and photograph validation messages, their causes and fixes. Operating-system file
+errors and JSON parser text can vary; those are covered by their message patterns.
 
 ## Keyboard shortcuts
 
@@ -237,11 +275,18 @@ individual/group deletion confirmation.
 
 ## Guide completion and client verification
 
+The section numbers map to issue #81. The primary contribution covers its “Now”
+sections 4, 5, 7 (basic entry), 8, 9, 11, 14, 16, 17 and 18. Coordinate/RL basics
+are draft material for section 6 and need integration review. The quick start,
+glossary and shortcut reference (3, 20, 21) are provisional drafts for the team's
+final assembly stage, not evidence that final guide acceptance is complete.
+
 This contribution covers the project workflows in issue #81; it is not the entire
 client manual. Packaged Windows installation/SmartScreen instructions, the screen
 tour, reconstruction assumptions, displaced-bone explanations, inspection/warnings,
-full visibility guidance, the complete import-error catalogue and current known
-issues still need their remaining sections and team review. Teammates have already
+full visibility guidance and current known issues still need their remaining
+sections and team review. The import-error reference must be refreshed if validation
+messages change before release. Teammates have already
 volunteered for several of these sections.
 
 Before closing #81, someone outside the team must install the released app and
