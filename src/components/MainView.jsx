@@ -81,6 +81,18 @@ function isShown(object) {
   return true;
 }
 
+// Rib groups/meshes in the GLB use Rib_ / Ribs_ / DEF-Rib_ names. Sternum is a
+// separate catalog bone treated as part of the ribcage for display toggles.
+const RIBCAGE_NAME = /^(Rib_|Ribs_|DEF-Rib_)/i;
+
+function setRibcageVisibility(scene, visible) {
+  scene.traverse((object) => {
+    if (object.name && RIBCAGE_NAME.test(object.name)) {
+      object.visible = visible;
+    }
+  });
+}
+
 // Raycasting ignores `visible`, so clicks and hovers would otherwise land on
 // hidden skeletons and hidden bones.
 function IgnoreHiddenObjects() {
@@ -101,6 +113,9 @@ function SkeletonModel({
   graveDimensions,
   vertical = DEFAULT_VERTICAL,
   visible = true,
+  hidePelvis = false,
+  hideRibcage = false,
+  hideScapulae = false,
   onSolverIssues,
   onSelect,
 }) {
@@ -234,6 +249,17 @@ function SkeletonModel({
       }
     }
 
+    // Display toggles from the individual settings popup. Applied after the
+    // pose pass so they win over the articulated master defaults.
+    rig.setMasterBoneVisibility("pelvis", !hidePelvis);
+    rig.setMasterBoneVisibility("sternum", !hideRibcage);
+    setRibcageVisibility(clonedScene, !hideRibcage);
+    // Shoulder blades toggle also clears the clavicles that sit on top of them.
+    rig.setMasterBoneVisibility("scapula_l", !hideScapulae);
+    rig.setMasterBoneVisibility("scapula_r", !hideScapulae);
+    rig.setMasterBoneVisibility("clavicle_l", !hideScapulae);
+    rig.setMasterBoneVisibility("clavicle_r", !hideScapulae);
+
     // Plain-language problems for this individual, shown in the sidebar until
     // the data causing them changes. Reported even when empty, so a problem
     // that has been fixed clears.
@@ -360,6 +386,9 @@ function SkeletonModel({
     clonedScene,
     label,
     id,
+    hidePelvis,
+    hideRibcage,
+    hideScapulae,
     onSolverIssues,
   ]);
 
@@ -883,6 +912,9 @@ const MainView = forwardRef(function MainView(
               isTarget={individual.id === targetId}
               onSolverIssues={onSolverIssues}
               onSelect={onSelect}
+              hidePelvis={Boolean(individual.hidePelvis)}
+              hideRibcage={Boolean(individual.hideRibcage)}
+              hideScapulae={Boolean(individual.hideScapulae)}
               visible={
                 focusedId
                   ? individual.id === focusedId

@@ -42,9 +42,15 @@ test("export writes application identity, grave dimensions, and meta rows first"
   assert.equal(parsed.rows[3].label, "grp-1");
   assert.equal(parsed.rows[4].joint_id, "group_label");
   assert.equal(parsed.rows[4].label, "1892");
-  assert.equal(parsed.rows[5].joint_id, JOINTS[0].id);
-  assert.equal(parsed.rows[5].label, "Case A");
-  assert.equal(parsed.rows[6].label, "");
+  assert.equal(parsed.rows[5].joint_id, "pelvis_hidden");
+  assert.equal(parsed.rows[5].label, "0");
+  assert.equal(parsed.rows[6].joint_id, "ribcage_hidden");
+  assert.equal(parsed.rows[6].label, "0");
+  assert.equal(parsed.rows[7].joint_id, "scapulae_hidden");
+  assert.equal(parsed.rows[7].label, "0");
+  assert.equal(parsed.rows[8].joint_id, JOINTS[0].id);
+  assert.equal(parsed.rows[8].label, "Case A");
+  assert.equal(parsed.rows[9].label, "");
 });
 
 test("exported CSV opens back with IDs, labels, colours, groups, and coordinates", () => {
@@ -122,8 +128,8 @@ test("export gives blank labels incremental skeleton names", () => {
     [],
   );
   const parsed = parseCsv(csv);
-  const metaPerIndividual = 3;
-  const firstJointRow = 2 + metaPerIndividual; // app + grave + colour/group/group_label
+  const metaPerIndividual = 6; // colour/group/group_label + three hide flags
+  const firstJointRow = 2 + metaPerIndividual; // app + grave + meta
   const secondJointRow = firstJointRow + JOINTS.length + metaPerIndividual;
 
   assert.equal(parsed.rows[firstJointRow].label, "Skeleton 1");
@@ -194,4 +200,36 @@ test("a height project is written without a vertical reference row", () => {
 
   assert.equal(csv, createCsv([], [3, 9, 1], []));
   assert.ok(!csv.includes("vertical_reference"));
+});
+
+test("part-hide flags round-trip through CSV", () => {
+  const csv = createCsv(
+    [
+      {
+        id: "ind-1",
+        label: "A",
+        colour: "blue",
+        groupId: null,
+        hidePelvis: true,
+        hideRibcage: false,
+        hideScapulae: true,
+        coords: blankCoords(),
+      },
+    ],
+    [1, 1, 1],
+    [],
+  );
+  const parsed = parseCsv(csv);
+  assert.equal(parsed.rows[5].joint_id, "pelvis_hidden");
+  assert.equal(parsed.rows[5].label, "1");
+  assert.equal(parsed.rows[6].joint_id, "ribcage_hidden");
+  assert.equal(parsed.rows[6].label, "0");
+  assert.equal(parsed.rows[7].joint_id, "scapulae_hidden");
+  assert.equal(parsed.rows[7].label, "1");
+
+  const opened = csvToProject(csv);
+  assert.equal(opened.ok, true);
+  assert.equal(opened.individuals[0].hidePelvis, true);
+  assert.equal(opened.individuals[0].hideRibcage, false);
+  assert.equal(opened.individuals[0].hideScapulae, true);
 });

@@ -56,6 +56,9 @@ const STARTING_STATE = [
     label: "",
     colour: "#E69F00",
     groupId: null,
+    hidePelvis: false,
+    hideRibcage: false,
+    hideScapulae: false,
     coords: makeBlankCoords(),
   },
 ];
@@ -272,6 +275,11 @@ export default function App() {
     setIsDirty(true);
   }
 
+  function handlePartHidden(individualId, part, hidden) {
+    dispatch({ type: "set-part-hidden", individualId, part, hidden });
+    setIsDirty(true);
+  }
+
   function handleColourChange(individualId, colour) {
     dispatch({ type: "set-colour", individualId, colour });
     setIsDirty(true);
@@ -305,6 +313,9 @@ export default function App() {
         label: "",
         colour,
         groupId: null,
+        hidePelvis: false,
+        hideRibcage: false,
+        hideScapulae: false,
         coords: makeBlankCoords(),
       },
     });
@@ -1048,6 +1059,7 @@ export default function App() {
           onChange={handleChange}
           onToggleSplit={handleToggleSplit}
           onOffset={handleOffset}
+          onPartHidden={handlePartHidden}
           jointDetails={jointDetails}
           onJointDetailChange={handleJointDetailChange}
           onCommit={handleCommit}

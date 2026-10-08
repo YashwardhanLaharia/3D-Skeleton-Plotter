@@ -29,7 +29,20 @@ export const DEFAULT_GRAVE_DIMENSIONS = [1, 1, 1];
 // is every file saved before the setting existed.
 export const VERTICAL_ROW_ID = "vertical_reference";
 
-const META_JOINT_IDS = new Set(["colour", "group", "group_label", "grave"]);
+const META_JOINT_IDS = new Set([
+  "colour",
+  "group",
+  "group_label",
+  "grave",
+  "pelvis_hidden",
+  "ribcage_hidden",
+  "scapulae_hidden",
+]);
+const HIDDEN_PART_FIELDS = {
+  pelvis_hidden: "hidePelvis",
+  ribcage_hidden: "hideRibcage",
+  scapulae_hidden: "hideScapulae",
+};
 const KNOWN_JOINTS = new Set(JOINTS.map(({ id }) => id));
 
 function parseCsvRecords(csvText) {
@@ -364,6 +377,11 @@ function buildProjectFromRows(columns, rows) {
         continue;
       }
 
+      if (HIDDEN_PART_FIELDS[jointId]) {
+        individual[HIDDEN_PART_FIELDS[jointId]] = value === "1";
+        continue;
+      }
+
       // group_label
       if (individual.groupId) {
         groupNames.set(individual.groupId, value);
@@ -482,6 +500,9 @@ function buildProjectFromRows(columns, rows) {
       imported.groupId && groupIds.has(imported.groupId)
         ? imported.groupId
         : null,
+    hidePelvis: Boolean(imported.hidePelvis),
+    hideRibcage: Boolean(imported.hideRibcage),
+    hideScapulae: Boolean(imported.hideScapulae),
     coords: imported.coords,
     ...(imported.graveId ? { graveId: imported.graveId } : {}),
   }));
@@ -599,6 +620,9 @@ export function rowsToIndividuals(
       groupId: imported.groupId
         ? (groupIdMap.get(imported.groupId) ?? null)
         : null,
+      hidePelvis: Boolean(imported.hidePelvis),
+      hideRibcage: Boolean(imported.hideRibcage),
+      hideScapulae: Boolean(imported.hideScapulae),
       coords: imported.coords,
     };
   });
