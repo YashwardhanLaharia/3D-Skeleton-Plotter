@@ -998,9 +998,9 @@ export default function App() {
           setFrameRequest({ id: null });
           setIsDirty(true);
         }}
+        vertical={vertical}
+        setVertical={setVertical}
         onCreateConfirm={handleCreateFromStartup}
-        onOpen={handleOpen}
-        onOpenRecent={handleOpenRecent}
       />
       <GraveDimensionsModal
         show={isGraveDimensionsModalOpen}
