@@ -23,7 +23,7 @@ docs/
 │   ├── grave-outline.md      # Client contours, references and named graves
 │   └── image-overlay.md      # Photograph placement, persistence and export
 └── development/
-    ├── setup.md              # npm scripts, Electron Forge, Vite configs
+    ├── setup.md              # Build, test and application configuration
     ├── testing.md            # Testing information
     └── dependencies.md       # Version pins, overrides, accepted advisories
 ```
