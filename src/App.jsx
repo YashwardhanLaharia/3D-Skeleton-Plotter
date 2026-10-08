@@ -703,6 +703,7 @@ export default function App() {
     setOverlayFrame(null);
     dispatch({ type: "new", individuals: STARTING_STATE, groups: [] });
     nextGroupId.current = 1;
+    setVertical(DEFAULT_VERTICAL);
     nextId.current = 2;
     setVertical(DEFAULT_VERTICAL);
 
@@ -746,6 +747,28 @@ export default function App() {
       return;
     }
 
+    setJointDetails({});
+    dispatch({
+      type: "load",
+      individuals: loaded.individuals,
+      groups: loaded.groups,
+    });
+
+    // Before the grave itself, or the coordinates in it mean something else.
+    setGraveDimensions(loaded.graveDimensions);
+    setVertical(loaded.vertical);
+
+    const numbers = loaded.individuals
+      .map((individual) => Number(individual.id.replace("ind-", "")))
+      .filter((value) => Number.isFinite(value));
+    nextId.current = numbers.length ? Math.max(...numbers) + 1 : 1;
+
+    const groupNumbers = loaded.groups
+      .map((group) => Number(group.id.replace("grp-", "")))
+      .filter((value) => Number.isFinite(value));
+    nextGroupId.current = groupNumbers.length
+      ? Math.max(...groupNumbers) + 1
+      : 1;
     applyLoadedProject(loaded, result.path);
   }
 
@@ -1014,6 +1037,14 @@ export default function App() {
           setIsDirty(true);
         }}
       />
+      {graveSurvey && (
+        <GraveOutlineImportModal
+          survey={graveSurvey}
+          graves={graves}
+          onHide={() => setGraveSurvey(null)}
+          onImport={handleApplyGraveOutline}
+        />
+      )}
       <div className="app-workspace d-flex flex-grow-1 overflow-hidden">
         <Sidebar
           individuals={individuals}
