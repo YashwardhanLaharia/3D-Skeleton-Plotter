@@ -15,6 +15,7 @@ docs/
 ├── user-guide.md             # Workflows: import coords, multi-skeleton, export
 ├── architecture.md           # High-level: main / renderer / preload, data flow
 ├── rig-api.md                # SkeletonRig API overview
+├── tech-stack.md             # Runtime, build and test technologies
 ├── data-formats/
 │   ├── joint-coordinates.md  # Joint IDs, axes, expected input format
 │   ├── project-file.md       # Saved project CSV and reserved records
@@ -43,6 +44,7 @@ More detailed system inforamation can be found in `architecture`, `rig-api`, `de
 - [user-guide.md](./user-guide.md)
 - [architecture.md](./architecture.md)
 - [rig-api.md](./rig-api.md)
+- [tech-stack.md](./tech-stack.md)
 - data-formats
   - [joint-coordinates.md](./data-formats/joint-coordinates.md)
   - [project-file.md](./data-formats/project-file.md)
