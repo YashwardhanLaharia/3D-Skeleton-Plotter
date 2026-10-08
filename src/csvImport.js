@@ -599,6 +599,9 @@ export function rowsToIndividuals(
       groupId: imported.groupId
         ? (groupIdMap.get(imported.groupId) ?? null)
         : null,
+      hidePelvis: Boolean(imported.hidePelvis),
+      hideRibcage: Boolean(imported.hideRibcage),
+      hideScapulae: Boolean(imported.hideScapulae),
       coords: imported.coords,
     };
   });

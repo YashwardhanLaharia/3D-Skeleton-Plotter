@@ -535,6 +535,44 @@ test("colour change resets after redo", () => {
   assert.equal(state.present.individuals[0].colour, "#000000");
 });
 
+test("hide pelvis, ribcage, and scapulae toggle and undo as discrete commits", () => {
+  let state = historyReducer(start(), {
+    type: "set-part-hidden",
+    individualId: "ind-1",
+    part: "pelvis",
+    hidden: true,
+  });
+  assert.equal(state.present.individuals[0].hidePelvis, true);
+  assert.equal(state.sessionOpen, false);
+
+  state = historyReducer(state, {
+    type: "set-part-hidden",
+    individualId: "ind-1",
+    part: "ribcage",
+    hidden: true,
+  });
+  assert.equal(state.present.individuals[0].hideRibcage, true);
+
+  state = historyReducer(state, {
+    type: "set-part-hidden",
+    individualId: "ind-1",
+    part: "scapulae",
+    hidden: true,
+  });
+  assert.equal(state.present.individuals[0].hideScapulae, true);
+
+  state = historyReducer(state, { type: "undo" });
+  assert.equal(state.present.individuals[0].hideScapulae, undefined);
+  assert.equal(state.present.individuals[0].hideRibcage, true);
+
+  state = historyReducer(state, { type: "undo" });
+  assert.equal(state.present.individuals[0].hideRibcage, undefined);
+  assert.equal(state.present.individuals[0].hidePelvis, true);
+
+  state = historyReducer(state, { type: "undo" });
+  assert.equal(state.present.individuals[0].hidePelvis, undefined);
+});
+
 test("bulk import preserves groups and undoes/redoes as one change", () => {
   const initial = start([individual("ind-1", { groupId: "g-1" })], [group("g-1", "Burial")]);
   const imported = [individual("ind-2"), individual("ind-3")];

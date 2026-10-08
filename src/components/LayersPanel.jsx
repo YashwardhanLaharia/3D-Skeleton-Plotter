@@ -90,6 +90,9 @@ function LayerGroup({
   memberIds,
   hidden,
   onToggleGroupVisibility,
+  isOpen,
+  onToggle,
+  contentId,
   children,
 }) {
   const fullyHidden = isGroupFullyHidden(hidden, memberIds);
@@ -97,26 +100,50 @@ function LayerGroup({
 
   return (
     <li className="layer-group">
-      <button
-        type="button"
-        className={`layer-group-header d-flex align-items-center gap-2 w-100 text-start ${
+      <div
+        className={`layer-group-header d-flex align-items-center gap-2 ${
           fullyHidden ? "layer-group-header-off" : ""
         }`}
-        onClick={() => onToggleGroupVisibility(memberIds)}
-        disabled={!hasMembers}
-        aria-pressed={hasMembers ? !fullyHidden : undefined}
-        aria-label={`${title}, ${fullyHidden ? "hidden" : "visible"}`}
       >
-        <span className="layer-eye" aria-hidden="true">
-          {fullyHidden ? "○" : "●"}
-        </span>
-        <span className="layer-group-name text-truncate">{title}</span>
-        <span className="layers-count ms-auto">
-          {memberIds.filter((id) => isVisible(hidden, id)).length}/
-          {memberIds.length}
-        </span>
-      </button>
-      <ul className="layer-group-list list-unstyled mb-0">{children}</ul>
+        <button
+          type="button"
+          className="layers-collapse"
+          onClick={onToggle}
+          aria-expanded={isOpen}
+          aria-controls={contentId}
+          title={isOpen ? "Collapse" : "Expand"}
+          aria-label={`${isOpen ? "Collapse" : "Expand"} ${title}`}
+        >
+          <span
+            aria-hidden="true"
+            className={`chevron ${isOpen ? "open" : ""}`}
+          >
+            ▸
+          </span>
+        </button>
+        <button
+          type="button"
+          className="layer-group-toggle d-flex align-items-center gap-2 flex-grow-1 text-start"
+          onClick={() => onToggleGroupVisibility(memberIds)}
+          disabled={!hasMembers}
+          aria-pressed={hasMembers ? !fullyHidden : undefined}
+          aria-label={`${title}, ${fullyHidden ? "hidden" : "visible"}`}
+        >
+          <span className="layer-group-name text-truncate">{title}</span>
+          <span className="layers-count ms-auto">
+            {memberIds.filter((id) => isVisible(hidden, id)).length}/
+            {memberIds.length}
+          </span>
+        </button>
+      </div>
+      {isOpen && (
+        <ul
+          id={contentId}
+          className="layer-group-list list-unstyled mb-0"
+        >
+          {children}
+        </ul>
+      )}
     </li>
   );
 }
@@ -134,7 +161,21 @@ export default function LayersPanel({
 }) {
   const [hoveredId, setHoveredId] = useState(null);
   const [isCollapsed, setIsCollapsed] = useState(true);
+  // Group ids in this set are collapsed. Named groups and "Ungrouped" all start open.
+  const [collapsedGroups, setCollapsedGroups] = useState(() => new Set());
   if (individuals.length === 0) return null;
+
+  function toggleGroup(groupKey) {
+    setCollapsedGroups((current) => {
+      const next = new Set(current);
+      if (next.has(groupKey)) {
+        next.delete(groupKey);
+      } else {
+        next.add(groupKey);
+      }
+      return next;
+    });
+  }
 
   const allIds = individuals.map((individual) => individual.id);
   const hiddenCount = hidden.length;
@@ -223,6 +264,9 @@ export default function LayersPanel({
                       memberIds={members.map((member) => member.id)}
                       hidden={hidden}
                       onToggleGroupVisibility={onToggleGroupVisibility}
+                      isOpen={!collapsedGroups.has(group.id)}
+                      onToggle={() => toggleGroup(group.id)}
+                      contentId={`layer-group-${group.id}`}
                     >
                       {members.map(renderRow)}
                     </LayerGroup>
@@ -235,6 +279,9 @@ export default function LayersPanel({
                     memberIds={ungrouped.map((member) => member.id)}
                     hidden={hidden}
                     onToggleGroupVisibility={onToggleGroupVisibility}
+                    isOpen={!collapsedGroups.has("ungrouped")}
+                    onToggle={() => toggleGroup("ungrouped")}
+                    contentId="layer-group-ungrouped"
                   >
                     {ungrouped.map(renderRow)}
                   </LayerGroup>
