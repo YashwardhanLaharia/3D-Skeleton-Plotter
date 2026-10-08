@@ -747,7 +747,7 @@ export default function App() {
       console.error(loaded.error);
       setNotice(
         loaded.error ||
-          "This project file is invalid or uses an unsupported format.",
+        "This project file is invalid or uses an unsupported format.",
       );
       return;
     }
@@ -801,7 +801,7 @@ export default function App() {
       console.error(loaded.error);
       setNotice(
         loaded.error ||
-          "This project file is invalid or uses an unsupported format.",
+        "This project file is invalid or uses an unsupported format.",
       );
       return;
     }
@@ -1010,6 +1010,11 @@ export default function App() {
           setGraveDimensions(dimensions);
           setSavedView(null);
           setFrameRequest({ id: null });
+          setIsDirty(true);
+        }}
+        vertical={vertical}
+        setVertical={(next) => {
+          setVertical(next);
           setIsDirty(true);
         }}
       />
