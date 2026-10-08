@@ -12,12 +12,16 @@ The directory structure and a high-level overview of each file within this direc
 docs/
 ├── README.md                 # General overview file
 ├── getting-started.md        # Install, run, build, first use
-├── user-guide.md             # Workflows: import coords, multi-skeleton, export
+├── user-guide.md             # Feature workflows and excavation context
+├── client-user-guide.md      # Client project walkthrough and sample CSV
+├── client-import-errors.md   # Import messages, causes and fixes
 ├── architecture.md           # High-level: main / renderer / preload, data flow
 ├── rig-api.md                # SkeletonRig API overview
 ├── data-formats/
 │   ├── joint-coordinates.md  # Joint IDs, axes, expected input format
-│   └── project-file.md       # Schema, schemaVersion, individuals structure
+│   ├── project-file.md       # Saved project CSV and reserved records
+│   ├── grave-outline.md      # Client contours, references and named graves
+│   └── image-overlay.md      # Photograph placement, persistence and export
 └── development/
     ├── setup.md              # npm scripts, Electron Forge, Vite configs
     ├── testing.md            # Testing information
@@ -26,7 +30,8 @@ docs/
 
 ### Operators
 
-We recommend starting with the `user-guide`.
+Start with the [client project walkthrough](./client-user-guide.md) and its sample
+CSV, then see [feature workflows](./user-guide.md) for excavation context.
 
 ### Developers
 
@@ -39,12 +44,16 @@ More detailed system inforamation can be found in `architecture`, `rig-api`, `de
 - [README.md](./README.md)
 - [getting-started.md](./getting-started.md)
 - [user-guide.md](./user-guide.md)
+- [client-user-guide.md](./client-user-guide.md)
+- [client-import-errors.md](./client-import-errors.md)
 - [architecture.md](./architecture.md)
 - [rig-api.md](./rig-api.md)
 - data-formats
   - [joint-coordinates.md](./data-formats/joint-coordinates.md)
   - [project-file.md](./data-formats/project-file.md)
+  - [grave-outline.md](./data-formats/grave-outline.md)
+  - [image-overlay.md](./data-formats/image-overlay.md)
 - development
-  - [setup.md](./setup.md)
-  - [testing.md](./testing.md)
-  - [dependencies.md](./dependencies.md)
+  - [setup.md](./development/setup.md)
+  - [testing.md](./development/testing.md)
+  - [dependencies.md](./development/dependencies.md)
