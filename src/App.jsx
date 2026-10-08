@@ -50,6 +50,10 @@ const PALETTE = [
   "#CC79A7",
 ];
 
+// Behind the startup screen only these menu items make sense. Anything else
+// would act on a project the user cannot see (#83).
+const STARTUP_MENU_ACTIONS = new Set(["menu-home", "menu-new", "menu-open"]);
+
 const STARTING_STATE = [
   {
     id: "ind-1",
@@ -479,6 +483,7 @@ export default function App() {
     }
 
     setGraveDimensions([1, 1, 1]);
+    setVertical(DEFAULT_VERTICAL);
     resetSurvey();
     setFilePath(null);
     setIsDirty(false);
@@ -899,10 +904,13 @@ export default function App() {
     handleImportGraveOutline,
     handleExportCsv,
     handleEscape,
+    showStartup,
   };
 
   useEffect(() => {
     const unsubscribe = window.electronAPI?.onMenuAction((action) => {
+      if (actionsRef.current.showStartup && !STARTUP_MENU_ACTIONS.has(action))
+        return;
       if (action === "menu-home") actionsRef.current.handleHome();
       if (action === "menu-new") actionsRef.current.handleNew();
       if (action === "menu-open") actionsRef.current.handleOpen();
@@ -952,6 +960,7 @@ export default function App() {
   // The inputs are React-controlled, so native undo would desync them.
   useEffect(() => {
     function onKeyDown(event) {
+      if (actionsRef.current.showStartup) return;
       if (event.key === "Escape") {
         actionsRef.current.handleEscape();
         return;
