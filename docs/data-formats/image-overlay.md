@@ -1,6 +1,6 @@
 # Site photograph overlay (#47)
 
-Load an overhead PNG or JPEG from **View → Site photograph → Load**. Alignment, opacity and other photograph controls open from **Settings** on the photograph bar over the viewport. One photograph is supported per project. Images must be at most 10 MiB, 8192 pixels on either side and 16 million pixels overall. Import checks the encoded format and dimensions before decoding; unsupported or damaged images report an error. The picker includes an All files option for macOS selection compatibility; choosing it does not bypass these checks.
+Load an overhead PNG or JPEG from **Graves → Site photograph → Load image**. Alignment, opacity and other photograph controls open from **Settings** on the photograph bar over the viewport. One photograph is supported per project. Images must be at most 10 MiB, 8192 pixels on either side and 16 million pixels overall. Import checks the encoded format and dimensions before decoding; unsupported or damaged images report an error. The picker includes an All files option for macOS selection compatibility; choosing it does not bypass these checks.
 
 ## Place the photograph
 
@@ -21,20 +21,18 @@ Saving a project embeds the original image bytes and its placement in the CSV. T
 
 One reserved `image_overlay` row stores a validated JSON object in the existing label column. Its fields are `source` (filename only), `dataUrl`, `pixelWidth`, `pixelHeight`, `origin`, `xCorner`, `yCorner`, `heightAboveFloor`, `opacity` and `visible`. Each corner has numeric `x` and `y`. Duplicate or invalid overlay rows are rejected. Existing projects without this row load without an overlay; individual-only CSV parsing ignores this reserved row. Skeleton coordinate rows retain their existing format.
 
-Opening a project frames a visible photograph. Placement and camera metadata
-are saved separately; photograph framing can change the reopened camera view
-without changing placement. Projects also support a `project_view` record for
-the saved overview camera; see [project CSV](project-file.md).
+Opening a project frames a visible photograph. The photograph's placement is saved independently of the camera: saving does not preserve an arbitrary orbit direction.
 
 CSV export includes the embedded photograph. Scene/image export can include the visible photograph; GLB export includes its textured mesh. A hidden photograph is excluded from scene export. The overlay does not alter skeleton coordinates.
 
 ## Validation
 
-Automated coverage includes placement, shared scene axes, UV orientation, invalid
-inputs, bounded PNG/JPEG headers, embedded CSV round trips, legacy compatibility,
-camera framing and visible/hidden scene export. Run `npm test` for the current
-suite; [the testing guide](../development/testing.md#excavation-context-checks)
-lists focused checks and an interactive acceptance workflow.
+The full automated suite passes: 312 tests, including placement, shared scene axes, UV orientation, invalid inputs, bounded PNG/JPEG headers, embedded CSV round trips, legacy CSV compatibility, camera framing and visible/hidden scene export. The macOS arm64 package builds and launches.
 
-Client acceptance still needs an overhead photograph with measured local-grid corner coordinates and the intended image elevation. The corner transformation is affine; photographs with significant perspective distortion need rectification before use. Grave contours and the photograph share the same local site grid, but retain
-separate vertical references and placement metadata.
+Interactive verification passed in the packaged macOS app using a synthetic orientation grid: PNG import, rendering beneath a skeleton, 30-degree rotation, framing, opacity adjustment, hide/show, surveyed corners, saving and reopening, screenshot export and GLB export. The reopened CSV preserved the exact embedded image bytes, corner placement and opacity; joint and grave rows were unchanged. The GLB contained the photograph mesh and embedded texture. The macOS picker initially left Open disabled for the PNG; the All files option resolved this while retaining import validation.
+
+The separate development launch still stalled during Electron main/preload compilation, with an existing dev server occupying port 5173. Packaged app verification is complete; successful `npm start` startup has not been claimed.
+
+Client acceptance still needs an overhead photograph with measured local-grid corner coordinates and the intended image elevation. The corner transformation is affine; photographs with significant perspective distortion need rectification before use. This branch is based on main and is independent of the open #48 contour work.
+
+Integration with the latest main preserves skeleton click selection, selection outlines, hidden-object filtering and Escape-to-clear alongside the image overlay. The combined automated suite passes and the macOS arm64 package builds.

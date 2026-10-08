@@ -13,8 +13,6 @@ docs/
 ├── README.md                 # General overview file
 ├── getting-started.md        # Install, run, build, first use
 ├── user-guide.md             # Feature workflows and excavation context
-├── client-user-guide.md      # Client project walkthrough and sample CSV
-├── client-import-errors.md   # Import messages, causes and fixes
 ├── architecture.md           # High-level: main / renderer / preload, data flow
 ├── rig-api.md                # SkeletonRig API overview
 ├── tech-stack.md             # Runtime, build and test technologies
@@ -45,8 +43,6 @@ More detailed system inforamation can be found in `architecture`, `rig-api`, `de
 - [README.md](./README.md)
 - [getting-started.md](./getting-started.md)
 - [user-guide.md](./user-guide.md)
-- [client-user-guide.md](./client-user-guide.md)
-- [client-import-errors.md](./client-import-errors.md)
 - [architecture.md](./architecture.md)
 - [rig-api.md](./rig-api.md)
 - [tech-stack.md](./tech-stack.md)
@@ -60,11 +56,3 @@ More detailed system inforamation can be found in `architecture`, `rig-api`, `de
   - [setup.md](./development/setup.md)
   - [testing.md](./development/testing.md)
   - [dependencies.md](./development/dependencies.md)
-
-
-## Excavation context workflows
-
-For surveyed grave boundaries and site photographs, start with the
-[grave and photograph workflows](./user-guide.md#surveyed-grave-outlines) in the user guide.
-The format references above explain client file layouts, coordinate references,
-CSV persistence and the remaining client validation requirements.

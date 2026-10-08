@@ -49,11 +49,10 @@ frame before applying -4 m to an outline paired with screenshot coordinates.
 
 Use the same grid and floor reference as the skeleton data. This feature does
 not change skeleton inputs, solver orientation, `sceneSpace.js`, or issue #71.
-Skeleton rendering now uses the project vertical convention in `sceneSpace.js`.
-Contours use their saved per-contour reference to produce heights above floor,
-then enter scene space without a second RL conversion. When both datasets use
-RL, confirm that their floor RL and datum agree; a height-mode skeleton must
-already be expressed above that same floor. Raw survey values are retained.
+The current branch does not yet have a shared skeleton RL-mode API. When #71
+lands, route contours through its shared input conversion and use the same
+project floor RL, while retaining raw survey values. Until then, skeletons must
+already be expressed as heights above that same floor to align vertically.
 
 Set grave dimensions to cover the intended site grid before assessing alignment.
 The importer does not resize or recenter the site grid independently of skeletons.
@@ -61,7 +60,7 @@ LN24 and LN19 are separate datasets; never use LN19 as LN24's missing base.
 
 ## Managing graves and the view
 
-The viewport **View → Grave contours** panel lists each grave separately, with its top/base point counts, name,
+The sidebar lists each grave separately, with its top/base point counts, name,
 colour, survey notes and recorded **Cuts into** relationship. Overlapping outlines
 retain their surveyed positions. Relationships cannot point to the same grave,
 missing graves or create cycles. They record survey interpretation; no cut
@@ -73,9 +72,7 @@ the grid or skeletons. Dragging rotates the camera; scrolling changes zoom.
 **Save** and **Save As** preserve camera position, orbit target and zoom.
 Reopening restores that view. Saving while focused on a specimen preserves the
 project overview. Older projects without a saved view are framed automatically.
-The grave visibility control temporarily hides an outline; this is not saved as
-survey data. A visible site photograph is framed on project opening and can
-change the restored camera view without changing contour or photograph coordinates.
+The Show checkbox temporarily hides an outline; this is not saved as survey data.
 
 ## Project CSV
 
@@ -122,6 +119,6 @@ individuals per grave, recorded cutting relationships and camera save/reopen.
 
 The client must still supply a measured floor RL, the surveyed LN24 base, and
 classification of the LN19 cut contour. Alignment must be validated against the
-project's skeleton vertical reference. These values are not invented
+team's #71 coordinate convention once integrated. These values are not invented
 from photos, surface levels or skeleton landmarks, and the attachments alone do
 not establish that issue #48 can be closed.
