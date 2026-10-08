@@ -1010,6 +1010,8 @@ export default function App() {
         vertical={vertical}
         setVertical={setVertical}
         onCreateConfirm={handleCreateFromStartup}
+        onOpen={handleOpen}
+        onOpenRecent={handleOpenRecent}
       />
       <GraveDimensionsModal
         show={isGraveDimensionsModalOpen}
