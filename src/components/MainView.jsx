@@ -81,6 +81,18 @@ function isShown(object) {
   return true;
 }
 
+// Rib groups/meshes in the GLB use Rib_ / Ribs_ / DEF-Rib_ names. Sternum is a
+// separate catalog bone treated as part of the ribcage for display toggles.
+const RIBCAGE_NAME = /^(Rib_|Ribs_|DEF-Rib_)/i;
+
+function setRibcageVisibility(scene, visible) {
+  scene.traverse((object) => {
+    if (object.name && RIBCAGE_NAME.test(object.name)) {
+      object.visible = visible;
+    }
+  });
+}
+
 // Raycasting ignores `visible`, so clicks and hovers would otherwise land on
 // hidden skeletons and hidden bones.
 function IgnoreHiddenObjects() {
@@ -103,10 +115,17 @@ function SkeletonModel({
   visible = true,
   opacity = 1,
   onFocusAlone,
+  hidePelvis = false,
+  hideRibcage = false,
+  hideScapulae = false,
   onSolverIssues,
   onSelect,
 }) {
   const groupRef = useRef(null);
+  // A pose update must keep the latest context opacity without solving again
+  // whenever the context slider moves.
+  const opacityRef = useRef(opacity);
+  opacityRef.current = opacity;
   const gl = useThree((state) => state.gl);
 
   const { scene } = useLoader(GLTFLoader, modelUrl);
@@ -240,6 +259,17 @@ function SkeletonModel({
       }
     }
 
+    // Display toggles from the individual settings popup. Applied after the
+    // pose pass so they win over the articulated master defaults.
+    rig.setMasterBoneVisibility("pelvis", !hidePelvis);
+    rig.setMasterBoneVisibility("sternum", !hideRibcage);
+    setRibcageVisibility(clonedScene, !hideRibcage);
+    // Shoulder blades toggle also clears the clavicles that sit on top of them.
+    rig.setMasterBoneVisibility("scapula_l", !hideScapulae);
+    rig.setMasterBoneVisibility("scapula_r", !hideScapulae);
+    rig.setMasterBoneVisibility("clavicle_l", !hideScapulae);
+    rig.setMasterBoneVisibility("clavicle_r", !hideScapulae);
+
     // Plain-language problems for this individual, shown in the sidebar until
     // the data causing them changes. Reported even when empty, so a problem
     // that has been fixed clears.
@@ -355,6 +385,10 @@ function SkeletonModel({
       });
     }
 
+    // Renames and display toggles also rerun this pass. Restore dimming after
+    // its material reset and include any newly spawned copies.
+    contextMaterials.apply(opacityRef.current);
+
     onSolverIssues?.(id, { messages: issues, unusualLengths });
   }, [
     coords,
@@ -366,6 +400,9 @@ function SkeletonModel({
     clonedScene,
     label,
     id,
+    hidePelvis,
+    hideRibcage,
+    hideScapulae,
     onSolverIssues,
     contextMaterials,
   ]);
@@ -781,6 +818,30 @@ function GraveCamera({
   return null;
 }
 
+// Ground reference under the focused specimen.
+function FocusGrid({ focusedId }) {
+  const { scene } = useThree();
+  const gridRef = useRef(null);
+
+  useFrame(() => {
+    const grid = gridRef.current;
+
+    const target = scene.getObjectByName(`skeleton-${focusedId}`);
+
+    if (!grid || !target) return;
+
+    const box = new Box3().setFromObject(target);
+
+    if (box.isEmpty()) return;
+
+    const centre = box.getCenter(new Vector3());
+
+    grid.position.set(centre.x, box.min.y, centre.z);
+  });
+
+  return <gridHelper ref={gridRef} args={[1.2, 6, "#3a4149", "#2b3238"]} />;
+}
+
 // Draws an outline around the selected skeleton's visible bones, on top of the
 // normal render. Priority 1 means React Three Fiber stops rendering on its own,
 // so the scene render it would have done happens here first.
@@ -899,6 +960,9 @@ const MainView = forwardRef(function MainView(
               onSelect={onSelect}
               {...individualContext(hidden, individual.id, focusedId, showEnvironment, contextOpacity)}
               onFocusAlone={onFocusAlone}
+              hidePelvis={Boolean(individual.hidePelvis)}
+              hideRibcage={Boolean(individual.hideRibcage)}
+              hideScapulae={Boolean(individual.hideScapulae)}
             />
           </Suspense>
         ))}
@@ -911,6 +975,8 @@ const MainView = forwardRef(function MainView(
             onError={onOverlayError}
           />
         )}
+
+        {focusedAlone && <FocusGrid focusedId={focusedId} />}
 
         {!focusedAlone && (
           <>

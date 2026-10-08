@@ -55,8 +55,9 @@ keeps the grave grid, visible contours and site photograph in view. The
 still be clicked to select them. Manually hidden individuals stay hidden.
 
 Turn off **Show environment** to see the focused individual alone, without the
-grave grid, contours or photograph. Double-click a skeleton or its row as a
-shortcut to this view. Choose **Exit** or press **Esc** to return to the saved
+grave grid, contours or photograph. A small reference grid stays beneath the
+focused skeleton and follows its lowest point. Double-click a skeleton or its row
+as a shortcut to this view. Choose **Exit** or press **Esc** to return to the saved
 grave view. Focus changes do not change coordinates or the other individuals'
 visibility toggles, and are not saved as project settings.
 

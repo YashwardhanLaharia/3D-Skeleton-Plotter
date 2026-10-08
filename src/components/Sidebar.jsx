@@ -6,6 +6,83 @@ import { useState, useEffect, useRef } from "react";
 
 const DECIMAL_PATTERN = /^-?\d*\.?\d*$/;
 
+function SidebarHeaderIcon({ children }) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      width="13"
+      height="13"
+      fill="currentColor"
+      aria-hidden="true"
+      className="sidebar-header-icon"
+      focusable="false"
+    >
+      {children}
+    </svg>
+  );
+}
+
+function UndoIcon() {
+  return (
+    <SidebarHeaderIcon>
+      <path
+        fillRule="evenodd"
+        d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2z"
+      />
+      <path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.308a.25.25 0 0 0 0 .384l2.36 1.966A.25.25 0 0 0 8 4.466" />
+    </SidebarHeaderIcon>
+  );
+}
+
+function RedoIcon() {
+  return (
+    <SidebarHeaderIcon>
+      <path
+        fillRule="evenodd"
+        d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z"
+      />
+      <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466" />
+    </SidebarHeaderIcon>
+  );
+}
+
+function FolderPlusIcon() {
+  return (
+    <SidebarHeaderIcon>
+      <path d="m.5 3 .04.87a2 2 0 0 0-.342 1.311l.637 7A2 2 0 0 0 2.826 14H9v-1H2.826a1 1 0 0 1-.995-.91l-.637-7A1 1 0 0 1 2.19 4h11.62a1 1 0 0 1 .996 1.09L14.54 8h1.005l.256-2.819A2 2 0 0 0 13.81 3H9.828a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 6.172 1H2.5a2 2 0 0 0-2 2m5.672-1a1 1 0 0 1 .707.293L7.586 3H2.19q-.362.002-.683.12L1.5 2.98a1 1 0 0 1 1-.98z" />
+      <path d="M13.5 9a.5.5 0 0 1 .5.5V11h1.5a.5.5 0 1 1 0 1H14v1.5a.5.5 0 1 1-1 0V12h-1.5a.5.5 0 0 1 0-1H13V9.5a.5.5 0 0 1 .5-.5" />
+    </SidebarHeaderIcon>
+  );
+}
+
+function PersonPlusIcon() {
+  return (
+    <SidebarHeaderIcon>
+      <path d="M6 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H1s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C9.516 10.68 8.289 10 6 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z" />
+      <path
+        fillRule="evenodd"
+        d="M13.5 5a.5.5 0 0 1 .5.5V7h1.5a.5.5 0 0 1 0 1H14v1.5a.5.5 0 0 1-1 0V8h-1.5a.5.5 0 0 1 0-1H13V5.5a.5.5 0 0 1 .5-.5"
+      />
+    </SidebarHeaderIcon>
+  );
+}
+
+function SettingsIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      width="12"
+      height="12"
+      fill="currentColor"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492M5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0" />
+      <path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873 1.873 0 0 0 2.693 1.115l.291-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 0 0 1.116 2.692l.318.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 0 0-1.115 2.693l.16.291c.415.764-.42 1.6-1.185 1.184l-.291-.159a1.873 1.873 0 0 0-2.693 1.116l-.094.318c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 0 0-2.692-1.115l-.292.16c-.764.415-1.6-.42-1.184-1.185l.159-.291A1.873 1.873 0 0 0 1.945 8.93l-.319-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 0 0 3.06 4.377l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 0 0 2.692-1.115z" />
+    </svg>
+  );
+}
+
 // Data-entry grid navigation with keyboard arrows
 function moveFocus(input, rowDelta, colDelta) {
   const grid = input.closest(".individual");
@@ -118,6 +195,7 @@ function IndividualSection({
   onChange,
   onToggleSplit,
   onOffset,
+  onPartHidden,
   onCommit,
   onRemove,
   canRemove,
@@ -129,6 +207,7 @@ function IndividualSection({
   issues = [],
 }) {
   const [offset, setOffset] = useState({ x: "", y: "", z: "" });
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const offsetValid = Object.values(offset).every((value) => Number.isFinite(Number(value)));
   // A point counts as recorded only when all three axes are filled. Partial
   // entries are treated as not yet done.
@@ -138,6 +217,7 @@ function IndividualSection({
   }).length;
 
   const sectionRef = useRef(null);
+  const settingsRef = useRef(null);
 
   // Selecting from the viewport has to bring the section into view.
   useEffect(() => {
@@ -146,12 +226,43 @@ function IndividualSection({
     }
   }, [isSelected]);
 
+  useEffect(() => {
+    if (!settingsOpen) return undefined;
+
+    function handlePointerDown(event) {
+      const settingsButton = sectionRef.current?.querySelector(
+        ".individual-settings-btn",
+      );
+      if (
+        settingsRef.current?.contains(event.target) ||
+        settingsButton?.contains(event.target)
+      ) {
+        return;
+      }
+      setSettingsOpen(false);
+    }
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") {
+        setSettingsOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [settingsOpen]);
+
   return (
     // The whole header toggles, so I used a button rather than a div
     <section
       ref={sectionRef}
       className={`individual border rounded mb-2 bg-body${isSelected ? " individual-selected" : ""}`}
     >
+      <div className="individual-header-wrap position-relative">
       <button
         type="button"
         className="individual-header btn w-100 d-flex align-items-center gap-2 text-start"
@@ -160,12 +271,11 @@ function IndividualSection({
       >
         <input
           type="color"
-          className={`form-control form-control-color${highlight?.field === "colour" ? " coord-input-flash" : ""
+          className={`form-control form-control-color individual-colour${highlight?.field === "colour" ? " coord-input-flash" : ""
             }`}
           id={`colorPicker-${individual.id}`}
           value={individual.colour}
           title="Choose your color"
-          style={{ height: "24px", width: "29px", padding: "5px", margin: "0" }}
           onChange={(e) => onColourChange(individual.id, e.target.value)}
           onClick={(e) => e.stopPropagation()}
           onBlur={onCommit}
@@ -210,6 +320,30 @@ function IndividualSection({
           </span>
         )}
 
+        <span
+          role="button"
+          tabIndex={0}
+          className={`individual-settings-btn ms-auto${settingsOpen ? " active" : ""}`}
+          aria-label={`Settings for ${individual.label || "individual"}`}
+          aria-expanded={settingsOpen}
+          aria-haspopup="dialog"
+          aria-controls={`individual-settings-${individual.id}`}
+          title="Settings"
+          onClick={(e) => {
+            e.stopPropagation();
+            setSettingsOpen((open) => !open);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              e.stopPropagation();
+              setSettingsOpen((open) => !open);
+            }
+          }}
+        >
+          <SettingsIcon />
+        </span>
+
         {canRemove && (
           <span
             role="button"
@@ -229,6 +363,86 @@ function IndividualSection({
           />
         )}
       </button>
+      {settingsOpen && (
+        <div
+          ref={settingsRef}
+          id={`individual-settings-${individual.id}`}
+          className="individual-settings-popup"
+          role="dialog"
+          aria-label="Individual settings"
+        >
+          <div className="individual-settings-section">
+            <div className="small fw-semibold mb-1">Display</div>
+            <label className="individual-settings-check small d-flex align-items-center gap-2 mb-1">
+              <input
+                type="checkbox"
+                checked={Boolean(individual.hidePelvis)}
+                onChange={(event) =>
+                  onPartHidden(individual.id, "pelvis", event.target.checked)
+                }
+              />
+              Hide pelvis
+            </label>
+            <label className="individual-settings-check small d-flex align-items-center gap-2 mb-1">
+              <input
+                type="checkbox"
+                checked={Boolean(individual.hideRibcage)}
+                onChange={(event) =>
+                  onPartHidden(individual.id, "ribcage", event.target.checked)
+                }
+              />
+              Hide ribcage
+            </label>
+            <label className="individual-settings-check small d-flex align-items-center gap-2 mb-2">
+              <input
+                type="checkbox"
+                checked={Boolean(individual.hideScapulae)}
+                onChange={(event) =>
+                  onPartHidden(individual.id, "scapulae", event.target.checked)
+                }
+              />
+              Hide shoulder blades
+            </label>
+          </div>
+          <div className="individual-settings-section">
+            <div className="small fw-semibold mb-1">Offset all joints</div>
+            <div className="d-flex align-items-center gap-1 offset-row">
+              {["x", "y", "z"].map((axis) => (
+                <input
+                  key={axis}
+                  type="text"
+                  inputMode="decimal"
+                  className="form-control form-control-sm coord-input"
+                  placeholder={axis.toUpperCase()}
+                  aria-label={`Offset, ${axis.toUpperCase()}`}
+                  value={offset[axis]}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    if (DECIMAL_PATTERN.test(value)) {
+                      setOffset((current) => ({ ...current, [axis]: value }));
+                    }
+                  }}
+                />
+              ))}
+              <button
+                type="button"
+                className="btn btn-light border btn-sm offset-add"
+                title="Apply to every joint. Blank offset axes stay unchanged; blank joint values count as zero only for entered axes."
+                aria-label="Apply coordinate offset to every joint"
+                disabled={!offsetValid}
+                onClick={() => {
+                  onOffset(individual.id, offset);
+                  setOffset({ x: "", y: "", z: "" });
+                  setSettingsOpen(false);
+                }}
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      </div>
       {isOpen && (
         <div className="px-2 pb-2">
           {issues.length > 0 && (
@@ -243,40 +457,6 @@ function IndividualSection({
               </ul>
             </details>
           )}
-
-
-          <div className="d-flex align-items-center gap-1 mb-2 offset-row">
-            <button
-              type="button"
-              className="btn btn-light border btn-sm offset-add"
-              title="Add to every joint. Blank offset axes stay unchanged; blank joint values count as zero only for entered axes."
-              aria-label="Add coordinate offset to every joint"
-              disabled={!offsetValid}
-              onClick={() => {
-                onOffset(individual.id, offset);
-                setOffset({ x: "", y: "", z: "" });
-              }}
-            >
-              + Add
-            </button>
-            {["x", "y", "z"].map((axis) => (
-              <input
-                key={axis}
-                type="text"
-                inputMode="decimal"
-                className="form-control form-control-sm coord-input"
-                placeholder={axis.toUpperCase()}
-                aria-label={`Offset, ${axis.toUpperCase()}`}
-                value={offset[axis]}
-                onChange={(event) => {
-                  const value = event.target.value;
-                  if (DECIMAL_PATTERN.test(value)) {
-                    setOffset((current) => ({ ...current, [axis]: value }));
-                  }
-                }}
-              />
-            ))}
-          </div>
           {JOINTS.map((joint) => {
             const isSplit = !!individual.coords[joint.id]?.split;
             return (
@@ -339,14 +519,41 @@ function GroupBlock({
   onRemove,
   children,
   empty,
+  isOpen,
+  onToggle,
+  contentId,
 }) {
+  const label = onNameChange
+    ? nameValue.trim() || "Unnamed group"
+    : title;
+
   return (
     <section className="sidebar-group mb-3">
-      <header className="sidebar-group-header d-flex align-items-center gap-2 mb-2">
+      <header
+        className={`sidebar-group-header d-flex align-items-center gap-2${
+          isOpen ? " mb-2" : ""
+        }`}
+      >
+        <button
+          type="button"
+          className="layers-collapse"
+          onClick={onToggle}
+          aria-expanded={isOpen}
+          aria-controls={contentId}
+          title={isOpen ? "Collapse" : "Expand"}
+          aria-label={`${isOpen ? "Collapse" : "Expand"} ${label}`}
+        >
+          <span
+            aria-hidden="true"
+            className={`chevron ${isOpen ? "open" : ""}`}
+          >
+            ▸
+          </span>
+        </button>
         {onNameChange ? (
           <input
             type="text"
-            className="form-control form-control-sm sidebar-group-name"
+            className="form-control form-control-sm sidebar-group-name flex-grow-1"
             placeholder="Group name"
             aria-label="Group name"
             value={nameValue}
@@ -354,28 +561,30 @@ function GroupBlock({
             onBlur={onCommit}
           />
         ) : (
-          <h3 className="sidebar-group-title h6 mb-0 text-body-secondary">
+          <h3 className="sidebar-group-title h6 mb-0 text-body-secondary flex-grow-1">
             {title}
           </h3>
         )}
         {onRemove && (
           <button
             type="button"
-            className="btn btn-sm btn-outline-secondary"
+            className="btn-close btn-close-sm"
             onClick={onRemove}
             aria-label={`Delete ${nameValue.trim() || "group"}`}
             title="Delete group"
-          >
-            ×
-          </button>
+          />
         )}
       </header>
-      {empty ? (
-        <p className="sidebar-group-empty small text-body-tertiary mb-0 px-1">
-          No skeletons in this group
-        </p>
-      ) : (
-        children
+      {isOpen && (
+        <div id={contentId}>
+          {empty ? (
+            <p className="sidebar-group-empty small text-body-tertiary mb-0 px-1">
+              No skeletons in this group
+            </p>
+          ) : (
+            children
+          )}
+        </div>
       )}
     </section>
   );
@@ -469,6 +678,7 @@ export default function Sidebar({
   onChange,
   onToggleSplit,
   onOffset,
+  onPartHidden,
   onCommit,
   onUndo,
   onRedo,
@@ -491,6 +701,8 @@ export default function Sidebar({
 }) {
   const [pendingRemoval, setPendingRemoval] = useState(null);
   const [pendingGroupRemoval, setPendingGroupRemoval] = useState(null);
+  // Group ids in this set are collapsed. Named groups and "Ungrouped" all start open.
+  const [collapsedGroups, setCollapsedGroups] = useState(() => new Set());
 
   function confirmRemoval() {
     onRemove(pendingRemoval.id);
@@ -500,6 +712,18 @@ export default function Sidebar({
   function confirmGroupRemoval() {
     onRemoveGroup(pendingGroupRemoval.id);
     setPendingGroupRemoval(null);
+  }
+
+  function toggleGroup(groupKey) {
+    setCollapsedGroups((current) => {
+      const next = new Set(current);
+      if (next.has(groupKey)) {
+        next.delete(groupKey);
+      } else {
+        next.add(groupKey);
+      }
+      return next;
+    });
   }
 
   function renderIndividual(individual) {
@@ -513,6 +737,7 @@ export default function Sidebar({
         onChange={onChange}
         onToggleSplit={onToggleSplit}
         onOffset={onOffset}
+        onPartHidden={onPartHidden}
         onCommit={onCommit}
         onRemove={() => setPendingRemoval(individual)}
         canRemove={individuals.length > 1}
@@ -540,9 +765,26 @@ export default function Sidebar({
       >
         {isOpen && (
           <div className="sidebar-content">
-            <header className="sidebar-header bg-body-tertiary border-bottom px-2 py-2 d-flex align-items-center justify-content-between gap-2">
-              <h2 className="h6 mb-0">{groups.length === 0 ? "Individuals" : "Groups"}</h2>
-              <div className="d-flex align-items-center gap-1 flex-wrap justify-content-end">
+            <header className="sidebar-header d-flex align-items-center gap-1 px-2 py-1 border-bottom">
+              <div className="d-flex align-items-center gap-1 sidebar-header-actions">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-primary"
+                  onClick={onAdd}
+                >
+                  <PersonPlusIcon />
+                  Add individual
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary"
+                  onClick={onAddGroup}
+                >
+                  <FolderPlusIcon />
+                  Add group
+                </button>
+              </div>
+              <div className="d-flex align-items-center gap-1 ms-auto sidebar-header-actions">
                 <button
                   type="button"
                   className="btn btn-sm btn-outline-secondary history-btn"
@@ -551,7 +793,7 @@ export default function Sidebar({
                   title="Undo (Ctrl+Z)"
                   aria-label="Undo"
                 >
-                  <span aria-hidden="true">↶</span>
+                  <UndoIcon />
                 </button>
                 <button
                   type="button"
@@ -561,21 +803,7 @@ export default function Sidebar({
                   title="Redo (Ctrl+Shift+Z)"
                   aria-label="Redo"
                 >
-                  <span aria-hidden="true">↷</span>
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-secondary"
-                  onClick={onAddGroup}
-                >
-                  Add group
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-primary"
-                  onClick={onAdd}
-                >
-                  Add individual
+                  <RedoIcon />
                 </button>
               </div>
             </header>
@@ -606,13 +834,22 @@ export default function Sidebar({
                         onCommit={onCommit}
                         onRemove={() => setPendingGroupRemoval(group)}
                         empty={members.length === 0}
+                        isOpen={!collapsedGroups.has(group.id)}
+                        onToggle={() => toggleGroup(group.id)}
+                        contentId={`sidebar-group-${group.id}`}
                       >
                         {members.map(renderIndividual)}
                       </GroupBlock>
                     );
                   })}
 
-                  <GroupBlock title="Ungrouped" empty={ungrouped.length === 0}>
+                  <GroupBlock
+                    title="Ungrouped"
+                    empty={ungrouped.length === 0}
+                    isOpen={!collapsedGroups.has("ungrouped")}
+                    onToggle={() => toggleGroup("ungrouped")}
+                    contentId="sidebar-group-ungrouped"
+                  >
                     {ungrouped.map(renderIndividual)}
                   </GroupBlock>
                 </>

@@ -184,6 +184,18 @@ export function createCsv(
         .join(","),
     );
 
+    for (const [jointId, hidden] of [
+      ["pelvis_hidden", individual.hidePelvis],
+      ["ribcage_hidden", individual.hideRibcage],
+      ["scapulae_hidden", individual.hideScapulae],
+    ]) {
+      lines.push(
+        [individual.id, jointId, "", "", "", "", "", "", hidden ? "1" : "0"]
+          .map(escapeCsvCell)
+          .join(","),
+      );
+    }
+
     JOINTS.forEach((joint, index) => {
       const coordinates = individual.coords?.[joint.id] ?? {};
       const inferiorCoordinates = coordinates.inferior ?? {};

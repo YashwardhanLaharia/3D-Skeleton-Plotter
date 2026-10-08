@@ -167,6 +167,22 @@ export function historyReducer(state, action) {
       return withSession(state, next);
     }
 
+    case "set-part-hidden": {
+      const fieldByPart = {
+        pelvis: "hidePelvis",
+        ribcage: "hideRibcage",
+        scapulae: "hideScapulae",
+      };
+      const field = fieldByPart[action.part];
+      if (!field) return state;
+      const next = mapIndividuals(state.present, (individual) =>
+        individual.id === action.individualId
+          ? { ...individual, [field]: Boolean(action.hidden) }
+          : individual,
+      );
+      return withCommit(state, next);
+    }
+
     case "rename-group": {
       const next = {
         ...state.present,
