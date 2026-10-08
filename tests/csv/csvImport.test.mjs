@@ -299,3 +299,50 @@ test("import bridge preserves cancellation/errors and parses successful file rea
 
 // Silence unused if JOINTS only used indirectly in some runners
 assert.ok(JOINTS.length > 0);
+
+test("csvToProject reads an RL vertical reference", () => {
+  const text = csvBody([
+    "grave_dimensions,,3,9,1,,,,",
+    "vertical_reference,,,,1.98,,,,rl",
+    "ind-1,head_proximal,1.5,5.62,1.61,,,,A",
+  ]);
+  const result = csvToProject(text);
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.vertical, { convention: "rl", floorRL: 1.98 });
+  // Coordinates stay as recorded; conversion happens only when drawing.
+  assert.equal(result.individuals[0].coords.head_proximal.z, "1.61");
+});
+
+test("csvToProject reads height when the vertical reference is omitted", () => {
+  const result = csvToProject(csvBody(["ind-1,head_proximal,1,2,3,,,,A"]));
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.vertical, { convention: "height", floorRL: null });
+});
+
+test("csvToProject rejects an unknown or incomplete vertical reference", () => {
+  const unknown = csvToProject(
+    csvBody(["vertical_reference,,,,1.98,,,,depth"]),
+  );
+  assert.equal(unknown.ok, false);
+  assert.match(unknown.error, /unknown vertical reference: depth/);
+
+  const noFloor = csvToProject(csvBody(["vertical_reference,,,,,,,,rl"]));
+  assert.equal(noFloor.ok, false);
+  assert.match(noFloor.error, /grave floor RL/);
+});
+
+test("additive import reports the file's vertical reference without applying it", () => {
+  const { columns, rows } = parseCsv(
+    csvBody([
+      "vertical_reference,,,,1.98,,,,rl",
+      "ind-1,head_proximal,1.5,5.62,1.61,,,,A",
+    ]),
+  );
+  const result = rowsToIndividuals(columns, rows);
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.vertical, { convention: "rl", floorRL: 1.98 });
+  assert.equal(result.individuals.length, 1);
+});

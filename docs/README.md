@@ -20,7 +20,8 @@ docs/
 │   └── project-file.md       # Schema, schemaVersion, individuals structure
 └── development/
     ├── setup.md              # npm scripts, Electron Forge, Vite configs
-    └── testing.md            # Testing information
+    ├── testing.md            # Testing information
+    └── dependencies.md       # Version pins, overrides, accepted advisories
 ```
 
 ### Operators
@@ -46,3 +47,4 @@ More detailed system inforamation can be found in `architecture`, `rig-api`, `de
 - development
   - [setup.md](./setup.md)
   - [testing.md](./testing.md)
+  - [dependencies.md](./dependencies.md)

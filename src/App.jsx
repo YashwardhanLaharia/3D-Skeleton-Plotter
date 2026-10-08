@@ -25,8 +25,19 @@ import FocusBar from "./components/FocusBar";
 import InspectionPanel from "./components/InspectionPanel";
 import StartupScreen from "./components/StartupScreen";
 import GraveDimensionsModal from "./components/GraveDimensionsModal";
+import { placementFromSize } from "./imageOverlay.js";
+import { validateImageOverlay } from "./overlayAsset.js";
+import GraveOutlineImportModal from "./components/GraveOutlineImportModal";
+import GravesPanel from "./components/GravesPanel";
+import ImageOverlayBar from "./components/ImageOverlayBar";
+import ImageOverlaySettingsModal from "./components/ImageOverlaySettingsModal";
+import {
+  importGraveContour,
+  validateGraveRelations,
+} from "./graveCollection.js";
 import { csvToProject, importCsv, rowsToIndividuals } from "./csvImport";
 import { createCsv, exportCsv } from "./csvExport";
+import { DEFAULT_VERTICAL } from "./sceneSpace";
 import "./app.css";
 
 const PALETTE = [
@@ -56,12 +67,26 @@ function makeBlankCoords() {
 }
 
 export default function App() {
+  const [imageOverlay, setImageOverlay] = useState(null);
+  const [overlayFrame, setOverlayFrame] = useState(null);
+  const [showOverlaySettings, setShowOverlaySettings] = useState(false);
+  const [graveSurvey, setGraveSurvey] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showStartup, setShowStartup] = useState(true);
   const [isGraveDimensionsModalOpen, setIsGraveDimensionsModalOpen] =
     useState(false);
   const [graveDimensions, setGraveDimensions] = useState([1, 1, 1]);
+  const [graves, setGraves] = useState([]);
+  const [graveAssignments, setGraveAssignments] = useState({});
+  const [hiddenGraves, setHiddenGraves] = useState([]);
+  const [savedView, setSavedView] = useState(null);
+  const [frameRequest, setFrameRequest] = useState(null);
+  const graveOutline = graves[0] ?? { top: [], bottom: [] };
   const [recentProjects, setRecentProjects] = useState([]);
+  // How the recorded z is read: height above the grave floor, or RL down from
+  // the site datum with the grave floor's RL (see sceneSpace.js). Saved with
+  // the project, like the grave dimensions.
+  const [vertical, setVertical] = useState(DEFAULT_VERTICAL);
   // The data model is now an array of individuals, not one coordinate object.
   // Each carries its own label, colour, and full coordinate set.
   const [history, dispatch] = useReducer(historyReducer, undefined, () =>
@@ -70,7 +95,13 @@ export default function App() {
 
   const [jointDetails, setJointDetails] = useState({});
 
-  function handleJointDetailChange(individualId, jointId, position, axis, value) {
+  function handleJointDetailChange(
+    individualId,
+    jointId,
+    position,
+    axis,
+    value,
+  ) {
     setJointDetails((current) => {
       const individualDetails = current[individualId] ?? {};
       const details = individualDetails[jointId] ?? {
@@ -117,7 +148,6 @@ export default function App() {
   const handleSolverIssues = useCallback((individualId, issues) => {
     setSolverIssues((current) => ({ ...current, [individualId]: issues }));
   }, []);
-
 
   const [openId, setOpenId] = useState("ind-1");
 
@@ -169,6 +199,21 @@ export default function App() {
 
     // Before the grave itself, or the coordinates in it mean something else.
     setGraveDimensions(loaded.graveDimensions);
+    setVertical(loaded.vertical);
+    setGraves(loaded.graves ?? []);
+    setGraveAssignments(
+      Object.fromEntries(
+        loaded.individuals
+          .filter((individual) => individual.graveId)
+          .map((individual) => [individual.id, individual.graveId]),
+      ),
+    );
+    setHiddenGraves([]);
+    setSavedView(loaded.view);
+    setFrameRequest(null);
+    setGraveSurvey(null);
+    setImageOverlay(loaded.imageOverlay ?? null);
+    setOverlayFrame(loaded.imageOverlay?.visible ? {} : null);
 
     const numbers = loaded.individuals
       .map((individual) => Number(individual.id.replace("ind-", "")))
@@ -215,7 +260,6 @@ export default function App() {
     dispatch({ type: "toggle-joint-split", individualId, jointId });
     setIsDirty(true);
   }
-
 
   // Called on blur. Ends the current edit run so the next field starts a new
   // history entry.
@@ -424,6 +468,7 @@ export default function App() {
     }
 
     setGraveDimensions([1, 1, 1]);
+    resetSurvey();
     setFilePath(null);
     setIsDirty(false);
     setHidden([]);
@@ -431,10 +476,127 @@ export default function App() {
     setOpenId(null);
     setSelectedId(null);
     setJointDetails({});
+    setImageOverlay(null);
+    setOverlayFrame(null);
     dispatch({ type: "new", individuals: STARTING_STATE, groups: [] });
     nextGroupId.current = 1;
     nextId.current = 2;
     setShowStartup(true);
+  }
+
+  async function handleLoadOverlay() {
+    const result = await window.electronAPI.importOverlayImage();
+    if (!result.ok) {
+      if (!result.canceled) setNotice(result.error);
+      return;
+    }
+    try {
+      const { asset } = result;
+      const aspect = asset.pixelWidth / asset.pixelHeight;
+      const width = Math.min(
+        Number(graveDimensions[0]),
+        Number(graveDimensions[1]) * aspect,
+      );
+      const placement =
+        imageOverlay ??
+        placementFromSize({
+          x: 0,
+          y: 0,
+          width,
+          length: width / aspect,
+          rotation: 0,
+          heightAboveFloor: 0,
+        });
+      setImageOverlay(validateImageOverlay({ ...placement, ...asset }));
+      setOverlayFrame({});
+      setFocusedId(null);
+      setIsDirty(true);
+      setNotice(
+        imageOverlay
+          ? "Photograph replaced; check its alignment."
+          : "Photograph loaded. Enter its grid alignment.",
+      );
+    } catch (error) {
+      setNotice(error.message);
+    }
+  }
+
+  function handleApplyOverlay(next) {
+    setImageOverlay(next);
+    setIsDirty(true);
+  }
+
+  async function handleImportGraveOutline() {
+    const survey = await window.electronAPI.importGraveOutline();
+    if (!survey.ok) {
+      if (!survey.canceled) setNotice(survey.error);
+      return;
+    }
+    setGraveSurvey(survey);
+  }
+
+  function resetSurvey() {
+    setGraves([]);
+    setGraveAssignments({});
+    setHiddenGraves([]);
+    setSavedView(null);
+    setFrameRequest(null);
+    setGraveSurvey(null);
+  }
+
+  function handleApplyGraveOutline(options) {
+    const imported = importGraveContour(graves, {
+      ...options,
+      points: graveSurvey.points,
+    });
+    setGraves(imported.graves);
+    setHiddenGraves((current) => current.filter((id) => id !== imported.id));
+    setSavedView(null);
+    setFrameRequest({ id: imported.id });
+    setFocusedId(null);
+    setGraveSurvey(null);
+    setIsDirty(true);
+    setNotice(
+      `Imported ${graveSurvey.points.length} ${options.level === "bottom" ? "base" : "top"} contour vertices`,
+    );
+  }
+
+  function handleUpdateGrave(id, patch) {
+    const updated = graves.map((grave) =>
+      grave.id === id ? { ...grave, ...patch } : grave,
+    );
+    try {
+      validateGraveRelations(updated);
+    } catch (error) {
+      setNotice(error.message);
+      return;
+    }
+    setGraves(updated);
+    setIsDirty(true);
+  }
+
+  function handleRemoveGrave(id) {
+    setGraves(
+      graves
+        .filter((grave) => grave.id !== id)
+        .map((grave) =>
+          grave.cutsInto === id ? { ...grave, cutsInto: null } : grave,
+        ),
+    );
+    setGraveAssignments((current) =>
+      Object.fromEntries(
+        Object.entries(current).filter(([, graveId]) => graveId !== id),
+      ),
+    );
+    setHiddenGraves((current) => current.filter((graveId) => graveId !== id));
+    setIsDirty(true);
+  }
+
+  function projectIndividuals() {
+    return individuals.map((individual) => ({
+      ...individual,
+      graveId: graveAssignments[individual.id] || null,
+    }));
   }
 
   async function handleImport() {
@@ -477,11 +639,30 @@ export default function App() {
       : nextGroupId.current;
 
     setIsDirty(true);
-    setNotice(`Imported ${converted.individuals.length} individuals`);
+
+    // Imported coordinates are drawn with this project's setting, not the
+    // file's. If they differ, the new individuals are at the wrong depth.
+    const sameVertical =
+      converted.vertical.convention === vertical.convention &&
+      (vertical.convention !== "rl" ||
+        converted.vertical.floorRL === vertical.floorRL);
+    setNotice(
+      sameVertical
+        ? `Imported ${converted.individuals.length} individuals`
+        : `Imported ${converted.individuals.length} individuals, but the file records depth differently from this project. Check they sit at the right depth.`,
+    );
   }
 
   async function handleExportCsv() {
-    const result = await exportCsv(individuals, graveDimensions, groups, hidden);
+    const result = await exportCsv(
+      projectIndividuals(),
+      graveDimensions,
+      groups,
+      hidden,
+      graveOutline,
+      { graves, imageOverlay },
+      vertical,
+    );
 
     if (!result.ok) {
       if (!result.canceled) setNotice(result.error);
@@ -512,9 +693,15 @@ export default function App() {
     }
 
     setJointDetails({});
+    setImageOverlay(null);
+    setOverlayFrame(null);
     dispatch({ type: "new", individuals: STARTING_STATE, groups: [] });
     nextGroupId.current = 1;
+    setVertical(DEFAULT_VERTICAL);
     nextId.current = 2;
+    setVertical(DEFAULT_VERTICAL);
+
+    resetSurvey();
 
     setShowStartup(false);
     setIsGraveDimensionsModalOpen(true);
@@ -554,6 +741,28 @@ export default function App() {
       return;
     }
 
+    setJointDetails({});
+    dispatch({
+      type: "load",
+      individuals: loaded.individuals,
+      groups: loaded.groups,
+    });
+
+    // Before the grave itself, or the coordinates in it mean something else.
+    setGraveDimensions(loaded.graveDimensions);
+    setVertical(loaded.vertical);
+
+    const numbers = loaded.individuals
+      .map((individual) => Number(individual.id.replace("ind-", "")))
+      .filter((value) => Number.isFinite(value));
+    nextId.current = numbers.length ? Math.max(...numbers) + 1 : 1;
+
+    const groupNumbers = loaded.groups
+      .map((group) => Number(group.id.replace("grp-", "")))
+      .filter((value) => Number.isFinite(value));
+    nextGroupId.current = groupNumbers.length
+      ? Math.max(...groupNumbers) + 1
+      : 1;
     applyLoadedProject(loaded, result.path);
   }
 
@@ -590,8 +799,23 @@ export default function App() {
   }
 
   async function handleSave(forcePrompt) {
+    if (graves.some((grave) => !grave.name.trim())) {
+      setNotice("Enter a name for each grave before saving.");
+      return false;
+    }
     const result = await window.electronAPI.saveProject({
-      payload: createCsv(individuals, graveDimensions, groups),
+      payload: createCsv(
+        projectIndividuals(),
+        graveDimensions,
+        groups,
+        graveOutline,
+        {
+          graves,
+          view: viewportRef.current?.getView() ?? savedView,
+          imageOverlay,
+        },
+        vertical,
+      ),
       filePath: forcePrompt ? null : filePath,
     });
 
@@ -661,6 +885,7 @@ export default function App() {
     handleRedo,
     handleChangeGraveDimensions,
     handleImport,
+    handleImportGraveOutline,
     handleExportCsv,
     handleEscape,
   };
@@ -676,6 +901,8 @@ export default function App() {
         actionsRef.current.handleExportScreenshot();
       if (action === "menu-export-glb") actionsRef.current.handleExportGLB();
       if (action === "menu-import") actionsRef.current.handleImport();
+      if (action === "menu-import-grave-outline")
+        actionsRef.current.handleImportGraveOutline();
       if (action === "menu-export-csv") actionsRef.current.handleExportCsv();
       if (action === "menu-undo") actionsRef.current.handleUndo();
       if (action === "menu-redo") actionsRef.current.handleRedo();
@@ -754,7 +981,12 @@ export default function App() {
         show={showStartup}
         recentProjects={recentProjects}
         graveDimensions={graveDimensions}
-        setGraveDimensions={setGraveDimensions}
+        setGraveDimensions={(dimensions) => {
+          setGraveDimensions(dimensions);
+          setSavedView(null);
+          setFrameRequest({ id: null });
+          setIsDirty(true);
+        }}
         onCreateConfirm={handleCreateFromStartup}
         onOpen={handleOpen}
         onOpenRecent={handleOpenRecent}
@@ -763,8 +995,50 @@ export default function App() {
         show={isGraveDimensionsModalOpen}
         onHide={() => setIsGraveDimensionsModalOpen(false)}
         graveDimensions={graveDimensions}
-        setGraveDimensions={setGraveDimensions}
+        setGraveDimensions={(dimensions) => {
+          setGraveDimensions(dimensions);
+          setSavedView(null);
+          setFrameRequest({ id: null });
+          setIsDirty(true);
+        }}
       />
+      {graveSurvey && (
+        <GraveOutlineImportModal
+          survey={graveSurvey}
+          graves={graves}
+          onHide={() => setGraveSurvey(null)}
+          onImport={handleApplyGraveOutline}
+        />
+      )}
+      <ImageOverlaySettingsModal
+        show={showOverlaySettings}
+        overlay={imageOverlay}
+        onHide={() => setShowOverlaySettings(false)}
+        onApply={handleApplyOverlay}
+        onLoad={handleLoadOverlay}
+        onFrame={() => {
+          if (!imageOverlay?.visible) {
+            setImageOverlay({ ...imageOverlay, visible: true });
+            setIsDirty(true);
+          }
+          setFocusedId(null);
+          setOverlayFrame({});
+        }}
+        onRemove={() => {
+          setImageOverlay(null);
+          setOverlayFrame(null);
+          setShowOverlaySettings(false);
+          setIsDirty(true);
+        }}
+      />
+      {graveSurvey && (
+        <GraveOutlineImportModal
+          survey={graveSurvey}
+          graves={graves}
+          onHide={() => setGraveSurvey(null)}
+          onImport={handleApplyGraveOutline}
+        />
+      )}
       <div className="app-workspace d-flex flex-grow-1 overflow-hidden">
         <Sidebar
           individuals={individuals}
@@ -815,32 +1089,113 @@ export default function App() {
             hidden={hidden}
             focusedId={focusedId}
             graveDimensions={graveDimensions}
+            graveOutline={graveOutline}
+            graves={graves}
+            hiddenGraves={hiddenGraves}
+            savedView={savedView}
+            frameRequest={frameRequest}
+            onViewChange={() => setIsDirty(true)}
+            targetId={selectedId}
             selectedId={selectedId}
+            vertical={vertical}
             onSolverIssues={handleSolverIssues}
+            imageOverlay={imageOverlay}
+            overlayFrame={overlayFrame}
+            onOverlayError={setNotice}
             onSelect={openAndSelect}
             onClearSelection={() => setSelectedId(null)}
           />
           <FocusBar individual={focusedIndividual} onExit={handleExitFocus} />
-
-          {focusedId ? (
-            <InspectionPanel
-              individual={focusedIndividual}
-              unusualLengths={solverIssues[focusedId]?.unusualLengths}
-            />
-
-          ) : (
-            <LayersPanel
-              individuals={individuals}
-              groups={groups}
-              hidden={hidden}
-              onToggleVisibility={handleToggleVisibility}
-              onToggleGroupVisibility={handleToggleGroupVisibility}
-              onIsolate={handleIsolate}
-              onShowAll={handleShowAll}
-              focusedId={focusedId}
-              onFocus={handleFocus}
+          {!focusedId && imageOverlay && (
+            <ImageOverlayBar
+              overlay={imageOverlay}
+              onOpenSettings={() => setShowOverlaySettings(true)}
+              onFrame={() => {
+                if (!imageOverlay.visible) {
+                  setImageOverlay({ ...imageOverlay, visible: true });
+                  setIsDirty(true);
+                }
+                setFocusedId(null);
+                setOverlayFrame({});
+              }}
+              onToggleVisible={() => {
+                setImageOverlay({
+                  ...imageOverlay,
+                  visible: !imageOverlay.visible,
+                });
+                setIsDirty(true);
+              }}
             />
           )}
+
+          <div
+            className={`viewport-panels ${focusedId ? "viewport-panels-focused" : ""}`}
+          >
+            {!focusedId && (
+              <GravesPanel
+                graves={graves}
+                individuals={individuals}
+                assignments={graveAssignments}
+                hidden={hiddenGraves}
+                onToggle={(id) =>
+                  setHiddenGraves((current) =>
+                    current.includes(id)
+                      ? current.filter((value) => value !== id)
+                      : [...current, id],
+                  )
+                }
+                onUpdate={handleUpdateGrave}
+                onRemove={handleRemoveGrave}
+                onAssign={(id, graveId) => {
+                  setGraveAssignments((current) => ({
+                    ...current,
+                    [id]: graveId,
+                  }));
+                  setIsDirty(true);
+                }}
+                onImport={handleImportGraveOutline}
+                onReference={(grave, level) =>
+                  setGraveSurvey({
+                    targetId: grave.id,
+                    points: grave[level],
+                    level,
+                    source: grave.references?.[level]?.source || grave.name,
+                    description: "Existing survey contour",
+                    reference: grave.references?.[level],
+                  })
+                }
+                onFit={(id) => {
+                  setFocusedId(null);
+                  setHiddenGraves((current) =>
+                    current.filter((value) => value !== id),
+                  );
+                  setFrameRequest({ id });
+                  setIsDirty(true);
+                }}
+                overlay={imageOverlay}
+                onLoadOverlay={handleLoadOverlay}
+              />
+            )}
+
+            {focusedId ? (
+              <InspectionPanel
+                individual={focusedIndividual}
+                unusualLengths={solverIssues[focusedId]?.unusualLengths}
+              />
+            ) : (
+              <LayersPanel
+                individuals={individuals}
+                groups={groups}
+                hidden={hidden}
+                onToggleVisibility={handleToggleVisibility}
+                onToggleGroupVisibility={handleToggleGroupVisibility}
+                onIsolate={handleIsolate}
+                onShowAll={handleShowAll}
+                focusedId={focusedId}
+                onFocus={handleFocus}
+              />
+            )}
+          </div>
         </div>
       </div>
     </div>

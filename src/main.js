@@ -1,7 +1,10 @@
-import { app, Menu, BrowserWindow, ipcMain, dialog } from "electron";
+import { app, Menu, BrowserWindow, ipcMain, dialog, nativeImage } from "electron";
 import path from "node:path";
 import fs from "node:fs/promises";
 import started from "electron-squirrel-startup";
+import { inspectRaster } from "./overlayAsset.js";
+import { MAX_IMAGE_BYTES } from "./imageOverlay.js";
+import { parseClientXlsx, parseClientRot } from "./clientGraveFiles.js";
 
 // Handle creating shortcuts on Windows when installing/uninstalling
 if (started) {
@@ -200,6 +203,57 @@ ipcMain.handle("open-project-path", async (_event, filePath) => {
   }
 });
 
+ipcMain.handle("import-overlay-image", async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: "Load site photograph",
+    properties: ["openFile"],
+    filters: [
+      { name: "Site photographs", extensions: ["png", "jpg", "jpeg"] },
+      { name: "All files", extensions: ["*"] },
+    ],
+  });
+  if (result.canceled || !result.filePaths.length) return { ok: false, canceled: true };
+  try {
+    const filePath = result.filePaths[0];
+    if ((await fs.stat(filePath)).size > MAX_IMAGE_BYTES) throw new Error("Choose an image no larger than 10 MB");
+    const bytes = await fs.readFile(filePath);
+    const metadata = inspectRaster(bytes);
+    const image = nativeImage.createFromBuffer(bytes);
+    const size = image.getSize();
+    if (image.isEmpty() || size.width !== metadata.pixelWidth || size.height !== metadata.pixelHeight) {
+      throw new Error("This photograph could not be decoded. Choose a valid PNG or JPEG.");
+    }
+    return { ok: true, asset: {
+      source: path.basename(filePath),
+      dataUrl: `data:${metadata.mime};base64,${bytes.toString("base64")}`,
+      pixelWidth: metadata.pixelWidth,
+      pixelHeight: metadata.pixelHeight,
+    } };
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+});
+
+ipcMain.handle("import-grave-outline", async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: "Import surveyed grave outline",
+    properties: ["openFile"],
+    filters: [{ name: "Client grave survey", extensions: ["xlsx", "rot"] }],
+  });
+  if (result.canceled || !result.filePaths.length) return { ok: false, canceled: true };
+  try {
+    const filePath = result.filePaths[0];
+    if ((await fs.stat(filePath)).size > 16 * 1024 * 1024) throw new Error("Survey file exceeds 16 MB");
+    const buffer = await fs.readFile(filePath);
+    const extension = path.extname(filePath).toLowerCase();
+    if (![".xlsx", ".rot"].includes(extension)) throw new Error("Choose an XLSX or ROT survey file");
+    const survey = extension === ".xlsx" ? parseClientXlsx(buffer) : parseClientRot(buffer.toString("utf8"));
+    return { ok: true, ...survey, source: path.basename(filePath) };
+  } catch (error) {
+    return { ok: false, error: `Could not import grave outline: ${error.message}` };
+  }
+});
+
 ipcMain.handle("import-csv", async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: "Import skeleton CSV",
@@ -299,6 +353,10 @@ const menuTemplate = [
         label: "Add Skeletons…",
         accelerator: "CmdOrCtrl+Shift+I",
         click: () => sendToRenderer("menu-import"),
+      },
+      {
+        label: "Import Grave Outline…",
+        click: () => sendToRenderer("menu-import-grave-outline"),
       },
       { type: "separator" },
       {
