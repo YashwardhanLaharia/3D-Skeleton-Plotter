@@ -12,7 +12,8 @@ The directory structure and a high-level overview of each file within this direc
 docs/
 ├── README.md                 # General overview file
 ├── getting-started.md        # Install, run, build, first use
-├── user-guide.md             # Workflows: import coords, multi-skeleton, export
+├── user-guide.md             # Feature workflows and excavation context
+├── client-user-guide.md      # Client project walkthrough and sample CSV
 ├── architecture.md           # High-level: main / renderer / preload, data flow
 ├── rig-api.md                # SkeletonRig API overview
 ├── tech-stack.md             # Runtime, build and test technologies
@@ -43,6 +44,7 @@ More detailed system inforamation can be found in `architecture`, `rig-api`, `de
 - [README.md](./README.md)
 - [getting-started.md](./getting-started.md)
 - [user-guide.md](./user-guide.md)
+- [client-user-guide.md](./client-user-guide.md)
 - [architecture.md](./architecture.md)
 - [rig-api.md](./rig-api.md)
 - [tech-stack.md](./tech-stack.md)
