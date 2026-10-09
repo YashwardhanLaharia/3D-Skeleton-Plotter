@@ -4,10 +4,14 @@ import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { createServer } from "node:net";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { By, until } from "selenium-webdriver";
 import { launchSkeletonPlotter } from "./driver.mjs";
 
 const WAIT = 10_000;
+const FILE_IMPORTS = fileURLToPath(new URL("./file-imports/", import.meta.url));
+const EXAMPLE_ROT = path.join(FILE_IMPORTS, "example.rot");
+const EXAMPLE_PNG = path.join(FILE_IMPORTS, "example.png");
 // Nine-column project CSV + required application identity row (see project-file.md).
 const HEADER =
   "individual_id,joint_id,x,y,z,x_inferior,y_inferior,z_inferior,label\n";
@@ -82,24 +86,69 @@ async function openImportApp(t) {
   await driver.wait(until.elementLocated(By.id("confirm-grave-dimensions")), WAIT).click();
   const directory = await mkdtemp(path.join(os.tmpdir(), "skeleton-import-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
+
+  async function mockOpenDialog({ canceled = false, filePaths = [] } = {}) {
+    await evaluate(`(async () => {
+      const { dialog } = process.mainModule.require('electron');
+      const original = dialog.showOpenDialog;
+      dialog.showOpenDialog = async () => {
+        dialog.showOpenDialog = original;
+        return ${JSON.stringify({ canceled, filePaths: canceled ? [] : filePaths })};
+      };
+    })()`);
+  }
+
+  async function clickMenuItem(label) {
+    await evaluate(`(async () => {
+      const { Menu } = process.mainModule.require('electron');
+      const item = Menu.getApplicationMenu().items
+        .flatMap(item => item.submenu?.items ?? [])
+        .find(item => item.label === ${JSON.stringify(label)});
+      if (!item) throw new Error(${JSON.stringify(`${label} menu item not found`)});
+      item.click();
+    })()`);
+  }
+
+  async function expandViewPanel() {
+    const toggle = await driver.wait(
+      until.elementLocated(By.css('button[aria-controls="graves-list"]')),
+      WAIT,
+    );
+    if ((await toggle.getAttribute("aria-expanded")) !== "true") {
+      await toggle.click();
+    }
+    await driver.wait(
+      until.elementLocated(By.css('section[aria-label="Grave contours"]')),
+      WAIT,
+    );
+  }
+
   return {
     driver,
+    directory,
+    expandViewPanel,
     async importFile(text, { canceled = false, missing = false } = {}) {
       const file = path.join(directory, missing ? "missing.csv" : "input.csv");
       if (!missing) await writeFile(file, text ?? "");
-      await evaluate(`(async () => {
-        const { dialog, Menu } = process.mainModule.require('electron');
-        const original = dialog.showOpenDialog;
-        dialog.showOpenDialog = async () => {
-          dialog.showOpenDialog = original;
-          return ${JSON.stringify({ canceled, filePaths: canceled ? [] : [file] })};
-        };
-        const item = Menu.getApplicationMenu().items
-          .flatMap(item => item.submenu?.items ?? [])
-          .find(item => item.label === 'Add Skeletons…');
-        if (!item) throw new Error('Add Skeletons… menu item not found');
-        item.click();
-      })()`);
+      await mockOpenDialog({ canceled, filePaths: [file] });
+      await clickMenuItem("Add Skeletons…");
+    },
+    async importGraveOutline(filePath, { canceled = false } = {}) {
+      await mockOpenDialog({
+        canceled,
+        filePaths: canceled ? [] : [filePath],
+      });
+      await clickMenuItem("Import Grave Outline…");
+    },
+    async loadPhotograph(filePath, { canceled = false } = {}) {
+      await expandViewPanel();
+      await mockOpenDialog({
+        canceled,
+        filePaths: canceled ? [] : [filePath],
+      });
+      await driver
+        .findElement(By.css('section[aria-label="Site photograph"] .graves-import'))
+        .click();
     },
   };
 }
@@ -119,6 +168,16 @@ async function notice(driver, expected) {
 async function labels(driver) {
   return Promise.all((await driver.findElements(By.css(".individual .label-input")))
     .map(element => element.getAttribute("value")));
+}
+
+async function selectOption(driver, id, value) {
+  const element = await driver.wait(until.elementLocated(By.id(id)), WAIT);
+  await driver.executeScript(
+    `arguments[0].value = arguments[1];
+     arguments[0].dispatchEvent(new Event('change', { bubbles: true }));`,
+    element,
+    value,
+  );
 }
 
 test("CSV import appends individuals, preserves coordinates, and undoes/redoes as one action", async (t) => {
@@ -216,4 +275,45 @@ test("cancelling CSV import leaves the project unchanged and permits another imp
   await count(driver, 1);
   assert.deepEqual(await labels(driver), [""]);
   assert.equal(await driver.findElement(By.css('[aria-label="Undo"]')).isEnabled(), false);
+});
+
+test("grave outline import opens the modal, imports a top contour, and lists the grave", async (t) => {
+  const { driver, importGraveOutline, expandViewPanel } = await openImportApp(t);
+  await importGraveOutline(EXAMPLE_ROT);
+  await driver.wait(until.elementLocated(By.id("grave-outline-title")), WAIT);
+  await selectOption(driver, "outline-level", "top");
+  await selectOption(driver, "outline-mode", "height");
+  await driver.findElement(By.css('button[type="submit"]')).click();
+  await notice(driver, "Imported 3 top contour vertices");
+  await expandViewPanel();
+  const grave = await driver.wait(
+    until.elementLocated(By.css(".grave-item")),
+    WAIT,
+  );
+  // Modal names from basename (example.rot), not the LN19 section header.
+  assert.equal(
+    await grave.findElement(By.css(".layer-name")).getText(),
+    "Grave outline",
+  );
+  assert.match(
+    await grave.findElement(By.css(".grave-edit summary")).getText(),
+    /3 top \/ 0 base/,
+  );
+  assert.ok((await driver.getTitle()).startsWith("• "));
+});
+
+test("site photograph load shows the source in the View panel and overlay bar", async (t) => {
+  const { driver, loadPhotograph } = await openImportApp(t);
+  await loadPhotograph(EXAMPLE_PNG);
+  await notice(driver, "Photograph loaded. Enter its grid alignment.");
+  const photoBody = await driver.findElement(
+    By.css('section[aria-label="Site photograph"] .graves-photo-body'),
+  );
+  assert.equal((await photoBody.getText()).trim(), "example.png");
+  const barLabel = await driver.wait(
+    until.elementLocated(By.css(".image-overlay-bar-label")),
+    WAIT,
+  );
+  assert.equal(await barLabel.getText(), "example.png");
+  assert.ok((await driver.getTitle()).startsWith("• "));
 });
