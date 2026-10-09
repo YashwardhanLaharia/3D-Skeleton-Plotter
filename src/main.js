@@ -43,16 +43,7 @@ ipcMain.handle("restore-autosave", async () => {
   try {
     const snapshot = await getAutosaveStore().read();
     if (!snapshot) return { ok: true };
-    const result = await dialog.showMessageBox(mainWindow, {
-      type: "question",
-      title: "Recover autosaved project",
-      message: "Restore your last autosaved project?",
-      detail: "Starting fresh keeps this backup until you edit a project.",
-      buttons: ["Restore", "Start fresh"],
-      defaultId: 0,
-      cancelId: 1,
-    });
-    return { ok: true, snapshot: result.response === 0 ? snapshot : null };
+    return { ok: true, snapshot };
   } catch (error) {
     return { ok: false, error: `Could not recover autosave: ${error.message}` };
   }

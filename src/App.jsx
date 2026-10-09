@@ -250,6 +250,8 @@ export default function App() {
   }
 
   const [recoveryReady, setRecoveryReady] = useState(false);
+  const [autosaveSnapshot, setAutosaveSnapshot] = useState(null);
+  const [autosaveError, setAutosaveError] = useState(null);
   const recoveryStarted = useRef(false);
   const skipAutosave = useRef(true);
   const lastAutosaveData = useRef(null);
@@ -262,33 +264,32 @@ export default function App() {
       try {
         const result = await window.electronAPI?.restoreAutosave?.();
         if (result && !result.ok) throw new Error(result.error);
-        if (result?.snapshot) {
-          const document = result.snapshot.document;
-          const loaded = document
-            ? { ...document, ok: Array.isArray(document.individuals) && Array.isArray(document.groups) && Array.isArray(document.graveDimensions) }
-            : csvToProject(result.snapshot.payload);
-          if (!loaded.ok) throw new Error(loaded.error || "Invalid autosaved project");
-          skipAutosave.current = true;
-          dispatch({ type: "load", individuals: loaded.individuals, groups: loaded.groups });
-          setGraveDimensions(loaded.graveDimensions);
-          setJointDetails(result.snapshot.jointDetails ?? {});
-          setFilePath(result.snapshot.filePath ?? null);
-          nextId.current = Math.max(0, ...loaded.individuals.map(item => Number(item.id.replace("ind-", "")) || 0)) + 1;
-          nextGroupId.current = Math.max(0, ...loaded.groups.map(item => Number(item.id.replace("grp-", "")) || 0)) + 1;
-          setOpenId(loaded.individuals[0]?.id ?? null);
-          setShowStartup(false);
-          setIsGraveDimensionsModalOpen(false);
-          setIsDirty(true);
-          setNotice("Autosaved project restored. Use Save to update your project file.");
-        }
+        setAutosaveSnapshot(result?.snapshot ?? null);
       } catch (error) {
-        setNotice(`Could not restore autosave: ${error.message}`);
+        setAutosaveError(`Could not read autosave: ${error.message}`);
       } finally {
         setRecoveryReady(true);
       }
     }
     recover();
   }, []);
+
+  function handleRestoreAutosave() {
+    if (!recoveryReady || !autosaveSnapshot) return;
+    try {
+      const document = autosaveSnapshot.document;
+      const loaded = document
+        ? { ...document, ok: Array.isArray(document.individuals) && Array.isArray(document.groups) && Array.isArray(document.graveDimensions) }
+        : csvToProject(autosaveSnapshot.payload);
+      if (!loaded.ok) throw new Error(loaded.error || "Invalid autosaved project");
+      applyLoadedProject(loaded, autosaveSnapshot.filePath ?? null);
+      setJointDetails(autosaveSnapshot.jointDetails ?? {});
+      setIsDirty(true);
+      setNotice("Autosaved project restored. Use Save to update your project file.");
+    } catch (error) {
+      setAutosaveError(`Could not restore autosave: ${error.message}`);
+    }
+  }
 
   useEffect(() => {
     if (!recoveryReady) return;
@@ -1085,13 +1086,16 @@ export default function App() {
   const focusedIndividual =
     individuals.find((individual) => individual.id === focusedId) ?? null;
 
-  if (!recoveryReady) return <main className="p-3">Checking autosave…</main>;
 
   return (
     <div className="app-shell d-flex flex-column vh-100 overflow-hidden">
       <StartupScreen
         show={showStartup}
         recentProjects={recentProjects}
+        autosaveSnapshot={autosaveSnapshot}
+        autosaveError={autosaveError}
+        autosaveLoading={!recoveryReady}
+        onRestoreAutosave={handleRestoreAutosave}
         graveDimensions={graveDimensions}
         setGraveDimensions={(dimensions) => {
           setGraveDimensions(dimensions);
