@@ -12,6 +12,29 @@ const WAIT = 10_000;
 const HEADER =
   "individual_id,joint_id,x,y,z,x_inferior,y_inferior,z_inferior,label\n";
 const APP_ROW = "application,,,,,,,,3d_skeleton_plotter\n";
+
+function escapeCsvCell(value) {
+  const text = String(value ?? "");
+  return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+}
+
+/** Build a data row from nine cells so commas inside labels are quoted, not counted. */
+function csvRow([
+  individualId,
+  jointId,
+  x = "",
+  y = "",
+  z = "",
+  xInferior = "",
+  yInferior = "",
+  zInferior = "",
+  label = "",
+]) {
+  return [individualId, jointId, x, y, z, xInferior, yInferior, zInferior, label]
+    .map(escapeCsvCell)
+    .join(",");
+}
+
 const BODY = (rows) => HEADER + APP_ROW + rows.join("\n") + "\n";
 
 async function openImportApp(t) {
@@ -100,10 +123,16 @@ async function labels(driver) {
 
 test("CSV import appends individuals, preserves coordinates, and undoes/redoes as one action", async (t) => {
   const { driver, importFile } = await openImportApp(t);
+  // Hide viewport overlays that can overlap sidebar controls at small window sizes
+  const viewportPanels = await driver.wait(
+    until.elementLocated(By.className("viewport-panels")),
+    WAIT,
+  );
+  await driver.executeScript("arguments[0].style.display = 'none';", viewportPanels);
   await importFile(BODY([
-    'ind-1,chin,-1.5,2,3,,,,,"Case, A"',
-    "ind-1,head_centre,4,,,,,,,",
-    "ind-2,chin,7,8,9,,,,,",
+    csvRow(["ind-1", "chin", "-1.5", "2", "3", "", "", "", "Case, A"]),
+    csvRow(["ind-1", "head_centre", "4"]),
+    csvRow(["ind-2", "chin", "7", "8", "9"]),
   ]));
   await notice(driver, "Imported 2 individuals");
   await count(driver, 3);
@@ -111,7 +140,8 @@ test("CSV import appends individuals, preserves coordinates, and undoes/redoes a
   const individuals = await driver.findElements(By.css(".individual"));
   const values = await Promise.all((await individuals[1].findElements(By.css(".coord-input")))
     .map(element => element.getAttribute("value")));
-  assert.deepEqual(values.slice(0, 6), ["4", "", "", "-1.5", "2", "3"]);
+  // JOINTS order: head_proximal, head_centre, chin, …
+  assert.deepEqual(values.slice(0, 9), ["", "", "", "4", "", "", "-1.5", "2", "3"]);
   const colours = await Promise.all(individuals.map(async (element) =>
     element.findElement(By.css('input[type="color"]')).getAttribute("value")));
   assert.equal(new Set(colours).size, 3);
@@ -122,7 +152,7 @@ test("CSV import appends individuals, preserves coordinates, and undoes/redoes a
   await driver.findElement(By.css('[aria-label="Redo"]')).click();
   await count(driver, 3);
   assert.deepEqual(await labels(driver), ["", "Case, A", "Skeleton 2"]);
-  await importFile(BODY(["ind-1,chin,10,11,12,,,,,Repeated"]));
+  await importFile(BODY([csvRow(["ind-1", "chin", "10", "11", "12", "", "", "", "Repeated"])]));
   await notice(driver, "Imported 1 individuals");
   await count(driver, 4);
   assert.deepEqual(await labels(driver), ["", "Case, A", "Skeleton 2", "Repeated"]);
@@ -139,13 +169,19 @@ for (const [name, text, options, expected] of [
   ],
   [
     "invalid later row",
-    BODY(["a,chin,1,2,3,,,,,A", "b,chin,nope,2,3,,,,,B"]),
+    BODY([
+      csvRow(["a", "chin", "1", "2", "3", "", "", "", "A"]),
+      csvRow(["b", "chin", "nope", "2", "3", "", "", "", "B"]),
+    ]),
     {},
     "Row 4 has invalid coordinates",
   ],
   [
     "duplicate joint",
-    BODY(["a,chin,1,2,3,,,,,A", "a,chin,4,5,6,,,,,A"]),
+    BODY([
+      csvRow(["a", "chin", "1", "2", "3", "", "", "", "A"]),
+      csvRow(["a", "chin", "4", "5", "6", "", "", "", "A"]),
+    ]),
     {},
     "Row 4 repeats chin for a",
   ],
@@ -165,9 +201,15 @@ for (const [name, text, options, expected] of [
 
 test("cancelling CSV import leaves the project unchanged and permits another import", async (t) => {
   const { driver, importFile } = await openImportApp(t);
+  // Hide viewport overlays that can overlap sidebar controls at small window sizes
+  const viewportPanels = await driver.wait(
+    until.elementLocated(By.className("viewport-panels")),
+    WAIT,
+  );
+  await driver.executeScript("arguments[0].style.display = 'none';", viewportPanels);
   const title = await driver.getTitle();
   await importFile("", { canceled: true });
-  await importFile(BODY(["a,chin,1,2,3,,,,,After cancel"]));
+  await importFile(BODY([csvRow(["a", "chin", "1", "2", "3", "", "", "", "After cancel"])]));
   await notice(driver, "Imported 1 individuals");
   await count(driver, 2);
   await driver.findElement(By.css('[aria-label="Undo"]')).click();

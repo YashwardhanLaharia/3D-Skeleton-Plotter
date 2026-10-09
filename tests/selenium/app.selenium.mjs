@@ -228,7 +228,7 @@ test("cancels and confirms deletion of an additional individual", async (t) => {
     WAIT_TIME,
   );
   assert.equal(
-    await dialog.findElement(By.id("delete-skeleton-description")).getText(),
+    await dialog.findElement(By.id("delete-confirmation-description")).getText(),
     "Delete Second burial and all of its coordinates?",
   );
 
