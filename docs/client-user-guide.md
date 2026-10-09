@@ -317,18 +317,14 @@ faces, and measuring shoulder and pelvis width.
 - If a displaced bone cannot be placed, the individual's ⚠ list says
   *"Displaced bones that could not be placed: …"*.
 - Expanding and collapsing a row can be undone like any other edit.
-- **Collapsing** a row reconnects the bones at the superior point. The inferior
-  values are kept and come back if you expand the row again.
-
-> **Clear the inferior values before collapsing a row you want connected.**
-> Inferior values are saved in the project CSV even when the row is collapsed,
-> and a row with inferior values is opened **expanded** when the project is
-> reopened. Expand the row, delete the three inferior values, then collapse it.
-> See [Known issues](#known-issues-and-limitations).
+- **Collapsing** a row reconnects the bones at the superior point. Until you
+  close the project, the inferior values are kept and come back if you expand
+  the row again. A collapsed row's inferior values are **not saved**, so expand
+  it again before saving if you still need them.
 
 In a CSV, the inferior point is stored in the `x_inferior`, `y_inferior` and
-`z_inferior` columns of the landmark's row. Any value in those columns opens
-the row expanded.
+`z_inferior` columns of the landmark's row. Only expanded rows write these
+columns, and any value in them opens the row expanded.
 
 ## Save your work
 
@@ -675,11 +671,6 @@ The modelling limits of the 3D skeleton itself are explained in
 
 - **There is no autosave.** Work since the last save is lost if the app closes
   unexpectedly. Save often, and keep a copy before large changes.
-- **A collapsed joint row can reopen expanded.** Inferior values are saved even
-  when their row is collapsed, and any row with inferior values is opened
-  expanded, which draws its bones as displaced. To reconnect a joint
-  permanently, expand the row, delete its three **inferior** values, then
-  collapse it before saving.
 - **Undo does not cover grave dimensions or the Height/RL setting.** Change
   them back with **Ctrl+G**.
 - **Hidden individuals are shown again on reopening.** Visibility is not saved;
