@@ -62,6 +62,26 @@ export async function setColourInput(driver, input, colour) {
   );
 }
 
+/** Set a text input via the DOM so Selenium does not click parent toggle buttons. */
+export async function setInputValue(driver, input, value) {
+  await driver.executeScript(
+    `
+      const element = arguments[0];
+      const next = arguments[1];
+      const valueSetter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value",
+      ).set;
+
+      valueSetter.call(element, next);
+      element.dispatchEvent(new Event("input", { bubbles: true }));
+      element.dispatchEvent(new Event("change", { bubbles: true }));
+    `,
+    input,
+    value,
+  );
+}
+
 export async function waitForNotice(driver, expected) {
   await driver.wait(async () => {
     const elements = await driver.findElements(By.css(".history-notice"));

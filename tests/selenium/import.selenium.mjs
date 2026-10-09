@@ -12,9 +12,9 @@ const WAIT = 10_000;
 const FILE_IMPORTS = fileURLToPath(new URL("./file-imports/", import.meta.url));
 const EXAMPLE_ROT = path.join(FILE_IMPORTS, "example.rot");
 const EXAMPLE_PNG = path.join(FILE_IMPORTS, "example.png");
+
 // Nine-column project CSV + required application identity row (see project-file.md).
-const HEADER =
-  "individual_id,joint_id,x,y,z,x_inferior,y_inferior,z_inferior,label\n";
+const HEADER = "individual_id,joint_id,x,y,z,x_inferior,y_inferior,z_inferior,label\n";
 const APP_ROW = "application,,,,,,,,3d_skeleton_plotter\n";
 
 function escapeCsvCell(value) {

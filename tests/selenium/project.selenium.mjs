@@ -10,6 +10,7 @@ import {
   isClosedSessionError,
   openInspectedApp,
   setColourInput,
+  setInputValue,
   waitForApplicationToClose,
   waitForNotice,
   waitForTitle,
@@ -22,9 +23,21 @@ const KNEE = { x: "12.5", y: "10", z: "8.25" };
 async function fillLandmark(driver, { label, colour, knee }) {
   await hideViewportPanels(driver);
 
+  // Coords first: Selenium clear/sendKeys on the label (inside the expand
+  // header button) collapses the individual and removes the coord inputs.
+  for (const [axis, value] of Object.entries(knee)) {
+    const input = await driver.wait(
+      until.elementLocated(
+        By.css(`[aria-label="left knee, ${axis.toUpperCase()}"]`),
+      ),
+      WAIT,
+    );
+    await input.clear();
+    await input.sendKeys(value);
+  }
+
   const labelInput = await driver.findElement(By.css(".individual .label-input"));
-  await labelInput.clear();
-  await labelInput.sendKeys(label);
+  await setInputValue(driver, labelInput, label);
 
   const colourInput = await driver.findElement(
     By.css('.individual input[type="color"]'),
@@ -34,14 +47,6 @@ async function fillLandmark(driver, { label, colour, knee }) {
     async () => (await colourInput.getAttribute("value")) === colour,
     WAIT,
   );
-
-  for (const [axis, value] of Object.entries(knee)) {
-    const input = await driver.findElement(
-      By.css(`[aria-label="left knee, ${axis.toUpperCase()}"]`),
-    );
-    await input.clear();
-    await input.sendKeys(value);
-  }
 }
 
 async function assertLandmark(driver, { label, colour, knee }) {
