@@ -12,8 +12,8 @@ The directory structure and a high-level overview of each file within this direc
 docs/
 ├── README.md                 # General overview file
 ├── getting-started.md        # Install, run, build, first use
-├── user-guide.md             # Feature workflows and excavation context
-├── client-user-guide.md      # Client project walkthrough and sample CSV
+├── user-guide.md             # Using the app: projects, coordinates, reconstruction, viewing, export
+├── examples/                 # Synthetic sample projects used by the user guide
 ├── client-import-errors.md   # Import messages, causes and fixes
 ├── architecture.md           # High-level: main / renderer / preload, data flow
 ├── rig-api.md                # SkeletonRig API overview
@@ -30,8 +30,7 @@ docs/
 
 ### Operators
 
-Start with the [client project walkthrough](./client-user-guide.md) and its sample
-CSV, then see [feature workflows](./user-guide.md) for excavation context.
+Start with the [user guide](./user-guide.md) and its sample CSVs.
 
 ### Developers
 
@@ -44,7 +43,6 @@ More detailed system inforamation can be found in `architecture`, `rig-api`, `de
 - [README.md](./README.md)
 - [getting-started.md](./getting-started.md)
 - [user-guide.md](./user-guide.md)
-- [client-user-guide.md](./client-user-guide.md)
 - [client-import-errors.md](./client-import-errors.md)
 - [architecture.md](./architecture.md)
 - [rig-api.md](./rig-api.md)

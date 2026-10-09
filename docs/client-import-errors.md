@@ -135,5 +135,5 @@ Keep the full message and the steps/file type when reporting an unresolved probl
 Clicking Cancel in a file picker cancels the operation; it is not an import error.
 
 For the expected CSV structure and landmarks, see the
-[client workflow guide](client-user-guide.md#prepare-a-csv). For supported client
+[user guide](user-guide.md#prepare-a-csv). For supported client
 survey layouts, see [grave-outline formats](data-formats/grave-outline.md).

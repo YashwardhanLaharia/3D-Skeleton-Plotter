@@ -1,10 +1,34 @@
-# Client user guide: project workflows
+# User guide
 
 Use this guide in the packaged Skeleton Plotter desktop application. It covers
-project creation, coordinate entry, CSV files, displaced bones, saving, how the
-3D reconstruction is built and checked, viewing, exports and known issues.
+project creation, coordinate entry, CSV files, displaced bones, grave outlines
+and site photographs, saving, how the 3D reconstruction is built and checked,
+viewing, exports and known issues.
 The sample is synthetic and demonstrates the software; it is not a client burial
 or proof of alignment with a site photograph.
+
+## Screen layout
+
+The app opens on **Home**, with **New project**, **Open project** and a
+**Recent** list of projects you have opened before. Once a project is open, the
+window has three parts:
+
+- **Menu bar**: **File** (Home, New…, Open…, Add Skeletons…, Import Grave
+  Outline…, Save, Save As…, Quit), **Edit** (Undo, Redo, Set Grave Dimensions)
+  and **Export** (Visible skeletons (CSV), Screenshot, GLB).
+- **Sidebar** on the left: **Add individual**, **Add group** and the undo/redo
+  buttons at the top, then one section per individual. Each header shows the
+  individual's colour, label, group, a landmark counter such as **24/25**, ⚠ when
+  there are problems, and the ⚙ settings button. Click a header to open the 25
+  landmark rows. The **‹** button at the sidebar's edge hides it to give the 3D
+  view more room; **›** brings it back.
+- **3D view** on the right, showing every visible individual together in the
+  grave. Over its top right are the **View** panel (grave outlines and the site
+  photograph) and the **Skeletons** panel. In focus, a bar across the top and
+  the **Measurements** panel appear. When a photograph is loaded, a photograph
+  bar sits above the view.
+
+The sections below describe each part in detail.
 
 ## Quick start with the supplied sample
 
@@ -30,6 +54,25 @@ Do not save the GitHub webpage as the CSV.
 
 To inspect the sample alone without an initial blank individual, use **Open
 project** on Home instead of the New/Add steps. This also loads its grave dimensions.
+
+## Example files for disarticulated skeletons
+
+The [examples folder](examples/) holds more synthetic projects, each showing one
+situation from this guide. They are invented test data, not records of real
+remains. Download each one the same way as the quick-start sample, then open it
+with **Open project** on Home or **File → Open…**. All use a 3 × 9 × 1 m grave.
+
+| File | What it shows | What to look for |
+| --- | --- | --- |
+| [displaced-femur.csv](examples/displaced-femur.csv) | A left femur lying about 26 cm to the side of the hip. | Rows 12 and 13 are expanded. In focus, the left femur, tibia and foot are marked **displaced**. See [Displaced bones](#displaced-bones-and-split-joints). |
+| [displaced-femur-and-hand.csv](examples/displaced-femur-and-hand.csv) | The same femur, plus a displaced left hand. | Row 8 is also expanded, so the left radius/ulna and hand are **displaced** too. |
+| [loose-skull.csv](examples/loose-skull.csv) | A skull that rolled about 40 cm from the neck, mandible attached. | Row 2 is expanded and the chin row is not. The cranium and mandible are **displaced**, and the mandible stays on the skull. |
+| [missing-femur.csv](examples/missing-femur.csv) | A left femur that was not found. | The counter shows **24/25**. The left femur is not drawn and reads **—** in Measurements; the left tibia and foot are drawn from their own points. See [How each bone is drawn](#how-each-bone-is-drawn). |
+| [commingled.csv](examples/commingled.csv) | Two individuals: *Undisturbed*, and *Disturbed*, whose right femur is missing and whose right lower leg lies beside *Undisturbed*'s. | Practise the [Skeletons panel](#the-skeletons-panel) and [focus](#focus): hide one individual, then focus with the Context slider. |
+| [bad-input.csv](examples/bad-input.csv) | Three deliberate recording errors: the left knee and ankle typed as the same point, a left foot of 51.9 cm and a right femur of 145.0 cm. | The ⚠ list shows *Missing the coordinates needed to position*, *Unusual lengths* and *Both ends recorded at the same position*. The zero-length tibia triggers two of these. In focus, Measurements marks the foot and femur with ⚠ and lists all three pairs under **Asymmetry**. See [Checking the reconstruction](#checking-the-reconstruction). |
+| [flexed.csv](examples/flexed.csv) | An intact individual lying on the back with the knees drawn up. | No warnings. Shows the legs following their landmarks in a non-extended burial. |
+| [normal-prone.csv](examples/normal-prone.csv) | An intact individual lying face down. | No warnings. Compare with the face-up quick-start sample. |
+| [ossuary.csv](examples/ossuary.csv) | An **RL** project (floor RL 1.98) with eight fully disarticulated individuals. | Ctrl+G shows the RL setting. Every bone is **displaced**, and most individuals warn about shoulder or pelvis width, which are meaningless here (see [Fully disarticulated individuals](#fully-disarticulated-individuals)). Try hiding the torso with the ⚙ **Display** options. |
 
 ## Your data stays on your computer
 
@@ -61,8 +104,10 @@ not round or convert them.
 - **X** runs left to right across the grave and **Y** runs from the front of the
   grave to the back. Together they place a point on the horizontal site grid.
 - The grid's origin (0, 0) is the grave's **left-front corner**, at floor level.
-  The grave dimensions only set the size of the drawn grid; they never move or
-  rescale recorded points.
+  The grave dimensions set the size of the drawn grid and where the floor is;
+  they never rescale recorded points.
+- The grid you see in the 3D view marks the **top** of the grave. The floor is
+  the grave's depth below it, so skeletons normally appear below the grid.
 - **Z** is the vertical value. What it means depends on the project's
   **Depth values (z)** setting, described below.
 
@@ -254,16 +299,26 @@ above it ends**. For example:
 - **The femur is also separated from the tibia.** Also expand **left knee (13)**.
   *Superior* is the lower end of the femur. *Inferior* is the upper end of the
   tibia.
-- **The skull rolled away from the neck.** Expand **centre of head (2)**.
-  *Superior* is the head centre on the body, and *inferior* is the head centre
-  of the skull where it was found. Record **head proximal (1)** at the skull's
-  position too. If you do not expand **chin (3)**, the mandible moves with the
-  skull by the same amount. Expand the chin as well if the mandible lies
-  separately.
+- **The skull rolled away from the neck, with the mandible still on it.**
+  Expand **centre of head (2)**. *Superior* is where the head centre would be on
+  the body, at the top of the neck. *Inferior* is the head centre of the skull
+  where it was found. Record **head proximal (1)** where it is now, on the moved
+  skull. Leave **chin (3)** at its position **on the body**, before the skull
+  moved: while the chin row is collapsed, the app moves the chin by the same
+  distance as the head centre, so the mandible stays on the skull.
+- **The mandible lies apart from the skull.** Expand **centre of head (2)** as
+  above, and expand **chin (3)** too. Enter the chin where it was found as the
+  chin's *superior* point; its *inferior* point is not used and can stay blank.
+  The mandible is then drawn from the skull's head centre to the chin as
+  recorded.
 
 Do not expand a joint just because its two bones meet at a slightly different
 point from the model's. Small differences are normal, and the connected
 skeleton handles them.
+
+*Try it:* open [displaced-femur.csv](examples/displaced-femur.csv) and
+[loose-skull.csv](examples/loose-skull.csv) (see [Example files for disarticulated skeletons](#example-files-for-disarticulated-skeletons))
+and expand rows 12, 13 and 2 to see how they were recorded.
 
 ### Which bones each joint affects
 
@@ -322,9 +377,75 @@ faces, and measuring shoulder and pelvis width.
   the row again. A collapsed row's inferior values are **not saved**, so expand
   it again before saving if you still need them.
 
-In a CSV, the inferior point is stored in the `x_inferior`, `y_inferior` and
-`z_inferior` columns of the landmark's row. Only expanded rows write these
-columns, and any value in them opens the row expanded.
+Saving keeps each row as it is: an expanded row reopens expanded, even if its
+inferior point is blank, and a collapsed row reopens collapsed. In a CSV, the
+inferior point is stored in the `x_inferior`, `y_inferior` and `z_inferior`
+columns of the landmark's row, and any value in them opens the row expanded.
+
+## Surveyed grave outlines
+
+1. Open or create the project containing the skeleton data. Set the site-grid
+   width, length and depth through **Edit → Set Grave Dimensions**.
+2. Choose **File → Import Grave Outline…**, or expand the **View** panel over
+   the viewport and choose **Grave contours → Import**.
+3. Select the client workbook or ROT survey file. In the import dialog, choose
+   a new named grave or an existing grave, then confirm top/base classification,
+   the vertical reference and any recorded X/Y offsets. RL imports require the
+   measured grave-floor RL; in an RL project it is filled in from the project
+   (see [Height or RL](#height-or-rl)). Leave **Keep the other contour** enabled when adding
+   a second boundary to an existing grave.
+4. Use **Frame** beside the grave to bring it into view. Expand **Edit** to
+   change its name, colour, survey notes or **Cuts into** relationship, or to
+   set the reference for an existing contour.
+5. Expand **Individuals in graves** to assign several individuals to one grave.
+   Assignment records membership; it does not move or solve a skeleton.
+
+The **View** panel keeps each grave separate, including overlapping contours.
+Click a grave's visibility control to hide/show its outline temporarily. Removing
+an outline also clears its grave assignments, after confirmation.
+
+The supplied LN24 workbook contains a top boundary only; its surface levels are
+not a base contour. The LN19 ROT cut section does not identify top versus base.
+Confirm this classification from the survey record. Do not combine these two
+sites into one top/base pair. See [client contour formats](data-formats/grave-outline.md)
+for column order, offsets and the missing client inputs.
+
+## Site photograph overlay
+
+1. Expand **View** and choose **Site photograph → Load** to select an overhead
+   PNG or JPEG. The application initially fits it inside the grave dimensions
+   while preserving the image aspect ratio.
+2. Click **Settings** on the photograph bar above the viewport. Choose **Size
+   and rotation** for a rectangular placement, or **Surveyed corners** to enter
+   the image's bottom-left, bottom-right and top-left coordinates in the same
+   local X/Y grid as the skeletons. Click **Apply alignment** after numeric edits.
+3. Set **Height above grave floor** in metres. Zero places the image on the floor;
+   a raw RL must first be converted using the measured floor reference.
+4. Adjust **Opacity** and **Show photograph** as needed. **Frame** brings the
+   photograph into view without changing its alignment. **Replace** preserves
+   placement; check that the replacement has the same surveyed extent.
+
+One photograph is supported per project. Focus with **Show environment** off
+hides it; in the overview, or in focus with Show environment on, it stays visible. Orbiting or panning
+changes the camera for the whole scene, rather than moving individual objects.
+
+### Covering the complete grid
+
+For an unrotated rectangular grid of width W and length L, use bottom-left
+(0, 0), bottom-right (W, 0), and top-left (0, L), then apply the alignment.
+These corners stretch the image across the grid, so they are appropriate for a
+visual demonstration only unless they match the photograph's surveyed extent.
+All three corners at (0, 0) have zero area and cannot be applied.
+
+The grid is drawn at the top of the grave. To put a demonstration photograph at
+that same elevation, set its height above floor to the grave depth. For excavation
+work, use the photograph's measured elevation. Different elevations can appear
+separated in an angled view even when their X/Y extents match.
+
+Corner alignment is an affine parallelogram transform. It does not correct camera
+perspective. Use a rectified overhead photograph and measured local-grid corners
+for research alignment; a stock photograph or synthetic skeleton cannot establish
+client accuracy. See [photograph formats and limits](data-formats/image-overlay.md).
 
 ## Save your work
 
@@ -337,7 +458,28 @@ edits; Cancel lets you continue working.
 Project CSVs include editable joint data and excavation context. A saved photograph
 is embedded, so the project does not depend on the original image path. Photograph
 framing on reopen can change the camera view without changing its placement.
-See [saving excavation context](user-guide.md#saving-excavation-context-and-exporting).
+See [saving excavation context](#saving-excavation-context-and-exporting).
+
+## Saving excavation context and exporting
+
+Use **File → Save** or **Save As…** to save the complete project CSV. It contains
+raw contour coordinates, their references, grave names and relationships,
+individual assignments, the photograph bytes and placement, and camera metadata.
+The embedded photograph can be reopened without the original image file.
+
+Camera settings and survey coordinates are separate. Grave visibility is temporary;
+photograph visibility and opacity are saved. A visible photograph is framed when
+opening a project, so the reopened view can differ from the previous camera even
+though placement is preserved. Without this photograph framing, the saved project
+overview restores position, orbit target and zoom. Saving during
+focus keeps the overview camera, not the focused view.
+
+**File → Add Skeletons…** adds individuals without importing the other project's
+graves, photograph or view. **Export → Screenshot** captures the current view;
+**Export → GLB** can include the visible photograph as a textured mesh. Hidden
+photographs, and photographs hidden by focus with Show environment off, are excluded from the
+scene export. Use **Save** for a complete editable project, rather than relying on
+an image or GLB export to preserve survey metadata.
 
 ## How the reconstruction is built
 
@@ -442,11 +584,19 @@ Arm, leg, hand and foot bones are on both sides.
   **Display** options in the ⚙ popup (see
   [Showing, hiding and focusing](#showing-hiding-and-focusing)).
 
+*Try it:* [missing-femur.csv](examples/missing-femur.csv) shows a missing bone,
+and [ossuary.csv](examples/ossuary.csv) shows torsos drawn for individuals that
+have none (see [Example files for disarticulated skeletons](#example-files-for-disarticulated-skeletons)).
+
 ## Checking the reconstruction
 
 The app checks each individual's landmarks every time they change. It
 **never corrects them**: a flagged bone is still drawn exactly as recorded, so a
 warning is a prompt to check your data, not a change to it.
+
+*Try it:* open [bad-input.csv](examples/bad-input.csv) (see
+[Example files for disarticulated skeletons](#example-files-for-disarticulated-skeletons)), find the three errors from the ⚠ list and the
+Measurements panel, then fix them and watch the warnings clear.
 
 ### The ⚠ problem list
 
@@ -529,6 +679,8 @@ permanent revision history inside the CSV.
 ## Showing, hiding and focusing
 
 These controls change what you **see**. They never change coordinates.
+[commingled.csv](examples/commingled.csv) (two individuals) is a good file to
+practise on (see [Example files for disarticulated skeletons](#example-files-for-disarticulated-skeletons)).
 
 ### The Skeletons panel
 
@@ -564,8 +716,8 @@ many of its members are visible.
 - Hiding is not an edit, so Undo does not reverse it.
 
 The **View** panel above it shows and hides grave contours and the site
-photograph. See [surveyed grave outlines](user-guide.md#surveyed-grave-outlines)
-and [site photograph overlay](user-guide.md#site-photograph-overlay).
+photograph. See [surveyed grave outlines](#surveyed-grave-outlines)
+and [site photograph overlay](#site-photograph-overlay).
 
 ### Selecting an individual
 
@@ -650,8 +802,8 @@ Keep the project CSV as your editable source; neither PNG nor GLB replaces it. P
 visibility and individual inspection affect what is in the scene export.
 
 For site-specific work, follow the existing
-[grave contour workflow](user-guide.md#surveyed-grave-outlines) and
-[photograph workflow](user-guide.md#site-photograph-overlay).
+[grave contour workflow](#surveyed-grave-outlines) and
+[photograph workflow](#site-photograph-overlay).
 
 ## Import errors and fixes
 
@@ -699,8 +851,8 @@ The modelling limits of the 3D skeleton itself are explained in
 
 ### Screenshots
 
-- **The screenshot is always 1920 × 1080 pixels.** On a high-resolution display
-  it can be less sharp than the screen. Zoom in on the area you need before
+- **The screenshot is always 1920 × 1080 pixels**, so that a set of figures stays
+  consistent. On a high-resolution display it can be less sharp than the screen. Zoom in on the area you need before
   exporting.
 - **Wide windows are cropped at the sides.** The export keeps the window's
   height and fits it to a 16:9 frame. If the window is wider than 16:9, the left
@@ -763,8 +915,9 @@ and viewing. The quick start, glossary and shortcut reference (3, 20, 21) are
 provisional drafts for the team's final assembly stage, not evidence that final
 guide acceptance is complete.
 
-Packaged Windows installation/SmartScreen instructions (1) and the screen tour
-(2) still need their sections and team review. The import-error reference must be refreshed if validation
+Packaged Windows installation/SmartScreen instructions (1) still need a section.
+**Screen layout** gives a basic outline of the window for the screen tour (2) to
+expand. Both need team review. The import-error reference must be refreshed if validation
 messages change before release. Teammates have already
 volunteered for several of these sections.
 
