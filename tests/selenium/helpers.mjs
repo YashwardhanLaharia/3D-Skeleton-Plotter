@@ -102,6 +102,52 @@ export async function waitForApplicationToClose(driver) {
   }, WAIT, "The application did not close");
 }
 
+/**
+ * Wait until a queued mockDiscardChoice has been consumed by confirm-discard.
+ * Needed because the window title is often already dirty before Quit/Home, so
+ * waitForTitle alone does not prove the dialog mock ran.
+ */
+export async function waitForDiscardChoiceConsumed(driver, evaluate) {
+  await driver.wait(
+    async () => (await evaluate("globalThis.__seleniumDiscardQueue?.length ?? -1")) === 0,
+    WAIT,
+    "Mocked discard choice was not consumed",
+  );
+}
+
+/**
+ * Inspected runs keep DevTools / debugger targets after the plotter window
+ * closes, so handle-count alone never reaches 0. Wait until no BrowserWindow
+ * still shows the app title (or the inspector session is gone).
+ */
+export async function waitForPlotterWindowToClose(evaluate) {
+  const deadline = Date.now() + WAIT;
+  while (Date.now() < deadline) {
+    try {
+      const open = await evaluate(`
+        process.mainModule.require('electron').BrowserWindow.getAllWindows()
+          .some((window) => {
+            if (window.isDestroyed()) return false;
+            const title = window.getTitle();
+            return title.endsWith('Skeleton Plotter') && !title.includes('DevTools');
+          })
+      `);
+      if (!open) return;
+    } catch (error) {
+      if (
+        /Cannot find context|target closed|WebSocket|socket/i.test(
+          error?.message ?? "",
+        )
+      ) {
+        return;
+      }
+      throw error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error("The Skeleton Plotter window did not close");
+}
+
 export async function waitForTitle(driver, predicate, message) {
   await driver.wait(async () => predicate(await driver.getTitle()), WAIT, message);
 }
@@ -202,15 +248,30 @@ export async function openInspectedApp(t) {
     })()`);
   }
 
-  /** response: 0 = Save, 1 = Don't save, 2 = Cancel (matches main.js confirm-discard). */
+  /**
+   * Queue a confirm-discard result. Prefer IPC over patching dialog.showMessageBox:
+   * Electron's native dialog methods are not reliably overwriteable from the
+   * inspector, so an unmocked box hangs the main process in headless runs.
+   *
+   * response: 0 = Save, 1 = Don't save, 2 = Cancel (matches main.js buttons).
+   */
   async function mockDiscardChoice(response) {
+    const choice =
+      response === 0 ? "save" : response === 1 ? "discard" : "cancel";
     await evaluate(`(async () => {
-      const { dialog } = process.mainModule.require('electron');
-      const original = dialog.showMessageBox;
-      dialog.showMessageBox = async () => {
-        dialog.showMessageBox = original;
-        return { response: ${JSON.stringify(response)} };
-      };
+      const { ipcMain } = process.mainModule.require('electron');
+      if (!globalThis.__seleniumDiscardQueue) {
+        globalThis.__seleniumDiscardQueue = [];
+        ipcMain.removeHandler('confirm-discard');
+        ipcMain.handle('confirm-discard', async () => {
+          const next = globalThis.__seleniumDiscardQueue.shift();
+          if (next == null) {
+            throw new Error('confirm-discard called without a mocked choice');
+          }
+          return next;
+        });
+      }
+      globalThis.__seleniumDiscardQueue.push(${JSON.stringify(choice)});
     })()`);
   }
 

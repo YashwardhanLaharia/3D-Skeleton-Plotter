@@ -7,12 +7,12 @@ import {
   WAIT,
   createBlankProject,
   hideViewportPanels,
-  isClosedSessionError,
   openInspectedApp,
   setColourInput,
   setInputValue,
-  waitForApplicationToClose,
+  waitForDiscardChoiceConsumed,
   waitForNotice,
+  waitForPlotterWindowToClose,
   waitForTitle,
 } from "./helpers.mjs";
 
@@ -157,44 +157,36 @@ test("creating a project is dirty, Save clears it, and further edits dirty it ag
 });
 
 test("dirty close can be cancelled, then discarded", async (t) => {
-  const { driver, mockDiscardChoice } = await openInspectedApp(t);
+  // Prefer Quit over window.close(): Chromium waits for the window to go away,
+  // so Cancel (which keeps it open) hangs the Selenium script forever.
+  const { driver, evaluate, mockDiscardChoice, clickMenuItem } =
+    await openInspectedApp(t);
 
   await createBlankProject(driver);
   assert.ok((await driver.getTitle()).startsWith("• "));
 
   await mockDiscardChoice(2); // Cancel
-  try {
-    await driver.executeScript("window.close()");
-  } catch (error) {
-    if (!isClosedSessionError(error)) throw error;
-  }
-
-  await driver.wait(async () => {
-    try {
-      return (await driver.getAllWindowHandles()).length > 0;
-    } catch (error) {
-      if (isClosedSessionError(error)) return false;
-      throw error;
-    }
-  }, WAIT, "Cancel should keep the application open");
+  await clickMenuItem("Quit");
+  await waitForDiscardChoiceConsumed(driver, evaluate);
   assert.equal(await driver.getTitle(), "• Untitled — Skeleton Plotter");
   await waitForElementAbsent(driver, "#startup-screen");
 
   await mockDiscardChoice(1); // Don't save
-  try {
-    await driver.executeScript("window.close()");
-  } catch (error) {
-    if (!isClosedSessionError(error)) throw error;
-  }
-  await waitForApplicationToClose(driver);
+  await clickMenuItem("Quit");
+  // Discard runs confirmClose and tears down the inspector; treat a gone
+  // plotter window (or dead CDP session) as success rather than re-probing
+  // the discard queue.
+  await waitForPlotterWindowToClose(evaluate);
 });
 
 test("Home returns to the startup screen after discarding unsaved changes", async (t) => {
-  const { driver, mockDiscardChoice, clickMenuItem } = await openInspectedApp(t);
+  const { driver, evaluate, mockDiscardChoice, clickMenuItem } =
+    await openInspectedApp(t);
 
   await createBlankProject(driver);
   await mockDiscardChoice(1); // Don't save
   await clickMenuItem("Home");
+  await waitForDiscardChoiceConsumed(driver, evaluate);
 
   await driver.wait(until.elementLocated(By.id("startup-screen")), WAIT);
   await waitForTitle(
