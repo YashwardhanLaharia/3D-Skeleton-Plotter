@@ -1,5 +1,7 @@
 import { useState } from "react";
 import packageJson from "../../package.json";
+import VerticalReferenceFields from "./VerticalReferenceFields";
+import { parseVerticalInput } from "../sceneSpace";
 
 function formatRecentDate(timestamp) {
   if (!timestamp) return "";
@@ -44,6 +46,8 @@ function StartupScreen({
   recentProjects = [],
   graveDimensions,
   setGraveDimensions,
+  vertical,
+  setVertical,
   onCreateConfirm,
   onOpen,
   onOpenRecent,
@@ -52,20 +56,40 @@ function StartupScreen({
   const [temporaryGraveDimensions, setTemporaryGraveDimensions] = useState([
     ...graveDimensions,
   ]);
+  const [temporaryVertical, setTemporaryVertical] = useState({
+    convention: "height",
+    floorRL: "",
+  });
+  const [verticalError, setVerticalError] = useState(null);
 
   if (!show) return null;
 
   function handleCreateClick() {
     setTemporaryGraveDimensions([...graveDimensions]);
+    setTemporaryVertical({
+      convention: vertical.convention,
+      floorRL: vertical.floorRL ?? "",
+    });
+    setVerticalError(null);
     setStep("dimensions");
   }
 
   function handleConfirmDimensions() {
+    const parsed = parseVerticalInput(
+      temporaryVertical.convention,
+      temporaryVertical.floorRL,
+    );
+    if (!parsed.ok) {
+      setVerticalError(parsed.error);
+      return;
+    }
+
     setGraveDimensions([
       temporaryGraveDimensions[0],
       temporaryGraveDimensions[1],
       temporaryGraveDimensions[2],
     ]);
+    setVertical(parsed.vertical);
     setStep("home");
     onCreateConfirm();
   }
@@ -234,6 +258,16 @@ function StartupScreen({
                 />
               </div>
             </div>
+            <VerticalReferenceFields
+              className="mb-4"
+              convention={temporaryVertical.convention}
+              floorRL={temporaryVertical.floorRL}
+              error={verticalError}
+              onChange={(next) => {
+                setTemporaryVertical(next);
+                setVerticalError(null);
+              }}
+            />
             <div className="startup-dimensions-actions">
               <button
                 type="button"

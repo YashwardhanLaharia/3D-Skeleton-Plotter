@@ -1,27 +1,54 @@
 import { useEffect, useState } from "react";
+import VerticalReferenceFields from "./VerticalReferenceFields";
+import { parseVerticalInput } from "../sceneSpace";
 
 function GraveDimensionsModal({
   show,
   onHide,
   graveDimensions,
   setGraveDimensions,
+  vertical,
+  setVertical,
 }) {
   const [temporaryGraveDimensions, setTemporaryGraveDimensions] = useState([
     ...graveDimensions,
   ]);
 
+  // The floor RL is kept as the typed text until Confirm, like the dimensions.
+  const [temporaryVertical, setTemporaryVertical] = useState({
+    convention: "height",
+    floorRL: "",
+  });
+
+  const [verticalError, setVerticalError] = useState(null);
+
   useEffect(() => {
     if (show) {
       setTemporaryGraveDimensions([...graveDimensions]);
+      setTemporaryVertical({
+        convention: vertical.convention,
+        floorRL: vertical.floorRL ?? "",
+      });
+      setVerticalError(null);
     }
-  }, [show, graveDimensions]);
+  }, [show, graveDimensions, vertical]);
 
   function handleCreate() {
+    const parsed = parseVerticalInput(
+      temporaryVertical.convention,
+      temporaryVertical.floorRL,
+    );
+    if (!parsed.ok) {
+      setVerticalError(parsed.error);
+      return;
+    }
+
     setGraveDimensions([
       temporaryGraveDimensions[0],
       temporaryGraveDimensions[1],
       temporaryGraveDimensions[2],
     ]);
+    setVertical(parsed.vertical);
     onHide();
   }
 
@@ -108,8 +135,18 @@ function GraveDimensionsModal({
                   />
                 </div>
               </div>
+              <VerticalReferenceFields
+                convention={temporaryVertical.convention}
+                floorRL={temporaryVertical.floorRL}
+                error={verticalError}
+                onChange={(next) => {
+                  setTemporaryVertical(next);
+                  setVerticalError(null);
+                }}
+              />
             </div>
             <div className="modal-footer">
+
               <button type="button" className="btn btn-secondary" onClick={onHide}>
                 Cancel
               </button>

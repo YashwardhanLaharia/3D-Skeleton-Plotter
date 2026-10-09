@@ -57,4 +57,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     });
     return () => removers.forEach((remove) => remove());
   },
+  setStartupMenu(startup) {
+    return ipcRenderer.invoke('set-startup-menu', startup);
+  },
 });
