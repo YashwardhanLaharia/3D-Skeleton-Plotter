@@ -233,3 +233,69 @@ test("part-hide flags round-trip through CSV", () => {
   assert.equal(opened.individuals[0].hideRibcage, false);
   assert.equal(opened.individuals[0].hideScapulae, true);
 });
+
+test("an expanded row with a blank inferior point reopens expanded", () => {
+  const coords = blankCoords();
+  coords.head_centre = {
+    x: "1.5", y: "5.71", z: "0.39",
+    split: true,
+    inferior: { x: "1.9", y: "5.6", z: "0.34" },
+  };
+  coords.chin = {
+    x: "1.9", y: "5.68", z: "0.30",
+    split: true,
+    inferior: { x: "", y: "", z: "" },
+  };
+  const csv = createCsv(
+    [{ id: "ind-1", label: "Skull moved", colour: "#E69F00", coords }],
+    [3, 9, 1],
+  );
+
+  const marker = parseCsv(csv).rows.filter((row) => row.joint_id === "expanded_rows");
+  assert.equal(marker.length, 1);
+  assert.equal(marker[0].label, "chin");
+
+  const reopened = csvToProject(csv).individuals[0].coords;
+  assert.deepEqual(reopened.chin, {
+    x: "1.9", y: "5.68", z: "0.30",
+    split: true,
+    inferior: { x: "", y: "", z: "" },
+  });
+  assert.equal(reopened.head_centre.split, true);
+  assert.deepEqual(reopened.head_centre.inferior, { x: "1.9", y: "5.6", z: "0.34" });
+});
+
+test("projects without blank expanded rows have no expanded_rows record", () => {
+  const coords = blankCoords();
+  coords.knee_l = {
+    x: "1", y: "6.9", z: "0.35",
+    split: true,
+    inferior: { x: "1.4", y: "6.9", z: "0.35" },
+  };
+  const csv = createCsv([{ id: "ind-1", label: "A", colour: "blue", coords }], [3, 9, 1]);
+  assert.ok(!csv.includes("expanded_rows"));
+});
+
+test("Add Skeletons keeps blank expanded rows too", () => {
+  const coords = blankCoords();
+  coords.wrist_l = { x: "1", y: "6", z: "0.3", split: true, inferior: { x: "", y: "", z: "" } };
+  const parsed = parseCsv(
+    createCsv([{ id: "ind-1", label: "A", colour: "blue", coords }], [3, 9, 1]),
+  );
+  const added = rowsToIndividuals(parsed.columns, parsed.rows, ["ind-1"]);
+  assert.equal(added.ok, true);
+  assert.equal(added.individuals[0].coords.wrist_l.split, true);
+});
+
+test("an unknown landmark in expanded_rows is refused", () => {
+  const csv = createCsv(
+    [{ id: "ind-1", label: "A", colour: "blue", coords: blankCoords() }],
+    [3, 9, 1],
+  ).replace(
+    "ind-1,scapulae_hidden,,,,,,,0",
+    "ind-1,scapulae_hidden,,,,,,,0\r\nind-1,expanded_rows,,,,,,,elbow_x",
+  );
+  const result = csvToProject(csv);
+  assert.equal(result.ok, false);
+  assert.match(result.error, /unknown landmark as expanded: elbow_x/);
+});

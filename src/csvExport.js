@@ -5,6 +5,7 @@ import {
   APPLICATION_ID,
   APPLICATION_LABEL,
   CSV_COLUMNS,
+  EXPANDED_ROWS_ID,
   VERTICAL_ROW_ID,
 } from "./csvImport.js";
 import { DEFAULT_VERTICAL } from "./sceneSpace.js";
@@ -191,6 +192,35 @@ export function createCsv(
     ]) {
       lines.push(
         [individual.id, jointId, "", "", "", "", "", "", hidden ? "1" : "0"]
+          .map(escapeCsvCell)
+          .join(","),
+      );
+    }
+
+    // An expanded row is normally recognised by its inferior values, so one
+    // with no inferior point yet needs listing, or it reopens collapsed.
+    const expandedWithoutInferior = JOINTS.filter(({ id }) => {
+      const coordinates = individual.coords?.[id];
+      const inferior = coordinates?.inferior ?? {};
+      return (
+        coordinates?.split &&
+        ["x", "y", "z"].every((axis) => String(inferior[axis] ?? "").trim() === "")
+      );
+    }).map(({ id }) => id);
+
+    if (expandedWithoutInferior.length) {
+      lines.push(
+        [
+          individual.id,
+          EXPANDED_ROWS_ID,
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          expandedWithoutInferior.join(" "),
+        ]
           .map(escapeCsvCell)
           .join(","),
       );
