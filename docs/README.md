@@ -12,14 +12,18 @@ The directory structure and a high-level overview of each file within this direc
 docs/
 ├── README.md                 # General overview file
 ├── getting-started.md        # Install, run, build, first use
-├── user-guide.md             # Workflows: import coords, multi-skeleton, export
+├── user-guide.md             # Feature workflows and excavation context
 ├── architecture.md           # High-level: main / renderer / preload, data flow
 ├── rig-api.md                # SkeletonRig API overview
+├── tech-stack.md             # Runtime, build and test technologies
+├── directory-layout.md       # Source, tests and generated outputs
 ├── data-formats/
 │   ├── joint-coordinates.md  # Joint IDs, axes, expected input format
-│   └── project-file.md       # Schema, schemaVersion, individuals structure
+│   ├── project-file.md       # Saved project CSV and reserved records
+│   ├── grave-outline.md      # Client contours, references and named graves
+│   └── image-overlay.md      # Photograph placement, persistence and export
 └── development/
-    ├── setup.md              # npm scripts, Electron Forge, Vite configs
+    ├── setup.md              # Build, test and application configuration
     ├── testing.md            # Testing information
     └── dependencies.md       # Version pins, overrides, accepted advisories
 ```
@@ -41,10 +45,14 @@ More detailed system inforamation can be found in `architecture`, `rig-api`, `de
 - [user-guide.md](./user-guide.md)
 - [architecture.md](./architecture.md)
 - [rig-api.md](./rig-api.md)
+- [tech-stack.md](./tech-stack.md)
+- [directory-layout.md](./directory-layout.md)
 - data-formats
   - [joint-coordinates.md](./data-formats/joint-coordinates.md)
   - [project-file.md](./data-formats/project-file.md)
+  - [grave-outline.md](./data-formats/grave-outline.md)
+  - [image-overlay.md](./data-formats/image-overlay.md)
 - development
-  - [setup.md](./setup.md)
-  - [testing.md](./testing.md)
-  - [dependencies.md](./dependencies.md)
+  - [setup.md](./development/setup.md)
+  - [testing.md](./development/testing.md)
+  - [dependencies.md](./development/dependencies.md)
