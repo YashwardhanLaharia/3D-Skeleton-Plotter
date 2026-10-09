@@ -1,51 +1,82 @@
 # 3D Skeleton Plotter
 
-## Overview
+Desktop app for forensic and bioarchaeological research: enter or import joint
+coordinates and reconstruct skeletons in a 3D grave scene. Each scene is saved
+as a single CSV file and the entire application runs offline.
 
-A standalone desktop application, built using Electron and React, for private forensic and bioarchaeological research that accepts (X, Y, Z) coordinates of human skeletal joints and maps them onto a realistic 3D human skeleton model. This allows researchers to accurately reconstruct, visualise, and analyse the precise positioning of a body within a grave context, including support for importing multiple independent joint datasets simultaneously, allowing users to layer, label, and visualise several distinct skeletons within a single shared 3D grave environment. The application additionally allows skeletons to be colour-coded to differentiate individuals within a mass grave, with automatic and manual override options. The skeleton view features full 360-degree orbital rotation, panning, and zooming to allow detailed inspection of the body from any angle, and the ability to save reconstructions locally and export screenshots or 3D view files for research documentation.
+Built with Electron, React and Three.js.
 
-## Usage
+## Features
 
-### Rig API
+- Record landmarks for one or more individuals in a local site grid
+- Height-above-floor or reduced vertical conventions
+- Colour-code, group and focus individuals in a mass-grave context
+- Displaced / split joints for disarticulated remains
+- Import surveyed grave outlines and site photographs
+- Orbit, pan and zoom the 3D view
+- Save projects; export CSV, screenshot or GLB
 
-Create one rig per cloned skeleton scene and control it through stable anatomical IDs:
+## Quick start
 
-```js
-import { createSkeletonRig } from "./src/rig/SkeletonRigApi.js";
+### Use the application
 
-const rig = createSkeletonRig(scene);
-rig.rotateJoint("shoulder_l", "z", 10);
-rig.setSegmentScale("thigh_l", 0.8);
-rig.setSkeletonScale(0.7);
-```
+1. Launch the packaged desktop app (or run from source).
+2. On **Home**, choose **New project** and set grave dimensions, or **Open
+   project** to load a CSV.
+3. Follow the [user guide](docs/user-guide.md) with the sample
+   [synthetic-skeleton.csv](docs/examples/synthetic-skeleton.csv).
 
-See the [Rig API reference](src/rig/README.md) for all controls, identifiers, state, and reset behavior.
+### Develop from source
 
-### Development
+Requires Node.js ≥ 22.12 and npm ≥ 12. Prefer `npm ci` on a clean checkout.
 
 ```bash
-npm install
+git clone https://github.com/YashwardhanLaharia/3D-Skeleton-Plotter.git
+cd 3D-Skeleton-Plotter
+npm ci
 npm start
 ```
 
-### Production
+```bash
+npm test                 # unit / module tests
+npm run package          # local packaged app under out/
+npm run test:selenium    # package, then end-to-end Selenium suite
+```
 
-Coming soon
+Full install, packaging and platform notes, see:
+[Getting started](docs/getting-started.md).
 
 ## Documentation
 
-Documentation is available in MarkDown format in the `/docs` directory.
+All technical docs are under [`docs/`](docs/README.md). This is a good starting
+point for all developers and new clients.
 
-## Unit Testing
+| Document | Audience |
+| --- | --- |
+| [User guide](docs/user-guide.md) | Day-to-day use of the app |
+| [Getting started](docs/getting-started.md) | Clone, install, run, package |
+| [Project file format](docs/data-formats/project-file.md) | Saved CSV structure |
+| [Architecture](docs/architecture.md) | Main / renderer / data flow |
+| [Testing](docs/development/testing.md) | How to run and extend tests |
 
-Unit tests are present in the `/tests` directory.
+Also useful: [import errors](docs/client-import-errors.md),
+[joint coordinates](docs/data-formats/joint-coordinates.md),
+[grave outlines](docs/data-formats/grave-outline.md),
+[site photographs](docs/data-formats/image-overlay.md).
+
+Rig and solver details:
+
+- [`docs/rig-api.md`](docs/rig-api.md)
+- [`src/rig/README.md`](src/rig/README.md)
+- [`src/solver/README.md`](src/solver/README.md)
+
 
 ## Contributors
 
-| Name                | Student ID |
-|---------------------|------------|
-| Alfred William      | 24499496   |
-| Anthony Robert      | 24567033   |
-| Benji Passaportis   | 24494921   |
-| Harjaap Singh       | 24291609   |
-| Yashwardhan Laharia | 24295462   |
+| Name | Student ID |
+| --- | --- |
+| Alfred William | 24499496 |
+| Anthony Robert | 24567033 |
+| Benji Passaportis | 24494921 |
+| Harjaap Singh | 24291609 |
+| Yashwardhan Laharia | 24295462 |

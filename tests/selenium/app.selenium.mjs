@@ -132,9 +132,12 @@ test("adds independent individuals with different default colours", async (t) =>
   // Leave the startup screen
   await dismissStartup(driver);
 
-  // Hide the layers header, which can overlap wth sidebar at very small screen sizes
-  const layersHeader = await driver.wait(until.elementLocated(By.className("layers-panel")), WAIT_TIME);
-  await driver.executeScript("arguments[0].style.display = 'none';", layersHeader);
+  // Hide viewport overlays that can overlap the sidebar at small window sizes
+  const viewportPanels = await driver.wait(
+    until.elementLocated(By.className("viewport-panels")),
+    WAIT_TIME,
+  );
+  await driver.executeScript("arguments[0].style.display = 'none';", viewportPanels);
 
   await (await buttonWithText(driver, "Add individual")).click();
   await waitForElementCount(driver, ".individual", 2);
@@ -143,10 +146,10 @@ test("adds independent individuals with different default colours", async (t) =>
   const firstLabel = await individuals[0].findElement(By.css('.label-input'));
   const secondLabel = await individuals[1].findElement(By.css('.label-input'));
   await firstLabel.sendKeys("Anthony");
-  await secondLabel.sendKeys("Ben");
+  await secondLabel.sendKeys("Benjamin");
 
   assert.equal(await firstLabel.getAttribute("value"), "Anthony");
-  assert.equal(await secondLabel.getAttribute("value"), "Ben");
+  assert.equal(await secondLabel.getAttribute("value"), "Benjamin");
 
   const firstColour = await individuals[0]
     .findElement(By.css('input[type="color"]'))
@@ -163,9 +166,12 @@ test("changes an individual's colour and supports undo and redo", async (t) => {
   // Leave the startup screen
   await dismissStartup(driver);
 
-  // Hide the layers header, which can overlap wth sidebar at very small screen sizes
-  const layersHeader = await driver.wait(until.elementLocated(By.className("layers-panel")), WAIT_TIME);
-  await driver.executeScript("arguments[0].style.display = 'none';", layersHeader);
+  // Hide viewport overlays that can overlap the sidebar at small window sizes
+  const viewportPanels = await driver.wait(
+    until.elementLocated(By.className("viewport-panels")),
+    WAIT_TIME,
+  );
+  await driver.executeScript("arguments[0].style.display = 'none';", viewportPanels);
 
   const colourInput = await driver.findElement(By.css('.individual input[type="color"]'));
   const undoButton = await driver.findElement(By.css('[aria-label="Undo"]'));
@@ -203,9 +209,12 @@ test("cancels and confirms deletion of an additional individual", async (t) => {
   // Leave the startup screen
   await dismissStartup(driver);
 
-  // Hide the layers header, which can overlap wth sidebar at very small screen sizes
-  const layersHeader = await driver.wait(until.elementLocated(By.className("layers-panel")), WAIT_TIME);
-  await driver.executeScript("arguments[0].style.display = 'none';", layersHeader);
+  // Hide viewport overlays that can overlap the sidebar at small window sizes
+  const viewportPanels = await driver.wait(
+    until.elementLocated(By.className("viewport-panels")),
+    WAIT_TIME,
+  );
+  await driver.executeScript("arguments[0].style.display = 'none';", viewportPanels);
 
   await (await buttonWithText(driver, "Add individual")).click();
   await waitForElementCount(driver, ".individual", 2);
@@ -264,9 +273,12 @@ test("toggles the sidebar and collapses and expands an individual", async (t) =>
   // Leave the startup screen
   await dismissStartup(driver);
 
-  // Hide the layers header, which can overlap wth sidebar at very small screen sizes
-  const layersHeader = await driver.wait(until.elementLocated(By.className("layers-panel")), WAIT_TIME);
-  await driver.executeScript("arguments[0].style.display = 'none';", layersHeader);
+  // Hide viewport overlays that can overlap the sidebar at small window sizes
+  const viewportPanels = await driver.wait(
+    until.elementLocated(By.className("viewport-panels")),
+    WAIT_TIME,
+  );
+  await driver.executeScript("arguments[0].style.display = 'none';", viewportPanels);
 
   await driver.findElement(By.css('[aria-label="Hide sidebar"]')).click();
   const showSidebar = await driver.wait(

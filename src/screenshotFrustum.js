@@ -8,6 +8,7 @@
 // uniform on both axes, and keeps the vertical framing identical to what is
 // already on screen.
 
+/** Match export aspect by widening left/right only; returns prior frustum. */
 export function applyExportFrustum(camera, aspect) {
   const previous = {
     left: camera.left,
@@ -26,6 +27,7 @@ export function applyExportFrustum(camera, aspect) {
   return previous;
 }
 
+/** Undo applyExportFrustum. */
 export function restoreExportFrustum(camera, previous) {
   camera.left = previous.left;
   camera.right = previous.right;

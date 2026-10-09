@@ -1,6 +1,10 @@
 import { Scene } from "three";
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 
+/**
+ * Viewport → standalone scene for GLB export: visible skeletons, photograph,
+ * grid and lights. Camera clone carries orbitTarget in userData.
+ */
 export function makeGLBExportScene(scene, camera, controls) {
   const exportScene = new Scene();
   exportScene.name = "Skeleton Plotter viewport";

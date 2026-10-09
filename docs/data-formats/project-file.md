@@ -38,6 +38,9 @@ making the project independent of the original image file. Its corners and heigh
 are survey placement, whereas `project_view` is camera state. On opening, framing
 a visible photograph may change the camera without changing the stored placement.
 
+This information is ignored when importing into an existing project, and will
+instead follow the records of the project being imported into.
+
 ## Individual records
 
 Each individual is a block of rows sharing its `individual_id`: metadata rows

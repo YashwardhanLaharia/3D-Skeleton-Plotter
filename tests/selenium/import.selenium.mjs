@@ -8,7 +8,11 @@ import { By, until } from "selenium-webdriver";
 import { launchSkeletonPlotter } from "./driver.mjs";
 
 const WAIT = 10_000;
-const HEADER = "individual_id,joint_id,x,y,z,label\n";
+// Nine-column project CSV + required application identity row (see project-file.md).
+const HEADER =
+  "individual_id,joint_id,x,y,z,x_inferior,y_inferior,z_inferior,label\n";
+const APP_ROW = "application,,,,,,,,3d_skeleton_plotter\n";
+const BODY = (rows) => HEADER + APP_ROW + rows.join("\n") + "\n";
 
 async function openImportApp(t) {
   const server = createServer();
@@ -61,7 +65,7 @@ async function openImportApp(t) {
       const file = path.join(directory, missing ? "missing.csv" : "input.csv");
       if (!missing) await writeFile(file, text ?? "");
       await evaluate(`(async () => {
-        const { dialog, Menu } = require('electron');
+        const { dialog, Menu } = process.mainModule.require('electron');
         const original = dialog.showOpenDialog;
         dialog.showOpenDialog = async () => {
           dialog.showOpenDialog = original;
@@ -69,8 +73,8 @@ async function openImportApp(t) {
         };
         const item = Menu.getApplicationMenu().items
           .flatMap(item => item.submenu?.items ?? [])
-          .find(item => item.label === 'Import');
-        if (!item) throw new Error('Import menu item not found');
+          .find(item => item.label === 'Add Skeletons…');
+        if (!item) throw new Error('Add Skeletons… menu item not found');
         item.click();
       })()`);
     },
@@ -96,7 +100,11 @@ async function labels(driver) {
 
 test("CSV import appends individuals, preserves coordinates, and undoes/redoes as one action", async (t) => {
   const { driver, importFile } = await openImportApp(t);
-  await importFile(HEADER + 'ind-1,chin,-1.5,2,3,"Case, A"\nind-1,head_centre,4,,,\nind-2,chin,7,8,9,');
+  await importFile(BODY([
+    'ind-1,chin,-1.5,2,3,,,,,"Case, A"',
+    "ind-1,head_centre,4,,,,,,,",
+    "ind-2,chin,7,8,9,,,,,",
+  ]));
   await notice(driver, "Imported 2 individuals");
   await count(driver, 3);
   assert.deepEqual(await labels(driver), ["", "Case, A", "Skeleton 2"]);
@@ -114,16 +122,33 @@ test("CSV import appends individuals, preserves coordinates, and undoes/redoes a
   await driver.findElement(By.css('[aria-label="Redo"]')).click();
   await count(driver, 3);
   assert.deepEqual(await labels(driver), ["", "Case, A", "Skeleton 2"]);
-  await importFile(HEADER + "ind-1,chin,10,11,12,Repeated");
+  await importFile(BODY(["ind-1,chin,10,11,12,,,,,Repeated"]));
   await notice(driver, "Imported 1 individuals");
   await count(driver, 4);
   assert.deepEqual(await labels(driver), ["", "Case, A", "Skeleton 2", "Repeated"]);
 });
 
+// Expected strings match docs/client-import-errors.md / csvImport.js.
+// Row numbers count header (1) + application row (2) + data rows.
 for (const [name, text, options, expected] of [
-  ["missing column", "individual_id,joint_id,x,y,label\na,chin,1,2,A", {}, "Missing CSV columns: z"],
-  ["invalid later row", HEADER + "a,chin,1,2,3,A\nb,chin,nope,2,3,B", {}, "Row 3 has invalid coordinates"],
-  ["duplicate joint", HEADER + "a,chin,1,2,3,A\na,chin,4,5,6,A", {}, "Row 3 repeats chin for a"],
+  [
+    "missing column",
+    "individual_id,joint_id,x,y,label\na,chin,1,2,A",
+    {},
+    "Missing CSV columns: z",
+  ],
+  [
+    "invalid later row",
+    BODY(["a,chin,1,2,3,,,,,A", "b,chin,nope,2,3,,,,,B"]),
+    {},
+    "Row 4 has invalid coordinates",
+  ],
+  [
+    "duplicate joint",
+    BODY(["a,chin,1,2,3,,,,,A", "a,chin,4,5,6,,,,,A"]),
+    {},
+    "Row 4 repeats chin for a",
+  ],
   ["unreadable file", "", { missing: true }, "Could not read CSV:"],
 ]) {
   test(`CSV import reports ${name} without changing the project`, async (t) => {
@@ -138,11 +163,11 @@ for (const [name, text, options, expected] of [
   });
 }
 
-test("canceling CSV import leaves the project unchanged and permits another import", async (t) => {
+test("cancelling CSV import leaves the project unchanged and permits another import", async (t) => {
   const { driver, importFile } = await openImportApp(t);
   const title = await driver.getTitle();
   await importFile("", { canceled: true });
-  await importFile(HEADER + "a,chin,1,2,3,After cancel");
+  await importFile(BODY(["a,chin,1,2,3,,,,,After cancel"]));
   await notice(driver, "Imported 1 individuals");
   await count(driver, 2);
   await driver.findElement(By.css('[aria-label="Undo"]')).click();

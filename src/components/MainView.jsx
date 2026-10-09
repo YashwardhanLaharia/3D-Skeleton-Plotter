@@ -52,8 +52,9 @@ extend({ OrbitControls: ThreeOrbitControls });
 
 const EMPTY_POSE = Object.freeze({});
 
-// Global scale factor for the scene.
-// Must be passed into the grid helper and scene-space conversion functions.
+// Scene units are metres (model rest lengths are already metric). Keep this
+// at 1 and pass it into every toSceneSpace / grid / overlay call so a future
+// scale change cannot silently desync skeletons from graves and photographs.
 const globalScale = 1;
 
 function boneNames(boneIds) {
@@ -139,9 +140,13 @@ function SkeletonModel({
   // Creates the one-bone solver using this skeleton's cloned scene.
   const solveBone = useMemo(() => createSolveBone(clonedScene), [clonedScene]);
 
-  // Sidebar coordinates arrive as strings.
-  // Convert them to numbers, then convert site-grid coordinates
-  // into Three.js scene-space coordinates.
+  // Survey → scene for the articulated solver.
+  //
+  // Sidebar cells are strings in site-grid metres. toNumericJoints drops blanks
+  // (never coerces them to 0). toSceneSpace then applies graveOrigin, axis
+  // remap (site z → scene y), and the project vertical setting: for RL,
+  // heightAboveFloor = floorRL − z. Passing `vertical` here is mandatory —
+  // omitting it would draw RL data as height and mirror the burial.
   const sceneJoints = useMemo(() => {
     const numericJoints = toNumericJoints(coords);
     const origin = graveOrigin(graveDimensions);
@@ -217,6 +222,11 @@ function SkeletonModel({
         splitJoints,
       });
 
+    // planBones endpoints are still site-grid metres (and may use an expanded
+    // row's inferior point). They are not in sceneJoints, so independent bones
+    // convert here again with the same origin/scale/vertical as above. The rig
+    // is space-agnostic: feeding site-grid points would place bones in the
+    // wrong corner of the grave.
     const origin = graveOrigin(graveDimensions);
     const unplaced = [];
     const implausibleSpawns = [];
@@ -687,6 +697,10 @@ function OverlayCamera({ overlay, graveDimensions, request, controlsRef }) {
 }
 
 function GraveContour({ points = [], graveDimensions, colour, reference }) {
+  // Contours keep their own vertical reference (height vs per-contour RL),
+  // separate from the project's skeleton `vertical`. graveContourToSceneSpace
+  // converts once at this boundary; do not also pass project RL here or z is
+  // flipped twice.
   const geometry = useMemo(() => {
     const scenePoints = graveContourToSceneSpace(
       points,
