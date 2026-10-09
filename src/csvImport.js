@@ -29,6 +29,10 @@ export const DEFAULT_GRAVE_DIMENSIONS = [1, 1, 1];
 // is every file saved before the setting existed.
 export const VERTICAL_ROW_ID = "vertical_reference";
 
+// Expanded landmark rows that have no inferior point yet, space-separated in
+// label. Rows with inferior values are recognised from those values instead.
+export const EXPANDED_ROWS_ID = "expanded_rows";
+
 const META_JOINT_IDS = new Set([
   "colour",
   "group",
@@ -37,6 +41,7 @@ const META_JOINT_IDS = new Set([
   "pelvis_hidden",
   "ribcage_hidden",
   "scapulae_hidden",
+  EXPANDED_ROWS_ID,
 ]);
 const HIDDEN_PART_FIELDS = {
   pelvis_hidden: "hidePelvis",
@@ -114,6 +119,21 @@ function ensureIndividual(grouped, sourceId) {
     });
   }
   return grouped.get(sourceId);
+}
+
+// Opens the listed rows expanded. Their inferior point is blank unless the row
+// itself recorded one.
+function withExpandedRows(coords, expandedRows = []) {
+  if (!expandedRows.length) return coords;
+  const next = { ...coords };
+  for (const jointId of expandedRows) {
+    next[jointId] = {
+      ...next[jointId],
+      split: true,
+      inferior: next[jointId].inferior ?? { x: "", y: "", z: "" },
+    };
+  }
+  return next;
 }
 
 function parseCoordinateTriple(row, keys, rowNumber) {
@@ -382,6 +402,19 @@ function buildProjectFromRows(columns, rows) {
         continue;
       }
 
+      if (jointId === EXPANDED_ROWS_ID) {
+        const listed = value.split(/\s+/).filter(Boolean);
+        const unknown = listed.find((id) => !KNOWN_JOINTS.has(id));
+        if (unknown) {
+          return {
+            ok: false,
+            error: `Row ${rowNumber} lists an unknown landmark as expanded: ${unknown}`,
+          };
+        }
+        individual.expandedRows = listed;
+        continue;
+      }
+
       // group_label
       if (individual.groupId) {
         groupNames.set(individual.groupId, value);
@@ -503,7 +536,7 @@ function buildProjectFromRows(columns, rows) {
     hidePelvis: Boolean(imported.hidePelvis),
     hideRibcage: Boolean(imported.hideRibcage),
     hideScapulae: Boolean(imported.hideScapulae),
-    coords: imported.coords,
+    coords: withExpandedRows(imported.coords, imported.expandedRows),
     ...(imported.graveId ? { graveId: imported.graveId } : {}),
   }));
 
