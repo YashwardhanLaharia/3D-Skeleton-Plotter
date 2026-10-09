@@ -38,5 +38,33 @@ making the project independent of the original image file. Its corners and heigh
 are survey placement, whereas `project_view` is camera state. On opening, framing
 a visible photograph may change the camera without changing the stored placement.
 
+## Individual records
+
+Each individual is a block of rows sharing its `individual_id`: metadata rows
+first, then one row per landmark. In a metadata row, `joint_id` names the record
+and its value is in `label`:
+
+| `joint_id` | `label` value | Notes |
+| --- | --- | --- |
+| `grave` | Assigned grave ID | Written only when the individual is assigned to a grave. |
+| `colour` | Hex colour, for example `#E69F00` | |
+| `group` | Group ID, or blank | |
+| `group_label` | Group name | Repeated on every member of the group. |
+| `pelvis_hidden`, `ribcage_hidden`, `scapulae_hidden` | `1` hidden, `0` shown | The ⚙ **Display** options. A missing row means shown. |
+| `expanded_rows` | Landmark IDs separated by spaces, for example `chin knee_l` | Written only when a landmark row is expanded with a blank inferior point. Unknown IDs are rejected. |
+
+Each landmark row has the landmark ID in `joint_id`. `x`, `y` and `z` hold its
+point, which is the *superior* point when the row is expanded. `x_inferior`,
+`y_inferior` and `z_inferior` hold the *inferior* point. Blank cells are
+unrecorded values. The `label` column of a landmark row carries the individual's
+name; the app writes it on the first landmark row, and every labelled row of one
+individual must agree.
+
+A landmark row opens **expanded** when any of its inferior cells holds a value,
+or when it is listed in `expanded_rows`. A collapsed row's inferior values are
+not saved, so it reopens collapsed. Versions of the app from before
+`expanded_rows` existed refuse a file containing it with *"Row N has unknown
+joint_id: expanded_rows"*.
+
 See [grave-outline records](grave-outline.md#project-csv) and
 [photograph records](image-overlay.md#save-and-export) for validation and details.

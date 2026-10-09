@@ -31,7 +31,8 @@ import is a reason to correct the format/reference, not to invent coordinates.
 | Row {row} has invalid grave outline level: {value} | The contour level is unsupported. | Use top or bottom in joint_id; base is represented by bottom in CSV. |
 | Row {row} needs complete grave outline coordinates | A perimeter point is incomplete. | Supply all x/y/z values for each outline vertex; do not invent missing survey coordinates. |
 | Row {row} repeats grave membership | An individual has multiple assignment records. | Keep one joint_id=grave record for that individual. |
-| Row {row} has unknown joint_id: {value} | The anatomical ID is unsupported. | Use the exact IDs in the guide; do not use the display label as the ID. |
+| Row {row} has unknown joint_id: {value} | The anatomical ID is unsupported. | Use the exact IDs in the guide; do not use the display label as the ID. If {value} is a reserved record such as `expanded_rows`, the file was saved by a newer version of the app: open it in that version. |
+| Row {row} lists an unknown landmark as expanded: {value} | The `expanded_rows` record names a landmark ID that does not exist. | Use the exact landmark IDs, separated by spaces, or delete the record and expand the row again in the app. |
 | Row {row} gives {value} a different label | Rows for one individual contain conflicting labels. | Use the same nonblank label for that ID, or label only one coordinate row. |
 | Row {row} repeats {value} for {value} | The same joint occurs more than once for an individual. | Keep one row per individual/joint; use inferior columns for split positions. |
 | Unknown grave ID: {value} | A contour points to a grave that is not defined. | Add the matching grave metadata record or correct the reference ID. |
