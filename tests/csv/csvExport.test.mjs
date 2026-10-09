@@ -42,9 +42,15 @@ test("export writes application identity, grave dimensions, and meta rows first"
   assert.equal(parsed.rows[3].label, "grp-1");
   assert.equal(parsed.rows[4].joint_id, "group_label");
   assert.equal(parsed.rows[4].label, "1892");
-  assert.equal(parsed.rows[5].joint_id, JOINTS[0].id);
-  assert.equal(parsed.rows[5].label, "Case A");
-  assert.equal(parsed.rows[6].label, "");
+  assert.equal(parsed.rows[5].joint_id, "pelvis_hidden");
+  assert.equal(parsed.rows[5].label, "0");
+  assert.equal(parsed.rows[6].joint_id, "ribcage_hidden");
+  assert.equal(parsed.rows[6].label, "0");
+  assert.equal(parsed.rows[7].joint_id, "scapulae_hidden");
+  assert.equal(parsed.rows[7].label, "0");
+  assert.equal(parsed.rows[8].joint_id, JOINTS[0].id);
+  assert.equal(parsed.rows[8].label, "Case A");
+  assert.equal(parsed.rows[9].label, "");
 });
 
 test("exported CSV opens back with IDs, labels, colours, groups, and coordinates", () => {
@@ -93,6 +99,30 @@ test("exported CSV opens back with IDs, labels, colours, groups, and coordinates
   });
 });
 
+test("a collapsed row's leftover inferior values are not saved, so it reopens connected", () => {
+  const coords = blankCoords();
+  coords.elbow_l = {
+    x: "1",
+    y: "1",
+    z: "0.2",
+    split: false,
+    inferior: { x: "1.3", y: "1", z: "0.2" },
+  };
+  const csv = createCsv(
+    [{ id: "ind-1", label: "Skeleton 1", colour: "#E69F00", coords }],
+    [2, 2, 1],
+  );
+
+  const row = parseCsv(csv).rows.find((entry) => entry.joint_id === "elbow_l");
+  assert.equal(row.x_inferior, "");
+  assert.equal(row.y_inferior, "");
+  assert.equal(row.z_inferior, "");
+
+  const elbow = csvToProject(csv).individuals[0].coords.elbow_l;
+  assert.ok(!elbow.split, "collapsed row reopened expanded");
+  assert.deepEqual({ x: elbow.x, y: elbow.y, z: elbow.z }, { x: "1", y: "1", z: "0.2" });
+});
+
 test("export preserves partially entered coordinates", () => {
   const coords = blankCoords();
   coords.head_proximal = { x: "1", y: "", z: "" };
@@ -122,8 +152,8 @@ test("export gives blank labels incremental skeleton names", () => {
     [],
   );
   const parsed = parseCsv(csv);
-  const metaPerIndividual = 3;
-  const firstJointRow = 2 + metaPerIndividual; // app + grave + colour/group/group_label
+  const metaPerIndividual = 6; // colour/group/group_label + three hide flags
+  const firstJointRow = 2 + metaPerIndividual; // app + grave + meta
   const secondJointRow = firstJointRow + JOINTS.length + metaPerIndividual;
 
   assert.equal(parsed.rows[firstJointRow].label, "Skeleton 1");
@@ -194,4 +224,102 @@ test("a height project is written without a vertical reference row", () => {
 
   assert.equal(csv, createCsv([], [3, 9, 1], []));
   assert.ok(!csv.includes("vertical_reference"));
+});
+
+test("part-hide flags round-trip through CSV", () => {
+  const csv = createCsv(
+    [
+      {
+        id: "ind-1",
+        label: "A",
+        colour: "blue",
+        groupId: null,
+        hidePelvis: true,
+        hideRibcage: false,
+        hideScapulae: true,
+        coords: blankCoords(),
+      },
+    ],
+    [1, 1, 1],
+    [],
+  );
+  const parsed = parseCsv(csv);
+  assert.equal(parsed.rows[5].joint_id, "pelvis_hidden");
+  assert.equal(parsed.rows[5].label, "1");
+  assert.equal(parsed.rows[6].joint_id, "ribcage_hidden");
+  assert.equal(parsed.rows[6].label, "0");
+  assert.equal(parsed.rows[7].joint_id, "scapulae_hidden");
+  assert.equal(parsed.rows[7].label, "1");
+
+  const opened = csvToProject(csv);
+  assert.equal(opened.ok, true);
+  assert.equal(opened.individuals[0].hidePelvis, true);
+  assert.equal(opened.individuals[0].hideRibcage, false);
+  assert.equal(opened.individuals[0].hideScapulae, true);
+});
+
+test("an expanded row with a blank inferior point reopens expanded", () => {
+  const coords = blankCoords();
+  coords.head_centre = {
+    x: "1.5", y: "5.71", z: "0.39",
+    split: true,
+    inferior: { x: "1.9", y: "5.6", z: "0.34" },
+  };
+  coords.chin = {
+    x: "1.9", y: "5.68", z: "0.30",
+    split: true,
+    inferior: { x: "", y: "", z: "" },
+  };
+  const csv = createCsv(
+    [{ id: "ind-1", label: "Skull moved", colour: "#E69F00", coords }],
+    [3, 9, 1],
+  );
+
+  const marker = parseCsv(csv).rows.filter((row) => row.joint_id === "expanded_rows");
+  assert.equal(marker.length, 1);
+  assert.equal(marker[0].label, "chin");
+
+  const reopened = csvToProject(csv).individuals[0].coords;
+  assert.deepEqual(reopened.chin, {
+    x: "1.9", y: "5.68", z: "0.30",
+    split: true,
+    inferior: { x: "", y: "", z: "" },
+  });
+  assert.equal(reopened.head_centre.split, true);
+  assert.deepEqual(reopened.head_centre.inferior, { x: "1.9", y: "5.6", z: "0.34" });
+});
+
+test("projects without blank expanded rows have no expanded_rows record", () => {
+  const coords = blankCoords();
+  coords.knee_l = {
+    x: "1", y: "6.9", z: "0.35",
+    split: true,
+    inferior: { x: "1.4", y: "6.9", z: "0.35" },
+  };
+  const csv = createCsv([{ id: "ind-1", label: "A", colour: "blue", coords }], [3, 9, 1]);
+  assert.ok(!csv.includes("expanded_rows"));
+});
+
+test("Add Skeletons keeps blank expanded rows too", () => {
+  const coords = blankCoords();
+  coords.wrist_l = { x: "1", y: "6", z: "0.3", split: true, inferior: { x: "", y: "", z: "" } };
+  const parsed = parseCsv(
+    createCsv([{ id: "ind-1", label: "A", colour: "blue", coords }], [3, 9, 1]),
+  );
+  const added = rowsToIndividuals(parsed.columns, parsed.rows, ["ind-1"]);
+  assert.equal(added.ok, true);
+  assert.equal(added.individuals[0].coords.wrist_l.split, true);
+});
+
+test("an unknown landmark in expanded_rows is refused", () => {
+  const csv = createCsv(
+    [{ id: "ind-1", label: "A", colour: "blue", coords: blankCoords() }],
+    [3, 9, 1],
+  ).replace(
+    "ind-1,scapulae_hidden,,,,,,,0",
+    "ind-1,scapulae_hidden,,,,,,,0\r\nind-1,expanded_rows,,,,,,,elbow_x",
+  );
+  const result = csvToProject(csv);
+  assert.equal(result.ok, false);
+  assert.match(result.error, /unknown landmark as expanded: elbow_x/);
 });

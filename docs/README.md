@@ -17,13 +17,15 @@ docs/
 ├── client-import-errors.md   # Import messages, causes and fixes
 ├── architecture.md           # High-level: main / renderer / preload, data flow
 ├── rig-api.md                # SkeletonRig API overview
+├── tech-stack.md             # Runtime, build and test technologies
+├── directory-layout.md       # Source, tests and generated outputs
 ├── data-formats/
 │   ├── joint-coordinates.md  # Joint IDs, axes, expected input format
 │   ├── project-file.md       # Saved project CSV and reserved records
 │   ├── grave-outline.md      # Client contours, references and named graves
 │   └── image-overlay.md      # Photograph placement, persistence and export
 └── development/
-    ├── setup.md              # npm scripts, Electron Forge, Vite configs
+    ├── setup.md              # Build, test and application configuration
     ├── testing.md            # Testing information
     └── dependencies.md       # Version pins, overrides, accepted advisories
 ```
@@ -46,6 +48,8 @@ More detailed system inforamation can be found in `architecture`, `rig-api`, `de
 - [client-import-errors.md](./client-import-errors.md)
 - [architecture.md](./architecture.md)
 - [rig-api.md](./rig-api.md)
+- [tech-stack.md](./tech-stack.md)
+- [directory-layout.md](./directory-layout.md)
 - data-formats
   - [joint-coordinates.md](./data-formats/joint-coordinates.md)
   - [project-file.md](./data-formats/project-file.md)

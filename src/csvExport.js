@@ -5,6 +5,7 @@ import {
   APPLICATION_ID,
   APPLICATION_LABEL,
   CSV_COLUMNS,
+  EXPANDED_ROWS_ID,
   VERTICAL_ROW_ID,
 } from "./csvImport.js";
 import { DEFAULT_VERTICAL } from "./sceneSpace.js";
@@ -184,9 +185,55 @@ export function createCsv(
         .join(","),
     );
 
+    for (const [jointId, hidden] of [
+      ["pelvis_hidden", individual.hidePelvis],
+      ["ribcage_hidden", individual.hideRibcage],
+      ["scapulae_hidden", individual.hideScapulae],
+    ]) {
+      lines.push(
+        [individual.id, jointId, "", "", "", "", "", "", hidden ? "1" : "0"]
+          .map(escapeCsvCell)
+          .join(","),
+      );
+    }
+
+    // An expanded row is normally recognised by its inferior values, so one
+    // with no inferior point yet needs listing, or it reopens collapsed.
+    const expandedWithoutInferior = JOINTS.filter(({ id }) => {
+      const coordinates = individual.coords?.[id];
+      const inferior = coordinates?.inferior ?? {};
+      return (
+        coordinates?.split &&
+        ["x", "y", "z"].every((axis) => String(inferior[axis] ?? "").trim() === "")
+      );
+    }).map(({ id }) => id);
+
+    if (expandedWithoutInferior.length) {
+      lines.push(
+        [
+          individual.id,
+          EXPANDED_ROWS_ID,
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          expandedWithoutInferior.join(" "),
+        ]
+          .map(escapeCsvCell)
+          .join(","),
+      );
+    }
+
     JOINTS.forEach((joint, index) => {
       const coordinates = individual.coords?.[joint.id] ?? {};
-      const inferiorCoordinates = coordinates.inferior ?? {};
+      // A collapsed row is one connected point. Its inferior values stay in
+      // the session so expanding the row again restores them, but they are
+      // not saved: the importer opens any row with inferior values expanded.
+      const inferiorCoordinates = coordinates.split
+        ? (coordinates.inferior ?? {})
+        : {};
 
       const row = [
         individual.id,

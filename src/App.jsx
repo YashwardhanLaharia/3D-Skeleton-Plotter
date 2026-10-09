@@ -11,10 +11,8 @@ import {
 import {
   toggleHidden,
   toggleGroupHidden,
-  isolateOnly,
   showAll,
   pruneHidden,
-  isIsolated,
 } from "./visibility";
 
 import { JOINTS } from "./joints";
@@ -50,12 +48,19 @@ const PALETTE = [
   "#CC79A7",
 ];
 
+// Behind the startup screen only these menu items make sense. Anything else
+// would act on a project the user cannot see (#83).
+const STARTUP_MENU_ACTIONS = new Set(["menu-home", "menu-new", "menu-open"]);
+
 const STARTING_STATE = [
   {
     id: "ind-1",
     label: "",
     colour: "#E69F00",
     groupId: null,
+    hidePelvis: false,
+    hideRibcage: false,
+    hideScapulae: false,
     coords: makeBlankCoords(),
   },
 ];
@@ -132,9 +137,10 @@ export default function App() {
   const [hidden, setHidden] = useState([]);
 
   // Which individual is being examined close-up. View state, like `hidden` —
-  // not undoable, not saved. Separate from `hidden` on purpose so the two
-  // mechanisms can be compared before deciding whether they merge.
+  // not undoable, not saved. Focus/context never rewrites manual visibility.
   const [focusedId, setFocusedId] = useState(null);
+  const [showEnvironment, setShowEnvironment] = useState(true);
+  const [contextOpacity, setContextOpacity] = useState(0.25);
 
   // Transient message for changes such as adding individuals, which are inconvenient to highlight in place
   const [notice, setNotice] = useState(null);
@@ -272,6 +278,11 @@ export default function App() {
     setIsDirty(true);
   }
 
+  function handlePartHidden(individualId, part, hidden) {
+    dispatch({ type: "set-part-hidden", individualId, part, hidden });
+    setIsDirty(true);
+  }
+
   function handleColourChange(individualId, colour) {
     dispatch({ type: "set-colour", individualId, colour });
     setIsDirty(true);
@@ -305,6 +316,9 @@ export default function App() {
         label: "",
         colour,
         groupId: null,
+        hidePelvis: false,
+        hideRibcage: false,
+        hideScapulae: false,
         coords: makeBlankCoords(),
       },
     });
@@ -357,19 +371,18 @@ export default function App() {
 
   function handleToggleVisibility(individualId) {
     setHidden((current) => toggleHidden(current, individualId));
+    if (individualId === focusedId) setFocusedId(null);
   }
 
   function handleToggleGroupVisibility(memberIds) {
     setHidden((current) => toggleGroupHidden(current, memberIds));
+    if (memberIds.includes(focusedId)) setFocusedId(null);
   }
 
-  function handleIsolate(individualId) {
-    const allIds = individuals.map((individual) => individual.id);
-    setHidden((current) =>
-      isIsolated(current, individualId, allIds)
-        ? showAll()
-        : isolateOnly(individualId, allIds),
-    );
+  function handleFocusAlone(individualId) {
+    setFocusedId(individualId);
+    setShowEnvironment(false);
+    setHidden((current) => current.filter((id) => id !== individualId));
   }
 
   function handleShowAll() {
@@ -379,6 +392,7 @@ export default function App() {
   function handleFocus(individualId) {
     const next = focusedId === individualId ? null : individualId;
     setFocusedId(next);
+    if (next) setShowEnvironment(true);
     // Focusing must not leave the individual hidden underneath — otherwise
     // exiting reveals a stale hide and the skeleton vanishes.
     if (next) {
@@ -468,6 +482,7 @@ export default function App() {
     }
 
     setGraveDimensions([1, 1, 1]);
+    setVertical(DEFAULT_VERTICAL);
     resetSurvey();
     setFilePath(null);
     setIsDirty(false);
@@ -736,7 +751,7 @@ export default function App() {
       console.error(loaded.error);
       setNotice(
         loaded.error ||
-          "This project file is invalid or uses an unsupported format.",
+        "This project file is invalid or uses an unsupported format.",
       );
       return;
     }
@@ -790,7 +805,7 @@ export default function App() {
       console.error(loaded.error);
       setNotice(
         loaded.error ||
-          "This project file is invalid or uses an unsupported format.",
+        "This project file is invalid or uses an unsupported format.",
       );
       return;
     }
@@ -888,10 +903,13 @@ export default function App() {
     handleImportGraveOutline,
     handleExportCsv,
     handleEscape,
+    showStartup,
   };
 
   useEffect(() => {
     const unsubscribe = window.electronAPI?.onMenuAction((action) => {
+      if (actionsRef.current.showStartup && !STARTUP_MENU_ACTIONS.has(action))
+        return;
       if (action === "menu-home") actionsRef.current.handleHome();
       if (action === "menu-new") actionsRef.current.handleNew();
       if (action === "menu-open") actionsRef.current.handleOpen();
@@ -911,6 +929,11 @@ export default function App() {
     });
     return () => unsubscribe?.();
   }, []);
+
+  // Grey out project-only menu items (and their shortcuts) on the startup screen.
+  useEffect(() => {
+    void window.electronAPI?.setStartupMenu?.(showStartup);
+  }, [showStartup]);
 
   // The close handler must read live state, so it goes through the same ref as
   // the menu actions. Registering with [] and calling handleRequestClose directly
@@ -941,6 +964,7 @@ export default function App() {
   // The inputs are React-controlled, so native undo would desync them.
   useEffect(() => {
     function onKeyDown(event) {
+      if (actionsRef.current.showStartup) return;
       if (event.key === "Escape") {
         actionsRef.current.handleEscape();
         return;
@@ -987,6 +1011,8 @@ export default function App() {
           setFrameRequest({ id: null });
           setIsDirty(true);
         }}
+        vertical={vertical}
+        setVertical={setVertical}
         onCreateConfirm={handleCreateFromStartup}
         onOpen={handleOpen}
         onOpenRecent={handleOpenRecent}
@@ -1001,11 +1027,17 @@ export default function App() {
           setFrameRequest({ id: null });
           setIsDirty(true);
         }}
+        vertical={vertical}
+        setVertical={(next) => {
+          setVertical(next);
+          setIsDirty(true);
+        }}
       />
       {graveSurvey && (
         <GraveOutlineImportModal
           survey={graveSurvey}
           graves={graves}
+          vertical={vertical}
           onHide={() => setGraveSurvey(null)}
           onImport={handleApplyGraveOutline}
         />
@@ -1031,14 +1063,6 @@ export default function App() {
           setIsDirty(true);
         }}
       />
-      {graveSurvey && (
-        <GraveOutlineImportModal
-          survey={graveSurvey}
-          graves={graves}
-          onHide={() => setGraveSurvey(null)}
-          onImport={handleApplyGraveOutline}
-        />
-      )}
       <div className="app-workspace d-flex flex-grow-1 overflow-hidden">
         <Sidebar
           individuals={individuals}
@@ -1048,6 +1072,7 @@ export default function App() {
           onChange={handleChange}
           onToggleSplit={handleToggleSplit}
           onOffset={handleOffset}
+          onPartHidden={handlePartHidden}
           jointDetails={jointDetails}
           onJointDetailChange={handleJointDetailChange}
           onCommit={handleCommit}
@@ -1088,6 +1113,9 @@ export default function App() {
             individuals={individuals}
             hidden={hidden}
             focusedId={focusedId}
+            showEnvironment={showEnvironment}
+            contextOpacity={contextOpacity}
+            onFocusAlone={handleFocusAlone}
             graveDimensions={graveDimensions}
             graveOutline={graveOutline}
             graves={graves}
@@ -1105,7 +1133,14 @@ export default function App() {
             onSelect={openAndSelect}
             onClearSelection={() => setSelectedId(null)}
           />
-          <FocusBar individual={focusedIndividual} onExit={handleExitFocus} />
+          <FocusBar
+            individual={focusedIndividual}
+            onExit={handleExitFocus}
+            showEnvironment={showEnvironment}
+            onShowEnvironment={setShowEnvironment}
+            contextOpacity={contextOpacity}
+            onContextOpacity={setContextOpacity}
+          />
           {!focusedId && imageOverlay && (
             <ImageOverlayBar
               overlay={imageOverlay}
@@ -1177,24 +1212,23 @@ export default function App() {
               />
             )}
 
-            {focusedId ? (
+            {focusedId && (
               <InspectionPanel
                 individual={focusedIndividual}
                 unusualLengths={solverIssues[focusedId]?.unusualLengths}
               />
-            ) : (
-              <LayersPanel
-                individuals={individuals}
-                groups={groups}
-                hidden={hidden}
-                onToggleVisibility={handleToggleVisibility}
-                onToggleGroupVisibility={handleToggleGroupVisibility}
-                onIsolate={handleIsolate}
-                onShowAll={handleShowAll}
-                focusedId={focusedId}
-                onFocus={handleFocus}
-              />
             )}
+            <LayersPanel
+              individuals={individuals}
+              groups={groups}
+              hidden={hidden}
+              onToggleVisibility={handleToggleVisibility}
+              onToggleGroupVisibility={handleToggleGroupVisibility}
+              onFocusAlone={handleFocusAlone}
+              onShowAll={handleShowAll}
+              focusedId={focusedId}
+              onFocus={handleFocus}
+            />
           </div>
         </div>
       </div>

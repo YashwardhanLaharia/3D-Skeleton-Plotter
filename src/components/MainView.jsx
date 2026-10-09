@@ -20,7 +20,7 @@ import { OutlinePass } from "three/examples/jsm/postprocessing/OutlinePass.js";
 import { createSkeletonRig } from "../rig/SkeletonRigApi.js";
 import modelUrl from "../assets/models/skeleton-male.glb";
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
-import { isVisible } from "../visibility";
+import { individualContext, createContextMaterials, focusExtent } from "../focusContext.js";
 import { Box3, BufferGeometry, NormalBlending, Vector2, Vector3 } from "three";
 import { graveDimensionsToGridScale } from "../graveDimensions.js";
 import { graveContourToSceneSpace } from "../graveOutline.js";
@@ -81,6 +81,18 @@ function isShown(object) {
   return true;
 }
 
+// Rib groups/meshes in the GLB use Rib_ / Ribs_ / DEF-Rib_ names. Sternum is a
+// separate catalog bone treated as part of the ribcage for display toggles.
+const RIBCAGE_NAME = /^(Rib_|Ribs_|DEF-Rib_)/i;
+
+function setRibcageVisibility(scene, visible) {
+  scene.traverse((object) => {
+    if (object.name && RIBCAGE_NAME.test(object.name)) {
+      object.visible = visible;
+    }
+  });
+}
+
 // Raycasting ignores `visible`, so clicks and hovers would otherwise land on
 // hidden skeletons and hidden bones.
 function IgnoreHiddenObjects() {
@@ -101,15 +113,26 @@ function SkeletonModel({
   graveDimensions,
   vertical = DEFAULT_VERTICAL,
   visible = true,
+  opacity = 1,
+  onFocusAlone,
+  hidePelvis = false,
+  hideRibcage = false,
+  hideScapulae = false,
   onSolverIssues,
   onSelect,
 }) {
   const groupRef = useRef(null);
+  // A pose update must keep the latest context opacity without solving again
+  // whenever the context slider moves.
+  const opacityRef = useRef(opacity);
+  opacityRef.current = opacity;
   const gl = useThree((state) => state.gl);
 
   const { scene } = useLoader(GLTFLoader, modelUrl);
 
   const clonedScene = useMemo(() => SkeletonUtils.clone(scene), [scene]);
+
+  const contextMaterials = useMemo(() => createContextMaterials(clonedScene), [clonedScene]);
 
   const rig = useMemo(() => createSkeletonRig(clonedScene), [clonedScene]);
 
@@ -133,6 +156,7 @@ function SkeletonModel({
 
   useEffect(() => {
     if (colour) {
+      contextMaterials.restore();
       clonedScene.traverse((child) => {
         if (child.isMesh) {
           child.material = child.material.clone();
@@ -140,7 +164,7 @@ function SkeletonModel({
         }
       });
     }
-  }, [colour, clonedScene]);
+  }, [colour, clonedScene, contextMaterials]);
 
   // A replacement model that renames or drops an object the solver aims by
   // would otherwise fall back to a guessed rest direction for that bone and
@@ -179,6 +203,7 @@ function SkeletonModel({
 
     // Start clean: spawned copies from the previous solve are removed, which
     // also restores the master meshes they were hiding.
+    contextMaterials.restore();
     rig.clearSpawnedBones();
 
     const { report, segmentScales, bodyDimensions, rootRotation } =
@@ -233,6 +258,17 @@ function SkeletonModel({
         });
       }
     }
+
+    // Display toggles from the individual settings popup. Applied after the
+    // pose pass so they win over the articulated master defaults.
+    rig.setMasterBoneVisibility("pelvis", !hidePelvis);
+    rig.setMasterBoneVisibility("sternum", !hideRibcage);
+    setRibcageVisibility(clonedScene, !hideRibcage);
+    // Shoulder blades toggle also clears the clavicles that sit on top of them.
+    rig.setMasterBoneVisibility("scapula_l", !hideScapulae);
+    rig.setMasterBoneVisibility("scapula_r", !hideScapulae);
+    rig.setMasterBoneVisibility("clavicle_l", !hideScapulae);
+    rig.setMasterBoneVisibility("clavicle_r", !hideScapulae);
 
     // Plain-language problems for this individual, shown in the sidebar until
     // the data causing them changes. Reported even when empty, so a problem
@@ -349,6 +385,10 @@ function SkeletonModel({
       });
     }
 
+    // Renames and display toggles also rerun this pass. Restore dimming after
+    // its material reset and include any newly spawned copies.
+    contextMaterials.apply(opacityRef.current);
+
     onSolverIssues?.(id, { messages: issues, unusualLengths });
   }, [
     coords,
@@ -360,8 +400,16 @@ function SkeletonModel({
     clonedScene,
     label,
     id,
+    hidePelvis,
+    hideRibcage,
+    hideScapulae,
     onSolverIssues,
+    contextMaterials,
   ]);
+
+  useEffect(() => {
+    contextMaterials.apply(opacity);
+  }, [contextMaterials, opacity, coords, sceneJoints, colour]);
 
   useEffect(() => {
     placeSkeleton({
@@ -382,6 +430,11 @@ function SkeletonModel({
         if (event.delta > 2) return;
         event.stopPropagation();
         onSelect?.(id);
+      }}
+      onDoubleClick={event => {
+        if (event.delta > 2) return;
+        event.stopPropagation();
+        onFocusAlone?.(id);
       }}
       // Stopping here leaves skeletons further back un-hovered, so moving off
       // the front one hands the hover to the one behind.
@@ -490,6 +543,10 @@ const ViewportExport = forwardRef(function ViewportExport(
 // Orthographic framing is zoom-based: distance only sets the view angle.
 function FocusCamera({
   focusedId,
+  showEnvironment,
+  graveDimensions,
+  graves,
+  hiddenGraves,
   controlsRef,
   savedView,
   frameRequest,
@@ -526,8 +583,21 @@ function FocusCamera({
       if (box.isEmpty()) return;
 
       const centre = box.getCenter(new Vector3());
-      const boxSize = box.getSize(new Vector3());
-      const extent = Math.max(boxSize.x, boxSize.y, boxSize.z, 0.01);
+      const [width, length, depth] = graveDimensions;
+      const environment = showEnvironment ? new Box3(
+        new Vector3(-width / 2, -depth, -length / 2),
+        new Vector3(width / 2, 0, length / 2),
+      ) : null;
+      if (environment) {
+        for (const grave of graves.filter(g => !hiddenGraves.includes(g.id))) {
+          for (const level of ["top", "bottom"]) {
+            for (const point of graveContourToSceneSpace(
+              grave[level] ?? [], graveDimensions, globalScale, grave.references?.[level],
+            )) environment.expandByPoint(new Vector3(point.x, point.y, point.z));
+          }
+        }
+      }
+      const extent = focusExtent(box, centre, environment);
 
       // R3F ortho frustum is ±viewport/2; zoom shrinks that into world units.
       const padding = 1.6;
@@ -563,7 +633,7 @@ function FocusCamera({
 
       saved.current = null;
     }
-  }, [focusedId, camera, scene, controlsRef, viewport.width, viewport.height]);
+  }, [focusedId, showEnvironment, graveDimensions, graves, hiddenGraves, camera, scene, controlsRef, viewport.width, viewport.height]);
 
   useFrame(() => {
     const active = tween.current;
@@ -834,6 +904,9 @@ const MainView = forwardRef(function MainView(
     selectedId = null,
     hidden = [],
     focusedId = null,
+    showEnvironment = true,
+    contextOpacity = 0.25,
+    onFocusAlone,
     onSolverIssues,
     imageOverlay = null,
     overlayFrame,
@@ -845,6 +918,8 @@ const MainView = forwardRef(function MainView(
 ) {
   const controlsRef = useRef(null);
   const overviewRef = useRef(null);
+
+  const focusedAlone = Boolean(focusedId && !showEnvironment);
 
   const selectedColour = individuals.find(
     (individual) => individual.id === selectedId,
@@ -862,9 +937,9 @@ const MainView = forwardRef(function MainView(
         }}
         onPointerMissed={() => onClearSelection?.()}
       >
-        <color attach="background" args={[focusedId ? "#1b1f24" : "#e9ecef"]} />
+        <color attach="background" args={[focusedAlone ? "#1b1f24" : "#e9ecef"]} />
 
-        <ambientLight intensity={focusedId ? 0.9 : 1.5} />
+        <ambientLight intensity={focusedAlone ? 0.9 : 1.5} />
 
         <directionalLight position={[3, 4, 5]} intensity={2} />
 
@@ -883,16 +958,16 @@ const MainView = forwardRef(function MainView(
               isTarget={individual.id === targetId}
               onSolverIssues={onSolverIssues}
               onSelect={onSelect}
-              visible={
-                focusedId
-                  ? individual.id === focusedId
-                  : isVisible(hidden, individual.id)
-              }
+              {...individualContext(hidden, individual.id, focusedId, showEnvironment, contextOpacity)}
+              onFocusAlone={onFocusAlone}
+              hidePelvis={Boolean(individual.hidePelvis)}
+              hideRibcage={Boolean(individual.hideRibcage)}
+              hideScapulae={Boolean(individual.hideScapulae)}
             />
           </Suspense>
         ))}
 
-        {imageOverlay && !focusedId && (
+        {imageOverlay && !focusedAlone && (
           <ImageOverlay
             overlay={imageOverlay}
             graveDimensions={graveDimensions}
@@ -901,9 +976,9 @@ const MainView = forwardRef(function MainView(
           />
         )}
 
-        {focusedId ? (
-          <FocusGrid focusedId={focusedId} />
-        ) : (
+        {focusedAlone && <FocusGrid focusedId={focusedId} />}
+
+        {!focusedAlone && (
           <>
             <gridHelper
               args={[globalScale, 12, "#adb5bd", "#ced4da"]}
@@ -941,6 +1016,10 @@ const MainView = forwardRef(function MainView(
         />
         <FocusCamera
           focusedId={focusedId}
+          showEnvironment={showEnvironment}
+          graveDimensions={graveDimensions}
+          graves={graves}
+          hiddenGraves={hiddenGraves}
           controlsRef={controlsRef}
           savedView={savedView}
           frameRequest={frameRequest}

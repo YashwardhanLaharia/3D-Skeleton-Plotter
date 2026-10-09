@@ -4,7 +4,8 @@
 // the viewport. This is also where an Edit toggle would go later — focus is a
 // view, and editing would be a state within it.
 
-export default function FocusBar({ individual, onExit }) {
+export default function FocusBar({ individual, onExit, showEnvironment,
+  onShowEnvironment, contextOpacity, onContextOpacity }) {
   if (!individual) return null;
 
   const name = individual.label.trim() || "Unlabelled";
@@ -20,6 +21,19 @@ export default function FocusBar({ individual, onExit }) {
         Focused: <strong>{name}</strong>
       </span>
 
+      <label className="small d-flex align-items-center gap-1">
+        <input type="checkbox" checked={showEnvironment}
+          onChange={event => onShowEnvironment(event.target.checked)} />
+        Show environment
+      </label>
+      {showEnvironment && (
+        <label className="small d-flex align-items-center gap-1">
+          Context: {Math.round(contextOpacity * 100)}%
+          <input type="range" aria-label="Context opacity" min="0" max="100"
+            value={Math.round(contextOpacity * 100)}
+            onChange={event => onContextOpacity(Number(event.target.value) / 100)} />
+        </label>
+      )}
       <button
         type="button"
         className="btn btn-sm btn-light ms-auto focus-bar-exit"

@@ -34,7 +34,7 @@ test("portable project CSV preserves embedded image, corners, opacity and hidden
   for (const visible of [true, false]) {
     const expected = { ...overlay, visible };
     const result = csvToProject(
-      createCsv(individuals, [4, 5, 1], [], { imageOverlay: expected }),
+      createCsv(individuals, [4, 5, 1], [], {}, { imageOverlay: expected }),
     );
     assert.equal(result.ok, true, result.error);
     assert.deepEqual(result.imageOverlay, expected);
@@ -48,7 +48,7 @@ test("portable project CSV preserves embedded image, corners, opacity and hidden
 test("legacy projects have no overlay and additive skeleton import leaves overlay out", () => {
   assert.equal(csvToProject(createCsv([], [1, 1, 1])).imageOverlay, null);
   const parsed = parseCsv(
-    createCsv(individuals, [4, 5, 1], [], { imageOverlay: overlay }),
+    createCsv(individuals, [4, 5, 1], [], {}, { imageOverlay: overlay }),
   );
   const result = rowsToIndividuals(parsed.columns, parsed.rows, ["ind-1"]);
   assert.equal(result.ok, true);
@@ -56,7 +56,7 @@ test("legacy projects have no overlay and additive skeleton import leaves overla
   assert.equal("imageOverlay" in result, false);
 });
 test("malformed and duplicate overlay records fail with clear errors", () => {
-  const csv = createCsv([], [4, 5, 1], [], { imageOverlay: overlay });
+  const csv = createCsv([], [4, 5, 1], [], {}, { imageOverlay: overlay });
   const row = csv
     .split("\r\n")
     .find((line) => line.startsWith("image_overlay,"));
