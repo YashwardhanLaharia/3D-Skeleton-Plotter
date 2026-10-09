@@ -931,6 +931,11 @@ export default function App() {
     return () => unsubscribe?.();
   }, []);
 
+  // Grey out project-only menu items (and their shortcuts) on the startup screen.
+  useEffect(() => {
+    void window.electronAPI?.setStartupMenu?.(showStartup);
+  }, [showStartup]);
+
   // The close handler must read live state, so it goes through the same ref as
   // the menu actions. Registering with [] and calling handleRequestClose directly
   // would capture isDirty from the first render and the prompt would never appear.

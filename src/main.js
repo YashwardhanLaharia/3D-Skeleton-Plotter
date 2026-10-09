@@ -323,74 +323,132 @@ ipcMain.handle("confirm-close", async () => {
   return { ok: true };
 });
 
+ipcMain.handle("set-startup-menu", (_event, startup) => {
+  setApplicationMenu(Boolean(startup));
+});
+
 const sendToRenderer = (channel) => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send(channel);
   }
 };
-// Define custom menu template
-const menuTemplate = [
-  {
-    label: "File",
-    submenu: [
-      {
-        label: "Home",
-        accelerator: "CmdOrCtrl+H",
-        click: () => sendToRenderer("menu-home"),
-      },
-      { type: "separator" },
-      {
-        label: "New…",
-        accelerator: "CmdOrCtrl+N",
-        click: () => sendToRenderer("menu-new"),
-      },
-      {
-        label: "Open…",
-        accelerator: "CmdOrCtrl+O",
-        click: () => sendToRenderer("menu-open"),
-      },
-      {
-        label: "Add Skeletons…",
-        accelerator: "CmdOrCtrl+Shift+I",
-        click: () => sendToRenderer("menu-import"),
-      },
-      {
-        label: "Import Grave Outline…",
-        click: () => sendToRenderer("menu-import-grave-outline"),
-      },
-      { type: "separator" },
-      {
-        label: "Save",
-        accelerator: "CmdOrCtrl+S",
-        click: () => sendToRenderer("menu-save"),
-      },
-      {
-        label: "Save As…",
-        accelerator: "CmdOrCtrl+Shift+S",
-        click: () => sendToRenderer("menu-save-as"),
-      },
-      { type: "separator" },
-      { label: 'Quit', accelerator: 'CmdOrCtrl+Q', click: () => mainWindow.close() },
-    ],
-  },
-  {
-    label: "Edit",
-    submenu: [
-      { label: "Undo", accelerator: "CmdOrCtrl+Z", click: () => sendToRenderer("menu-undo") },
-      { label: "Redo", accelerator: "CmdOrCtrl+Shift+Z", click: () => sendToRenderer("menu-redo") },
-      { type: "separator" },
-      { label: "Set Grave Dimensions", accelerator: "CmdOrCtrl+G", click: () => sendToRenderer("menu-change-grave-dimensions") },
-    ],
-  },
-  {
-    label: "Export",
-    submenu: [
-      { label: "Visible skeletons (CSV)", accelerator: "CmdOrCtrl+Shift+C", click: () => sendToRenderer("menu-export-csv") },
-      { label: "Screenshot", accelerator: "CmdOrCtrl+Shift+E", click: () => sendToRenderer("menu-export-screenshot") },
-      { label: "GLB", accelerator: "CmdOrCtrl+Shift+G", click: () => sendToRenderer("menu-export-glb") },
-    ],
-  },
-];
+
+// On the startup screen only Home / New / Open / Quit apply (#83). Disabled
+// items are also unreachable via their accelerators.
+const STARTUP_ENABLED_LABELS = new Set(["Home", "New…", "Open…", "Quit"]);
+
+function buildMenuTemplate(startup) {
+  const itemEnabled = (label) => !startup || STARTUP_ENABLED_LABELS.has(label);
+
+  return [
+    {
+      label: "File",
+      submenu: [
+        {
+          label: "Home",
+          accelerator: "CmdOrCtrl+H",
+          enabled: itemEnabled("Home"),
+          click: () => sendToRenderer("menu-home"),
+        },
+        { type: "separator" },
+        {
+          label: "New…",
+          accelerator: "CmdOrCtrl+N",
+          enabled: itemEnabled("New…"),
+          click: () => sendToRenderer("menu-new"),
+        },
+        {
+          label: "Open…",
+          accelerator: "CmdOrCtrl+O",
+          enabled: itemEnabled("Open…"),
+          click: () => sendToRenderer("menu-open"),
+        },
+        {
+          label: "Add Skeletons…",
+          accelerator: "CmdOrCtrl+Shift+I",
+          enabled: itemEnabled("Add Skeletons…"),
+          click: () => sendToRenderer("menu-import"),
+        },
+        {
+          label: "Import Grave Outline…",
+          enabled: itemEnabled("Import Grave Outline…"),
+          click: () => sendToRenderer("menu-import-grave-outline"),
+        },
+        { type: "separator" },
+        {
+          label: "Save",
+          accelerator: "CmdOrCtrl+S",
+          enabled: itemEnabled("Save"),
+          click: () => sendToRenderer("menu-save"),
+        },
+        {
+          label: "Save As…",
+          accelerator: "CmdOrCtrl+Shift+S",
+          enabled: itemEnabled("Save As…"),
+          click: () => sendToRenderer("menu-save-as"),
+        },
+        { type: "separator" },
+        {
+          label: "Quit",
+          accelerator: "CmdOrCtrl+Q",
+          enabled: itemEnabled("Quit"),
+          click: () => mainWindow.close(),
+        },
+      ],
+    },
+    {
+      label: "Edit",
+      submenu: [
+        {
+          label: "Undo",
+          accelerator: "CmdOrCtrl+Z",
+          enabled: itemEnabled("Undo"),
+          click: () => sendToRenderer("menu-undo"),
+        },
+        {
+          label: "Redo",
+          accelerator: "CmdOrCtrl+Shift+Z",
+          enabled: itemEnabled("Redo"),
+          click: () => sendToRenderer("menu-redo"),
+        },
+        { type: "separator" },
+        {
+          label: "Set Grave Dimensions",
+          accelerator: "CmdOrCtrl+G",
+          enabled: itemEnabled("Set Grave Dimensions"),
+          click: () => sendToRenderer("menu-change-grave-dimensions"),
+        },
+      ],
+    },
+    {
+      label: "Export",
+      submenu: [
+        {
+          label: "Visible skeletons (CSV)",
+          accelerator: "CmdOrCtrl+Shift+C",
+          enabled: itemEnabled("Visible skeletons (CSV)"),
+          click: () => sendToRenderer("menu-export-csv"),
+        },
+        {
+          label: "Screenshot",
+          accelerator: "CmdOrCtrl+Shift+E",
+          enabled: itemEnabled("Screenshot"),
+          click: () => sendToRenderer("menu-export-screenshot"),
+        },
+        {
+          label: "GLB",
+          accelerator: "CmdOrCtrl+Shift+G",
+          enabled: itemEnabled("GLB"),
+          click: () => sendToRenderer("menu-export-glb"),
+        },
+      ],
+    },
+  ];
+}
+
+function setApplicationMenu(startup) {
+  Menu.setApplicationMenu(Menu.buildFromTemplate(buildMenuTemplate(startup)));
+}
 
 const createWindow = () => {
   // Create the browser window.
@@ -424,10 +482,8 @@ const createWindow = () => {
 
 app.whenReady().then(() => {
   createWindow();
-
-  // Create the menu
-  const menu = Menu.buildFromTemplate(menuTemplate);
-  Menu.setApplicationMenu(menu);
+  // App starts on the startup screen; the renderer confirms via set-startup-menu.
+  setApplicationMenu(true);
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
