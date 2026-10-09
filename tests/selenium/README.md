@@ -5,8 +5,9 @@ They cover launch, coordinate entry and keyboard navigation, individual manageme
 colour changes with undo/redo, deletion confirmation, sidebar behaviour, closing an
 unchanged project without an unsaved-changes prompt, CSV/grave/photo import,
 project lifecycle (Save / Save As / Open / Home / dirty close), exports
-(visible skeletons CSV, screenshot PNG, GLB), layers / focus / inspection, and
-image-overlay alignment (settings, opacity, Frame).
+(visible skeletons CSV, screenshot PNG, GLB), layers / focus / inspection,
+image-overlay alignment (settings, opacity, Frame), and sidebar advanced
+editing (groups, joint split, coordinate offset, part-hide).
 
 Shared launch and Electron-dialog helpers are located in `helpers.mjs`.
 
@@ -16,35 +17,6 @@ Run the suite headlessly:
 
 ```bash
 npm run test:selenium
-```
-
-Run only the simple UI-relted tasks:
-```bash
-npm run test:selenium:app
-```
-
-Run only the project-lifecycle suite:
-
-```bash
-npm run test:selenium:project
-```
-
-Run only the export suite:
-
-```bash
-npm run test:selenium:export
-```
-
-Run only the layers / focus suite:
-
-```bash
-npm run test:selenium:layers
-```
-
-Run only the overlay suite:
-
-```bash
-npm run test:selenium:overlay
 ```
 
 To watch Selenium interact with the application:

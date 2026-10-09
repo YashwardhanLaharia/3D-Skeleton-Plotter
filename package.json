@@ -12,13 +12,7 @@
     "publish": "electron-forge publish",
     "lint": "echo \"No linting configured\"",
     "test": "node --test",
-    "test:selenium": "npm run package && node --test --test-concurrency=1 tests/selenium/*.selenium.mjs",
-    "test:selenium:app": "npm run package && node --test --test-concurrency=1 tests/selenium/app.selenium.mjs",
-    "test:selenium:project": "npm run package && node --test --test-concurrency=1 tests/selenium/project.selenium.mjs",
-    "test:selenium:import": "npm run package && node --test --test-concurrency=1 tests/selenium/import.selenium.mjs",
-    "test:selenium:export": "npm run package && node --test --test-concurrency=1 tests/selenium/export.selenium.mjs",
-    "test:selenium:layers": "npm run package && node --test --test-concurrency=1 tests/selenium/layers.selenium.mjs",
-    "test:selenium:overlay": "npm run package && node --test --test-concurrency=1 tests/selenium/overlay.selenium.mjs"
+    "test:selenium": "npm run package && node --test --test-concurrency=1 tests/selenium/*.selenium.mjs"
   },
   "keywords": [],
   "author": {
