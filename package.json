@@ -13,7 +13,9 @@
     "lint": "echo \"No linting configured\"",
     "test": "node --test",
     "test:selenium": "npm run package && node --test --test-concurrency=1 tests/selenium/*.selenium.mjs",
-    "test:selenium:import": "npm run package && node --test --test-concurrency=1 tests/selenium/import.selenium.mjs"
+    "test:selenium:import": "npm run package && node --test --test-concurrency=1 tests/selenium/import.selenium.mjs",
+    "test:selenium:project": "npm run package && node --test --test-concurrency=1 tests/selenium/project.selenium.mjs",
+    "test:selenium:app": "npm run package && node --test --test-concurrency=1 tests/selenium/app.selenium.mjs"
   },
   "keywords": [],
   "author": {

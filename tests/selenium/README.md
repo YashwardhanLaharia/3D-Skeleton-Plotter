@@ -2,15 +2,24 @@
 
 These tests package and drive the real Electron application with Selenium WebDriver.
 They cover launch, coordinate entry and keyboard navigation, individual management,
-colour changes with undo/redo, deletion confirmation, sidebar behaviour, and closing
-an unchanged project without an unsaved-changes prompt. The installed
+colour changes with undo/redo, deletion confirmation, sidebar behaviour, closing an
+unchanged project without an unsaved-changes prompt, CSV/grave/photo import, and
+project lifecycle (Save / Save As / Open / Home / dirty close). The installed
 `electron-chromedriver` version must match the major and minor Electron version in
 `package.json`.
+
+Shared launch and Electron-dialog helpers live in `helpers.mjs`.
 
 Run the suite headlessly:
 
 ```bash
 npm run test:selenium
+```
+
+Run only the project-lifecycle suite:
+
+```bash
+npm run test:selenium:project
 ```
 
 To watch Selenium interact with the application:
