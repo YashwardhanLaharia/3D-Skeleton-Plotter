@@ -5,16 +5,22 @@ They cover launch, coordinate entry and keyboard navigation, individual manageme
 colour changes with undo/redo, deletion confirmation, sidebar behaviour, closing an
 unchanged project without an unsaved-changes prompt, CSV/grave/photo import,
 project lifecycle (Save / Save As / Open / Home / dirty close), exports
-(visible skeletons CSV, screenshot PNG, GLB), and layers / focus / inspection.
-The installed `electron-chromedriver` version must match the major and minor
-Electron version in `package.json`.
+(visible skeletons CSV, screenshot PNG, GLB), layers / focus / inspection, and
+image-overlay alignment (settings, opacity, Frame).
 
-Shared launch and Electron-dialog helpers live in `helpers.mjs`.
+Shared launch and Electron-dialog helpers are located in `helpers.mjs`.
+
+## Helpful commands
 
 Run the suite headlessly:
 
 ```bash
 npm run test:selenium
+```
+
+Run only the simple UI-relted tasks:
+```bash
+npm run test:selenium:app
 ```
 
 Run only the project-lifecycle suite:
@@ -33,6 +39,12 @@ Run only the layers / focus suite:
 
 ```bash
 npm run test:selenium:layers
+```
+
+Run only the overlay suite:
+
+```bash
+npm run test:selenium:overlay
 ```
 
 To watch Selenium interact with the application:
