@@ -4,10 +4,10 @@ These tests package and drive the real Electron application with Selenium WebDri
 They cover launch, coordinate entry and keyboard navigation, individual management,
 colour changes with undo/redo, deletion confirmation, sidebar behaviour, closing an
 unchanged project without an unsaved-changes prompt, CSV/grave/photo import,
-project lifecycle (Save / Save As / Open / Home / dirty close), and exports
-(visible skeletons CSV, screenshot PNG, GLB). The installed
-`electron-chromedriver` version must match the major and minor Electron version in
-`package.json`.
+project lifecycle (Save / Save As / Open / Home / dirty close), exports
+(visible skeletons CSV, screenshot PNG, GLB), and layers / focus / inspection.
+The installed `electron-chromedriver` version must match the major and minor
+Electron version in `package.json`.
 
 Shared launch and Electron-dialog helpers live in `helpers.mjs`.
 
@@ -27,6 +27,12 @@ Run only the export suite:
 
 ```bash
 npm run test:selenium:export
+```
+
+Run only the layers / focus suite:
+
+```bash
+npm run test:selenium:layers
 ```
 
 To watch Selenium interact with the application:
