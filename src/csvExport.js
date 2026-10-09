@@ -228,7 +228,12 @@ export function createCsv(
 
     JOINTS.forEach((joint, index) => {
       const coordinates = individual.coords?.[joint.id] ?? {};
-      const inferiorCoordinates = coordinates.inferior ?? {};
+      // A collapsed row is one connected point. Its inferior values stay in
+      // the session so expanding the row again restores them, but they are
+      // not saved: the importer opens any row with inferior values expanded.
+      const inferiorCoordinates = coordinates.split
+        ? (coordinates.inferior ?? {})
+        : {};
 
       const row = [
         individual.id,
