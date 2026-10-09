@@ -99,6 +99,30 @@ test("exported CSV opens back with IDs, labels, colours, groups, and coordinates
   });
 });
 
+test("a collapsed row's leftover inferior values are not saved, so it reopens connected", () => {
+  const coords = blankCoords();
+  coords.elbow_l = {
+    x: "1",
+    y: "1",
+    z: "0.2",
+    split: false,
+    inferior: { x: "1.3", y: "1", z: "0.2" },
+  };
+  const csv = createCsv(
+    [{ id: "ind-1", label: "Skeleton 1", colour: "#E69F00", coords }],
+    [2, 2, 1],
+  );
+
+  const row = parseCsv(csv).rows.find((entry) => entry.joint_id === "elbow_l");
+  assert.equal(row.x_inferior, "");
+  assert.equal(row.y_inferior, "");
+  assert.equal(row.z_inferior, "");
+
+  const elbow = csvToProject(csv).individuals[0].coords.elbow_l;
+  assert.ok(!elbow.split, "collapsed row reopened expanded");
+  assert.deepEqual({ x: elbow.x, y: elbow.y, z: elbow.z }, { x: "1", y: "1", z: "0.2" });
+});
+
 test("export preserves partially entered coordinates", () => {
   const coords = blankCoords();
   coords.head_proximal = { x: "1", y: "", z: "" };
