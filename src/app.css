@@ -1288,13 +1288,30 @@
 
 .dock-nav {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.15rem;
-  padding: 0.4rem 0.3rem;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0.55rem;
+  padding: 0.5rem 0.45rem;
   border-radius: 1.1rem;
   background: rgba(27, 31, 36, 0.88);
   box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.3);
+}
+
+/* Left column: orbit on top, joystick anchoring the bottom. */
+.dock-motion {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+/* Right column: reset above the zoom cluster. */
+.dock-zoomcol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
 }
 
 .dock-nav-btn {
@@ -1316,12 +1333,10 @@
   background: rgba(255, 255, 255, 0.12);
 }
 
-/* Orbit leads the pill as the primary control: slightly larger, separated
-   from the zoom cluster below it. */
+/* Orbit leads as the primary control: slightly larger than the rest. */
 .dock-orbit-lead {
   width: 2.4rem;
   height: 2.4rem;
-  margin-bottom: 0.2rem;
 }
 
 .dock-orbit-btn {

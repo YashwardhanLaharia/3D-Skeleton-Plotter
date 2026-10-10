@@ -230,9 +230,17 @@ function Joystick({ onDeflect, onNudge, ...props }) {
 
 function OrbitIcon() {
   return (
-    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M20 12a8 8 0 1 1-2.4-5.7" />
       <path d="M20 3v4.5h-4.5" />
+    </svg>
+  );
+}
+
+function ResetIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" />
     </svg>
   );
 }
@@ -290,58 +298,73 @@ export default function CameraDock({
       </div>
 
       <div className="dock-nav" role="group" aria-label="Navigate">
-        <DragButton
-          type="button"
-          className="dock-nav-btn dock-orbit-btn dock-orbit-lead"
-          data-testid="dock-orbit-handle"
-          title="Orbit (drag to look around, click to reset the view)"
-          aria-label="Orbit"
-          onDrag={(dx, dy) => api()?.orbitBy({ dx, dy })}
-          onTap={() => onResetView?.()}
-        >
-          <OrbitIcon />
-        </DragButton>
-        <HoldButton
-          type="button"
-          className="dock-nav-btn"
-          data-testid="dock-zoom-in"
-          title="Zoom in"
-          aria-label="Zoom in"
-          onFire={() => api()?.zoomBy(ZOOM_STEP)}
-        >
-          <PlusIcon />
-        </HoldButton>
-        <input
-          type="range"
-          className="dock-zoom-slider"
-          data-testid="dock-zoom-slider"
-          aria-label="Zoom"
-          min={0}
-          max={SLIDER_STEPS}
-          value={sliderValue}
-          onChange={(event) => api()?.zoomTo(sliderToZoom(Number(event.target.value)))}
-        />
-        <HoldButton
-          type="button"
-          className="dock-nav-btn"
-          data-testid="dock-zoom-out"
-          title="Zoom out"
-          aria-label="Zoom out"
-          onFire={() => api()?.zoomBy(1 / ZOOM_STEP)}
-        >
-          <MinusIcon />
-        </HoldButton>
-        <Joystick
-          data-testid="dock-pan"
-          title="Pan joystick (drag and hold to glide the view)"
-          aria-label="Pan joystick. Drag and hold to glide the view. Arrow keys nudge."
-          onDeflect={(deflection) => {
-            deflectRef.current = deflection;
+        <div className="dock-motion">
+          <DragButton
+            type="button"
+            className="dock-nav-btn dock-orbit-btn dock-orbit-lead"
+            data-testid="dock-orbit-handle"
+            title="Orbit (drag to look around, click to reset the view)"
+            aria-label="Orbit"
+            onDrag={(dx, dy) => api()?.orbitBy({ dx, dy })}
+            onTap={() => onResetView?.()}
+          >
+            <OrbitIcon />
+          </DragButton>
+          <Joystick
+            data-testid="dock-pan"
+            title="Pan joystick (drag and hold to glide the view)"
+            aria-label="Pan joystick. Drag and hold to glide the view. Arrow keys nudge."
+            onDeflect={(deflection) => {
+              deflectRef.current = deflection;
 
-            if (deflection.x !== 0 || deflection.y !== 0) startLoop();
-          }}
-          onNudge={(delta) => api()?.panBy(delta)}
-        />
+              if (deflection.x !== 0 || deflection.y !== 0) startLoop();
+            }}
+            onNudge={(delta) => api()?.panBy(delta)}
+          />
+        </div>
+
+        <div className="dock-zoomcol">
+          <button
+            type="button"
+            className="dock-nav-btn"
+            data-testid="dock-reset"
+            title="Reset the view"
+            aria-label="Reset the view"
+            onClick={() => onResetView?.()}
+          >
+            <ResetIcon />
+          </button>
+          <HoldButton
+            type="button"
+            className="dock-nav-btn"
+            data-testid="dock-zoom-in"
+            title="Zoom in"
+            aria-label="Zoom in"
+            onFire={() => api()?.zoomBy(ZOOM_STEP)}
+          >
+            <PlusIcon />
+          </HoldButton>
+          <input
+            type="range"
+            className="dock-zoom-slider"
+            data-testid="dock-zoom-slider"
+            aria-label="Zoom"
+            min={0}
+            max={SLIDER_STEPS}
+            value={sliderValue}
+            onChange={(event) => api()?.zoomTo(sliderToZoom(Number(event.target.value)))}
+          />
+          <HoldButton
+            type="button"
+            className="dock-nav-btn"
+            data-testid="dock-zoom-out"
+            title="Zoom out"
+            aria-label="Zoom out"
+            onFire={() => api()?.zoomBy(1 / ZOOM_STEP)}
+          >
+            <MinusIcon />
+          </HoldButton>
+        </div>
       </div>
     </div>
   );
