@@ -26,7 +26,7 @@ export const AXIS_PRESET = { x: "side", y: "plan", z: "front" };
 
 const AXIS_COLORS = { x: "#e2564d", y: "#8fbf4a", z: "#4d7fe2" };
 
-const GIZMO_PX = 72;
+const GIZMO_PX = 96;
 
 // Latest main-camera orientation. Written every frame inside the main Canvas,
 // read by the mini loop below. Plain numbers, no reactivity needed.

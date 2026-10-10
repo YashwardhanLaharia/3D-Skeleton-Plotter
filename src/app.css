@@ -1336,8 +1336,8 @@
 /* Embedded 3D orbit gizmo: fixed square canvas topping the left column. */
 .dock-gizmo-canvas {
   display: block;
-  width: 72px;
-  height: 72px;
+  width: 96px;
+  height: 96px;
   cursor: grab;
   touch-action: none;
 }
@@ -1350,8 +1350,8 @@
    back on release. Sized for a fingertip, with room around it. */
 .dock-joystick {
   position: relative;
-  width: 3.5rem;
-  height: 3.5rem;
+  width: 4.5rem;
+  height: 4.5rem;
   border-radius: 50%;
   border: 1px solid rgba(255, 255, 255, 0.35);
   background: rgba(255, 255, 255, 0.06);
@@ -1367,10 +1367,10 @@
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 1.5rem;
-  height: 1.5rem;
-  margin-left: -0.75rem;
-  margin-top: -0.75rem;
+  width: 2rem;
+  height: 2rem;
+  margin-left: -1rem;
+  margin-top: -1rem;
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 0.1rem 0.4rem rgba(0, 0, 0, 0.4);

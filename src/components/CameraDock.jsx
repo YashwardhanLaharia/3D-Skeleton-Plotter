@@ -31,7 +31,7 @@ const PAN_RATE = 320;
 
 // Stick travel in pixels, and the dead zone around the centre as a fraction
 // of it. Inside the dead zone a resting thumb does not drift the view.
-const STICK_TRAVEL = 22;
+const STICK_TRAVEL = 26;
 const STICK_DEADZONE = 0.12;
 
 // Keyboard nudge for the focused joystick, in screen pixels per press.
