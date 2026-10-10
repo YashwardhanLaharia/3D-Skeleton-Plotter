@@ -18,6 +18,7 @@ import {
 import { JOINTS } from "./joints";
 import Sidebar from "./components/Sidebar";
 import MainView from "./components/MainView";
+import CameraDock from "./components/CameraDock";
 import LayersPanel from "./components/LayersPanel";
 import FocusBar from "./components/FocusBar";
 import InspectionPanel from "./components/InspectionPanel";
@@ -162,6 +163,10 @@ export default function App() {
   // The chosen preset view, or null for free orbit. View state, like `hidden`
   // — not undoable, not saved.
   const [view, setView] = useState(null);
+
+  // Live orthographic zoom for the dock slider. Reported back throttled from
+  // the viewport, so wheel zooms move the slider without re-rendering hot.
+  const [zoom, setZoom] = useState(100);
 
   // Transient message for changes such as adding individuals, which are inconvenient to highlight in place
   const [notice, setNotice] = useState(null);
@@ -1168,6 +1173,7 @@ export default function App() {
             vertical={vertical}
             view={view}
             onUserNavigate={() => setView(null)}
+            onZoom={setZoom}
             onSolverIssues={handleSolverIssues}
             imageOverlay={imageOverlay}
             overlayFrame={overlayFrame}
@@ -1204,6 +1210,13 @@ export default function App() {
               }}
             />
           )}
+
+          <CameraDock
+            view={view}
+            onPresetChange={setView}
+            zoom={zoom}
+            viewportRef={viewportRef}
+          />
 
           <div
             className={`viewport-panels ${focusedId ? "viewport-panels-focused" : ""}`}

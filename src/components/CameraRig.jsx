@@ -1,14 +1,24 @@
-// Camera preset views and the navigation watcher.
+// Camera preset views, the smooth-motion driver, and the navigation watcher.
 //
 // Presets are fixed orthographic measurement views: plan from above plus two
 // elevations, alongside free orbit. Choosing one tweens the camera to frame the
 // grave, the visible skeletons, and any surveyed contours together, so a bone
 // recorded outside the grave outline is never cropped by the view.
 //
+// All scripted camera motion flows through one drive object so gestures never
+// fight each other:
+//
+//   drive.tween    a timed flight (preset changes, zoom steps)
+//   drive.desired  a pose the camera eases towards (dock drags, zoom slider)
+//
+// A new gesture replaces whatever came before, and the driver is the only
+// per-frame writer, so there are no jumps or competing tweens. Native canvas
+// drags clear the drive on pointer down, handing the camera straight back.
+//
 // UserNavigation drops the preset back to free orbit once the user starts
-// looking from somewhere else. Only a change of viewing direction counts:
-// panning and zooming within a plan view are still measuring that same plan,
-// and a stray click is not navigation at all.
+// looking at the scene from somewhere else. Only a change of viewing direction
+// counts: panning and zooming within a plan view are still measuring that same
+// plan, and a stray click is not navigation at all.
 
 import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
@@ -28,13 +38,34 @@ const WORLD_UP = new Vector3(0, 1, 0);
 // enough to not stand between the user and measuring.
 const PRESET_TWEEN_MS = 600;
 
+// Dock drag speeds. A full turn per few hundred pixels feels like the mouse
+// drag the buttons stand in for.
+export const ORBIT_DRAG_SPEED = (Math.PI * 2) / 400;
+export const AXIS_DRAG_SPEED = (Math.PI * 2) / 260;
+export const ZOOM_STEP = 1.25;
+export const ZOOM_TWEEN_MS = 250;
+
+export const AXIS_DIRECTIONS = {
+  x: { x: 1, y: 0, z: 0 },
+  y: { x: 0, y: 1, z: 0 },
+  z: { x: 0, y: 0, z: 1 },
+};
+
+// How fast dock drags catch up: responsive under the finger, visibly smooth.
+const DAMP_RATE = 14;
+const SNAP_DIST = 1e-4;
+
+export function createDrive() {
+  return { tween: null, desired: null };
+}
+
 export function CameraControls({ controlsRef }) {
   const { camera, gl } = useThree();
 
   // OrbitControls with damping only progresses while update() runs, so it gets
   // a per-frame tick. With no user input the deltas are ~zero and this is a
-  // no-op; it never fights the tween drivers, which set position/target
-  // directly and then call update() themselves.
+  // no-op; it never fights the driver, which sets position/target directly
+  // and then calls update() itself.
   useFrame(() => {
     controlsRef.current?.update();
   });
@@ -47,6 +78,118 @@ export function CameraControls({ controlsRef }) {
       dampingFactor={0.08}
     />
   );
+}
+
+// The single per-frame camera writer for everything the dock asks for.
+// Reports zoom back out (throttled) so the slider can follow wheel zooms too.
+export function CameraDriver({ controlsRef, driveRef, onZoom }) {
+  const { camera } = useThree();
+  const zoomSink = useRef(onZoom);
+  zoomSink.current = onZoom;
+  const lastReport = useRef({ zoom: 0, time: 0 });
+
+  useFrame((_, rawDt) => {
+    const controls = controlsRef.current;
+
+    if (!controls) return;
+
+    const drive = driveRef.current;
+    const dt = Math.min(rawDt, 0.05);
+    const reduced = window.matchMedia?.(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    let moved = false;
+
+    if (drive.tween) {
+      const active = drive.tween;
+
+      if (reduced) {
+        applyPose(active.to, camera, controls);
+        drive.tween = null;
+      } else {
+        const t = Math.min(
+          (performance.now() - active.start) / active.duration,
+          1,
+        );
+        const eased = 1 - Math.pow(1 - t, 3);
+        const pose = {
+          position: new Vector3(),
+          target: new Vector3(),
+          up: new Vector3(),
+          zoom: active.from.zoom,
+        };
+
+        pose.position.lerpVectors(
+          active.from.position,
+          active.to.position,
+          eased,
+        );
+        pose.target.lerpVectors(active.from.target, active.to.target, eased);
+        pose.up.lerpVectors(active.from.up, active.to.up, eased).normalize();
+        pose.zoom =
+          active.from.zoom + (active.to.zoom - active.from.zoom) * eased;
+
+        applyPose(pose, camera, controls);
+
+        if (t === 1) drive.tween = null;
+      }
+
+      moved = true;
+    } else if (drive.desired) {
+      const wanted = drive.desired;
+
+      if (reduced) {
+        applyPose(
+          { ...wanted, up: camera.up.clone() },
+          camera,
+          controls,
+        );
+        drive.desired = null;
+      } else {
+        const step = 1 - Math.exp(-dt * DAMP_RATE);
+
+        camera.position.lerp(wanted.position, step);
+        controls.target.lerp(wanted.target, step);
+
+        const zoom = Math.log(camera.zoom);
+        const targetZoom = Math.log(wanted.zoom);
+        camera.zoom = Math.exp(zoom + (targetZoom - zoom) * step);
+        camera.updateProjectionMatrix();
+        controls.update();
+
+        if (
+          camera.position.distanceTo(wanted.position) < SNAP_DIST &&
+          controls.target.distanceTo(wanted.target) < SNAP_DIST &&
+          Math.abs(Math.log(camera.zoom / wanted.zoom)) < 1e-4
+        ) {
+          camera.position.copy(wanted.position);
+          controls.target.copy(wanted.target);
+          camera.zoom = wanted.zoom;
+          camera.updateProjectionMatrix();
+          controls.update();
+          drive.desired = null;
+        }
+      }
+
+      moved = true;
+    }
+
+    if (moved) {
+      const now = performance.now();
+      const last = lastReport.current;
+
+      if (
+        now - last.time > 120 ||
+        Math.abs(camera.zoom - last.zoom) / Math.max(last.zoom, 1e-9) > 0.05
+      ) {
+        last.zoom = camera.zoom;
+        last.time = now;
+        zoomSink.current?.(camera.zoom);
+      }
+    }
+  });
+
+  return null;
 }
 
 function boxOfIndividual(scene, id) {
@@ -125,7 +268,7 @@ function presetPoseFor({
   };
 }
 
-function readPose(camera, controls) {
+export function readPose(camera, controls) {
   return {
     position: camera.position.clone(),
     target: controls.target.clone(),
@@ -134,7 +277,7 @@ function readPose(camera, controls) {
   };
 }
 
-function applyPose(pose, camera, controls) {
+export function applyPose(pose, camera, controls) {
   camera.position.copy(pose.position);
   camera.up.copy(pose.up);
   camera.zoom = pose.zoom;
@@ -145,9 +288,9 @@ function applyPose(pose, camera, controls) {
   controls.update();
 }
 
-// Drives the camera into a preset view. Focus owns the camera while focused
-// (FocusCamera takes the view into account itself); this handles the free
-// overview only, so the two never race.
+// Files the flight plan for a preset view; CameraDriver flies it. Focus owns
+// the camera while focused (FocusCamera takes the view into account itself);
+// this handles the free overview only, so the two never race.
 export function PresetCamera({
   view,
   graveDimensions,
@@ -157,9 +300,9 @@ export function PresetCamera({
   hidden,
   focusedId,
   controlsRef,
+  driveRef,
 }) {
   const { camera, scene, size: viewport } = useThree();
-  const tween = useRef(null);
 
   useEffect(() => {
     const controls = controlsRef.current;
@@ -176,7 +319,8 @@ export function PresetCamera({
         applyPose({ ...from, up: WORLD_UP.clone() }, camera, controls);
       }
 
-      tween.current = null;
+      driveRef.current.tween = null;
+      driveRef.current.desired = null;
       return;
     }
 
@@ -195,14 +339,16 @@ export function PresetCamera({
 
     if (!wanted) return;
 
-    tween.current = {
+    driveRef.current.desired = null;
+    driveRef.current.tween = {
       from: readPose(camera, controls),
       to: wanted,
       start: performance.now(),
+      duration: PRESET_TWEEN_MS,
     };
     // individuals and hidden are deliberately absent from the deps. The solved
     // skeletons move as they are edited, so depending on them would restart
-    // the tween on every keystroke and drag the camera back to a framing the
+    // the flight on every keystroke and drag the camera back to a framing the
     // user had already panned away from. Choosing the view again reframes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -213,42 +359,18 @@ export function PresetCamera({
     hiddenGraves,
     camera,
     controlsRef,
+    driveRef,
     scene,
     viewport.width,
     viewport.height,
   ]);
 
-  useFrame(() => {
-    const active = tween.current;
-    const controls = controlsRef.current;
-
-    if (!active || !controls) return;
-
-    const elapsed = performance.now() - active.start;
-    const t = Math.min(elapsed / PRESET_TWEEN_MS, 1);
-    const eased = 1 - Math.pow(1 - t, 3);
-    const pose = {
-      position: new Vector3(),
-      target: new Vector3(),
-      up: new Vector3(),
-      zoom: active.from.zoom,
-    };
-
-    pose.position.lerpVectors(active.from.position, active.to.position, eased);
-    pose.target.lerpVectors(active.from.target, active.to.target, eased);
-    pose.up.lerpVectors(active.from.up, active.to.up, eased).normalize();
-    pose.zoom = active.from.zoom + (active.to.zoom - active.from.zoom) * eased;
-
-    applyPose(pose, camera, controls);
-
-    if (t === 1) tween.current = null;
-  });
-
   return null;
 }
 
 // Drops the chosen preset once the user starts looking at the scene from
-// somewhere else.
+// somewhere else. A native drag also cancels any dock flight in progress,
+// handing the camera straight back.
 //
 // Listens on the canvas rather than on OrbitControls so dock-driven orbit
 // gestures (which move the camera without going through OrbitControls) are
@@ -256,7 +378,12 @@ export function PresetCamera({
 //
 // This is a component rather than a hook called by MainView because it needs
 // useThree, and useThree only works inside the Canvas.
-export function UserNavigation({ view, controlsRef, onUserNavigate }) {
+export function UserNavigation({
+  view,
+  controlsRef,
+  driveRef,
+  onUserNavigate,
+}) {
   const { camera, gl } = useThree();
   const latest = useRef(onUserNavigate);
   const latestView = useRef(view);
@@ -270,6 +397,8 @@ export function UserNavigation({ view, controlsRef, onUserNavigate }) {
 
     const handleDown = () => {
       dragging = true;
+      driveRef.current.tween = null;
+      driveRef.current.desired = null;
     };
 
     const handleMove = () => {
@@ -299,7 +428,7 @@ export function UserNavigation({ view, controlsRef, onUserNavigate }) {
       canvas.removeEventListener("pointerup", handleUp);
       canvas.removeEventListener("pointercancel", handleUp);
     };
-  }, [camera, controlsRef, gl]);
+  }, [camera, controlsRef, driveRef, gl]);
 
   return null;
 }

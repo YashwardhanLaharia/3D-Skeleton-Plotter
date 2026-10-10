@@ -47,11 +47,29 @@ import {
 import { boneName } from "../inspection/boneLabels.js";
 import { BODY_DIMENSIONS } from "../rig/scaling/dimensionConfig.js";
 import {
+  AXIS_DIRECTIONS,
+  AXIS_DRAG_SPEED,
+  ORBIT_DRAG_SPEED,
+  ZOOM_TWEEN_MS,
   CameraControls,
+  CameraDriver,
   PresetCamera,
   UserNavigation,
+  createDrive,
+  readPose,
 } from "./CameraRig.jsx";
-import { CAMERA_PRESETS } from "../cameraViews.js";
+import {
+  CAMERA_PRESETS,
+  ZOOM_MAX,
+  ZOOM_MIN,
+  isPresetDirection,
+} from "../cameraViews.js";
+import {
+  freeOrbitPose,
+  orbitAboutAxisPose,
+  panPose,
+  zoomPose,
+} from "../cameraNavigation.js";
 
 // Make Three.js orbit controls available as a React Three Fiber element.
 extend({ OrbitControls: ThreeOrbitControls });
@@ -480,11 +498,73 @@ const SCREENSHOT_WIDTH = 1920;
 const SCREENSHOT_HEIGHT = 1080;
 
 // Capture the WebGL scene itself, independent of the surrounding React UI.
+// Also drives the camera for the on-screen dock: drags ease towards a desired
+// pose, zoom steps fly a short tween, and everything lands without a cut.
 const ViewportExport = forwardRef(function ViewportExport(
-  { controlsRef, overviewRef, focusedId },
+  { controlsRef, overviewRef, focusedId, driveRef, view, onUserNavigate },
   ref,
 ) {
-  const { camera, gl, scene } = useThree();
+  const { camera, gl, scene, size } = useThree();
+  const sizeRef = useRef(size);
+  sizeRef.current = size;
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  const navigateRef = useRef(onUserNavigate);
+  navigateRef.current = onUserNavigate;
+
+  // The pose dock drags build on: the in-flight target when there is one,
+  // otherwise what the camera shows now. Building on the target keeps a fast
+  // drag smooth instead of restarting from a camera that has not caught up.
+  function driveBase() {
+    const controls = controlsRef.current;
+    const pending = driveRef.current.desired;
+
+    if (pending) {
+      return {
+        position: {
+          x: pending.position.x,
+          y: pending.position.y,
+          z: pending.position.z,
+        },
+        target: {
+          x: pending.target.x,
+          y: pending.target.y,
+          z: pending.target.z,
+        },
+        zoom: pending.zoom,
+      };
+    }
+
+    return {
+      position: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
+      target: { x: controls.target.x, y: controls.target.y, z: controls.target.z },
+      zoom: camera.zoom,
+    };
+  }
+
+  function steer(next) {
+    driveRef.current.tween = null;
+    driveRef.current.desired = {
+      position: new Vector3(next.position.x, next.position.y, next.position.z),
+      target: new Vector3(next.target.x, next.target.y, next.target.z),
+      zoom: next.zoom,
+    };
+  }
+
+  // Orbiting away leaves the preset; panning and zooming never do.
+  function maybeExitPreset(next) {
+    const active = viewRef.current;
+
+    if (!active) return;
+
+    const offset = {
+      x: next.position.x - next.target.x,
+      y: next.position.y - next.target.y,
+      z: next.position.z - next.target.z,
+    };
+
+    if (!isPresetDirection(active, offset, 1e-4)) navigateRef.current?.();
+  }
 
   useImperativeHandle(
     ref,
@@ -495,6 +575,77 @@ const ViewportExport = forwardRef(function ViewportExport(
           : controlsRef.current
             ? captureProjectView(camera, controlsRef.current)
             : null;
+      },
+      getZoom() {
+        return camera.zoom;
+      },
+      panBy({ dx = 0, dy = 0 }) {
+        if (!controlsRef.current) return;
+
+        const base = driveBase();
+
+        steer(
+          panPose(base, {
+            dx,
+            dy,
+            viewportWidth: sizeRef.current.width,
+            zoom: base.zoom,
+          }),
+        );
+      },
+      orbitBy({ dx = 0, dy = 0 }) {
+        if (!controlsRef.current) return;
+
+        const next = freeOrbitPose(driveBase(), {
+          turn: dx * ORBIT_DRAG_SPEED,
+          tilt: dy * ORBIT_DRAG_SPEED,
+        });
+
+        steer(next);
+        maybeExitPreset(next);
+      },
+      axisOrbitBy(axis, dx = 0) {
+        if (!controlsRef.current || !AXIS_DIRECTIONS[axis]) return;
+
+        const next = orbitAboutAxisPose(
+          driveBase(),
+          AXIS_DIRECTIONS[axis],
+          dx * AXIS_DRAG_SPEED,
+        );
+
+        steer(next);
+        maybeExitPreset(next);
+      },
+      zoomBy(factor) {
+        const controls = controlsRef.current;
+
+        if (!controls || !Number.isFinite(factor) || factor <= 0) return;
+
+        const from = readPose(camera, controls);
+        const next = zoomPose(
+          {
+            position: { x: from.position.x, y: from.position.y, z: from.position.z },
+            target: { x: from.target.x, y: from.target.y, z: from.target.z },
+            zoom: from.zoom,
+          },
+          factor,
+        );
+
+        driveRef.current.desired = null;
+        driveRef.current.tween = {
+          from,
+          to: { ...from, zoom: next.zoom },
+          start: performance.now(),
+          duration: ZOOM_TWEEN_MS,
+        };
+      },
+      zoomTo(zoom) {
+        if (!controlsRef.current || !Number.isFinite(zoom)) return;
+
+        steer({
+          ...driveBase(),
+          zoom: Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom)),
+        });
       },
       async captureScreenshot() {
         const canvas = gl.domElement;
@@ -543,7 +694,7 @@ const ViewportExport = forwardRef(function ViewportExport(
         return window.electronAPI.saveGLB(data);
       },
     }),
-    [camera, controlsRef, gl, scene, focusedId, overviewRef],
+    [camera, controlsRef, driveRef, gl, scene, focusedId, overviewRef],
   );
 
   return null;
@@ -939,6 +1090,7 @@ const MainView = forwardRef(function MainView(
     focusedId = null,
     view = null,
     onUserNavigate,
+    onZoom,
     showEnvironment = true,
     contextOpacity = 0.25,
     onFocusAlone,
@@ -953,6 +1105,9 @@ const MainView = forwardRef(function MainView(
 ) {
   const controlsRef = useRef(null);
   const overviewRef = useRef(null);
+  const driveRef = useRef(null);
+
+  if (!driveRef.current) driveRef.current = createDrive();
 
   const focusedAlone = Boolean(focusedId && !showEnvironment);
 
@@ -1070,17 +1225,27 @@ const MainView = forwardRef(function MainView(
           hidden={hidden}
           focusedId={focusedId}
           controlsRef={controlsRef}
+          driveRef={driveRef}
         />
         <UserNavigation
           view={view}
           controlsRef={controlsRef}
+          driveRef={driveRef}
           onUserNavigate={onUserNavigate}
+        />
+        <CameraDriver
+          controlsRef={controlsRef}
+          driveRef={driveRef}
+          onZoom={onZoom}
         />
         <ViewportExport
           ref={ref}
           controlsRef={controlsRef}
           overviewRef={overviewRef}
           focusedId={focusedId}
+          driveRef={driveRef}
+          view={view}
+          onUserNavigate={onUserNavigate}
         />
       </Canvas>
     </main>
