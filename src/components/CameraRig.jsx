@@ -57,6 +57,9 @@ const PRESET_TWEEN_MS = 600;
 export const ORBIT_DRAG_SPEED = (Math.PI * 2) / 400;
 export const ZOOM_STEP = 1.25;
 export const ZOOM_TWEEN_MS = 250;
+// Reset settles quickly: a short flight reads as jumping home, a long one
+// reads as an orbit maneuver going nowhere.
+export const RESET_TWEEN_MS = 350;
 
 // How fast dock drags catch up: responsive under the finger, visibly smooth.
 const DAMP_RATE = 14;

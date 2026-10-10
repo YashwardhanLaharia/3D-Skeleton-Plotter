@@ -48,6 +48,7 @@ import { boneName } from "../inspection/boneLabels.js";
 import { BODY_DIMENSIONS } from "../rig/scaling/dimensionConfig.js";
 import {
   ORBIT_DRAG_SPEED,
+  RESET_TWEEN_MS,
   ZOOM_TWEEN_MS,
   AxisGizmo,
   CameraControls,
@@ -656,7 +657,7 @@ const ViewportExport = forwardRef(function ViewportExport(
             zoom: home.zoom,
           },
           start: performance.now(),
-          duration: 600,
+          duration: RESET_TWEEN_MS,
         };
       },
       async captureScreenshot() {

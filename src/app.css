@@ -1292,9 +1292,12 @@
   align-items: stretch;
   gap: 0.55rem;
   padding: 0.5rem 0.45rem;
+  /* No box: the controls float on the viewport. White glyphs keep their
+     contrast on light and dark scenes through the drop shadow. */
+  background: transparent;
   border-radius: 1.1rem;
-  background: rgba(27, 31, 36, 0.88);
-  box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.3);
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.65));
+  color: #fff;
 }
 
 /* Left column: orbit on top, joystick anchoring the bottom. */
