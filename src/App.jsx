@@ -1256,6 +1256,19 @@ export default function App() {
             />
           )}
 
+          {!focusedId && (
+            <button
+              type="button"
+              className="viewport-theme-toggle bg-body border rounded shadow-sm"
+              onClick={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
+              title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+              aria-pressed={theme === "dark"}
+            >
+              <span aria-hidden="true">{theme === "dark" ? "◑︎" : "◐︎"}</span>
+            </button>
+          )}
+
           <div
             className={`viewport-panels ${focusedId ? "viewport-panels-focused" : ""}`}
           >
@@ -1321,10 +1334,6 @@ export default function App() {
               onShowAll={handleShowAll}
               focusedId={focusedId}
               onFocus={handleFocus}
-              theme={theme}
-              onToggleTheme={() =>
-                setTheme((current) => (current === "dark" ? "light" : "dark"))
-              }
             />
           </div>
         </div>

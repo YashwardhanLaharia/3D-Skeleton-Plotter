@@ -163,8 +163,6 @@ export default function LayersPanel({
   onShowAll,
   focusedId,
   onFocus,
-  theme,
-  onToggleTheme,
 }) {
   const [hoveredId, setHoveredId] = useState(null);
   const [isCollapsed, setIsCollapsed] = useState(true);
@@ -207,17 +205,6 @@ export default function LayersPanel({
 
   return (
     <>
-      <button
-        type="button"
-        className="viewport-theme-toggle bg-body border rounded shadow-sm"
-        onClick={onToggleTheme}
-        title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-        aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-        aria-pressed={theme === "dark"}
-      >
-        <span aria-hidden="true">{theme === "dark" ? "◑︎" : "◐︎"}</span>
-      </button>
-
       <section
         className={`layers-panel bg-body border rounded shadow-sm ${
           isCollapsed ? "layers-panel-collapsed" : ""

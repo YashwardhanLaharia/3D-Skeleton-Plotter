@@ -685,9 +685,10 @@
 .viewport-theme-toggle {
   position: absolute;
   top: 0.75rem;
-  right: 14.15rem;
+  right: 18.25rem;
   z-index: 5;
   display: inline-flex;
+  flex-shrink: 0;
   width: 1.75rem;
   height: var(--viewport-control-height);
   align-items: center;
