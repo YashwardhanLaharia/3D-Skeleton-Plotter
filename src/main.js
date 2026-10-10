@@ -5,6 +5,7 @@ import started from "electron-squirrel-startup";
 import { inspectRaster } from "./overlayAsset.js";
 import { MAX_IMAGE_BYTES } from "./imageOverlay.js";
 import { parseClientXlsx, parseClientRot } from "./clientGraveFiles.js";
+import { createAutosaveStore } from "./autosave";
 
 // Handle creating shortcuts on Windows when installing/uninstalling
 if (started) {
@@ -23,6 +24,30 @@ const loadWindow = (window) => {
     );
   }
 };
+
+let autosaveStore;
+function getAutosaveStore() {
+  return autosaveStore ??= createAutosaveStore(app.getPath("userData"));
+}
+
+ipcMain.handle("autosave-project", async (_event, snapshot) => {
+  try {
+    await getAutosaveStore().save(snapshot);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: `Autosave failed: ${error.message}` };
+  }
+});
+
+ipcMain.handle("restore-autosave", async () => {
+  try {
+    const snapshot = await getAutosaveStore().read();
+    if (!snapshot) return { ok: true };
+    return { ok: true, snapshot };
+  } catch (error) {
+    return { ok: false, error: `Could not recover autosave: ${error.message}` };
+  }
+});
 
 ipcMain.handle("save-project", async (_event, { payload, filePath }) => {
   let targetPath = filePath;
@@ -306,10 +331,10 @@ ipcMain.handle("confirm-discard", async (_event, context) => {
     title: "Unsaved changes",
     message: "This reconstruction has unsaved changes.",
     detail: isClosing
-      ? "Closing now will discard them."
+      ? "The main project file has unsaved changes. Your latest edits are kept in the autosave backup."
       : isNew
-        ? "Creating a new project will discard them."
-        : "Opening another project will discard them.",
+        ? "Your latest edits remain in the autosave backup until you edit another project."
+        : "Your latest edits remain in the autosave backup until you edit another project.",
   });
 
   if (result.response === 0) return "save";
@@ -318,13 +343,29 @@ ipcMain.handle("confirm-discard", async (_event, context) => {
 });
 
 ipcMain.handle("confirm-close", async () => {
+  await getAutosaveStore().flush();
   isQuitting = true;
   mainWindow.close();
   return { ok: true };
 });
 
+let menuStartup = true;
+let menuDarkTheme = false;
+
+function refreshApplicationMenu(updates = {}) {
+  if ("startup" in updates) menuStartup = Boolean(updates.startup);
+  if ("darkTheme" in updates) menuDarkTheme = Boolean(updates.darkTheme);
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate(buildMenuTemplate(menuStartup, menuDarkTheme)),
+  );
+}
+
 ipcMain.handle("set-startup-menu", (_event, startup) => {
-  setApplicationMenu(Boolean(startup));
+  refreshApplicationMenu({ startup });
+});
+
+ipcMain.handle("set-menu-theme", (_event, darkTheme) => {
+  refreshApplicationMenu({ darkTheme });
 });
 
 const sendToRenderer = (channel) => {
@@ -335,9 +376,15 @@ const sendToRenderer = (channel) => {
 
 // On the startup screen only Home / New / Open / Quit apply (#83). Disabled
 // items are also unreachable via their accelerators.
-const STARTUP_ENABLED_LABELS = new Set(["Home", "New…", "Open…", "Quit"]);
+const STARTUP_ENABLED_LABELS = new Set([
+  "Home",
+  "New…",
+  "Open…",
+  "Quit",
+  "Dark theme",
+]);
 
-function buildMenuTemplate(startup) {
+function buildMenuTemplate(startup, darkTheme) {
   const itemEnabled = (label) => !startup || STARTUP_ENABLED_LABELS.has(label);
 
   return [
@@ -443,11 +490,19 @@ function buildMenuTemplate(startup) {
         },
       ],
     },
+    {
+      label: "View",
+      submenu: [
+        {
+          label: "Dark theme",
+          type: "checkbox",
+          checked: darkTheme,
+          enabled: itemEnabled("Dark theme"),
+          click: () => sendToRenderer("menu-toggle-dark-theme"),
+        },
+      ],
+    },
   ];
-}
-
-function setApplicationMenu(startup) {
-  Menu.setApplicationMenu(Menu.buildFromTemplate(buildMenuTemplate(startup)));
 }
 
 const createWindow = () => {
@@ -483,7 +538,7 @@ const createWindow = () => {
 app.whenReady().then(() => {
   createWindow();
   // App starts on the startup screen; the renderer confirms via set-startup-menu.
-  setApplicationMenu(true);
+  refreshApplicationMenu({ startup: true });
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {

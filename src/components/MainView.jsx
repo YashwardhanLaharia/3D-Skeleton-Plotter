@@ -927,6 +927,7 @@ const MainView = forwardRef(function MainView(
     onOverlayError,
     onSelect,
     onClearSelection,
+    theme = "light",
   },
   ref,
 ) {
@@ -951,7 +952,7 @@ const MainView = forwardRef(function MainView(
         }}
         onPointerMissed={() => onClearSelection?.()}
       >
-        <color attach="background" args={[focusedAlone ? "#1b1f24" : "#e9ecef"]} />
+        <color attach="background" args={[focusedAlone || theme === "dark" ? "#15191d" : "#e9ecef"]} />
 
         <ambientLight intensity={focusedAlone ? 0.9 : 1.5} />
 
@@ -995,7 +996,7 @@ const MainView = forwardRef(function MainView(
         {!focusedAlone && (
           <>
             <gridHelper
-              args={[globalScale, 12, "#adb5bd", "#ced4da"]}
+              args={[globalScale, 12, theme === "dark" ? "#6c757d" : "#adb5bd", theme === "dark" ? "#343a40" : "#ced4da"]}
               scale={graveDimensionsToGridScale(graveDimensions)}
             />
             {graves

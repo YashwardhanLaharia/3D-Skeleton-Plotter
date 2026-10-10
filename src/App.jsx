@@ -36,6 +36,7 @@ import {
 import { csvToProject, importCsv, rowsToIndividuals } from "./csvImport";
 import { createCsv, exportCsv } from "./csvExport";
 import { DEFAULT_VERTICAL } from "./sceneSpace";
+import { applyTheme, readTheme } from "./theme";
 import "./app.css";
 
 const PALETTE = [
@@ -50,7 +51,12 @@ const PALETTE = [
 
 // Behind the startup screen only these menu items make sense. Anything else
 // would act on a project the user cannot see (#83).
-const STARTUP_MENU_ACTIONS = new Set(["menu-home", "menu-new", "menu-open"]);
+const STARTUP_MENU_ACTIONS = new Set([
+  "menu-home",
+  "menu-new",
+  "menu-open",
+  "menu-toggle-dark-theme",
+]);
 
 const STARTING_STATE = [
   {
@@ -76,6 +82,7 @@ export default function App() {
   const [overlayFrame, setOverlayFrame] = useState(null);
   const [showOverlaySettings, setShowOverlaySettings] = useState(false);
   const [graveSurvey, setGraveSurvey] = useState(null);
+  const [theme, setTheme] = useState(readTheme);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showStartup, setShowStartup] = useState(true);
   const [isGraveDimensionsModalOpen, setIsGraveDimensionsModalOpen] =
@@ -85,6 +92,7 @@ export default function App() {
   const [graveAssignments, setGraveAssignments] = useState({});
   const [hiddenGraves, setHiddenGraves] = useState([]);
   const [savedView, setSavedView] = useState(null);
+  const [viewRevision, setViewRevision] = useState(0);
   const [frameRequest, setFrameRequest] = useState(null);
   const graveOutline = graves[0] ?? { top: [], bottom: [] };
   const [recentProjects, setRecentProjects] = useState([]);
@@ -196,6 +204,7 @@ export default function App() {
   }
 
   function applyLoadedProject(loaded, projectPath) {
+    skipAutosave.current = true;
     setJointDetails({});
     dispatch({
       type: "load",
@@ -246,9 +255,85 @@ export default function App() {
     rememberRecent(projectPath, loaded.individuals.length);
   }
 
+  const [recoveryReady, setRecoveryReady] = useState(false);
+  const [autosaveSnapshot, setAutosaveSnapshot] = useState(null);
+  const [autosaveError, setAutosaveError] = useState(null);
+  const recoveryStarted = useRef(false);
+  const skipAutosave = useRef(true);
+  const lastAutosaveData = useRef(null);
+  const pendingAutosave = useRef(Promise.resolve({ ok: true }));
+
+  useEffect(() => {
+    if (recoveryStarted.current) return;
+    recoveryStarted.current = true;
+    async function recover() {
+      try {
+        const result = await window.electronAPI?.restoreAutosave?.();
+        if (result && !result.ok) throw new Error(result.error);
+        setAutosaveSnapshot(result?.snapshot ?? null);
+      } catch (error) {
+        setAutosaveError(`Could not read autosave: ${error.message}`);
+      } finally {
+        setRecoveryReady(true);
+      }
+    }
+    recover();
+  }, []);
+
+  function handleRestoreAutosave() {
+    if (!recoveryReady || !autosaveSnapshot) return;
+    try {
+      const loaded = csvToProject(autosaveSnapshot.payload);
+      if (!loaded.ok) throw new Error(loaded.error || "Invalid autosaved project");
+      applyLoadedProject(loaded, autosaveSnapshot.filePath ?? null);
+      setJointDetails(autosaveSnapshot.jointDetails ?? {});
+      setIsDirty(true);
+      setNotice("Autosaved project restored. Use Save to update your project file.");
+    } catch (error) {
+      setAutosaveError(`Could not restore autosave: ${error.message}`);
+    }
+  }
+
+  useEffect(() => {
+    if (!recoveryReady) return;
+    const snapshot = {
+      payload: createProjectCsv(),
+      jointDetails,
+    };
+    const data = JSON.stringify({ ...snapshot, filePath });
+    if (skipAutosave.current) {
+      skipAutosave.current = false;
+      lastAutosaveData.current = data;
+      return;
+    }
+    if (data === lastAutosaveData.current) return;
+    lastAutosaveData.current = data;
+    if (!window.electronAPI?.autosaveProject) return;
+    pendingAutosave.current = window.electronAPI.autosaveProject({ ...snapshot, filePath })
+      .catch(error => ({ ok: false, error: error.message }));
+    pendingAutosave.current.then(result => {
+      if (!result.ok) setNotice(`Autosave failed: ${result.error}`);
+    });
+  }, [recoveryReady, individuals, groups, graveDimensions, jointDetails, filePath,
+    graves, graveAssignments, imageOverlay, vertical, savedView, viewRevision]);
+
+  async function finishAutosave() {
+    const result = await pendingAutosave.current;
+    if (!result.ok) {
+      setNotice("Autosave failed. Save your project manually before continuing, then try again.");
+      return false;
+    }
+    return true;
+  }
+
   useEffect(() => {
     refreshRecentProjects();
   }, []);
+
+  useEffect(() => {
+    applyTheme(theme);
+    void window.electronAPI?.setMenuTheme?.(theme === "dark");
+  }, [theme]);
 
   function handleChange(individualId, jointId, axis, rawValue, part = "point") {
     dispatch({
@@ -614,6 +699,18 @@ export default function App() {
     }));
   }
 
+  // Save and autosave share the full editable project format.
+  function createProjectCsv() {
+    return createCsv(
+      projectIndividuals(),
+      graveDimensions,
+      groups,
+      graveOutline,
+      { graves, imageOverlay, view: viewportRef.current?.getView() ?? savedView },
+      vertical,
+    );
+  }
+
   async function handleImport() {
     const result = await importCsv();
 
@@ -688,6 +785,7 @@ export default function App() {
   }
 
   async function handleNew() {
+    if (!recoveryReady || !await finishAutosave()) return;
     if (isDirty) {
       const choice = await window.electronAPI.confirmDiscard("new");
       if (choice === "cancel") return;
@@ -707,6 +805,7 @@ export default function App() {
       return;
     }
 
+    skipAutosave.current = true;
     setJointDetails({});
     setImageOverlay(null);
     setOverlayFrame(null);
@@ -728,6 +827,7 @@ export default function App() {
   }
 
   async function handleOpen() {
+    if (!recoveryReady || !await finishAutosave()) return;
     if (isDirty && !showStartup) {
       const choice = await window.electronAPI.confirmDiscard("open");
       if (choice === "cancel") return;
@@ -782,6 +882,7 @@ export default function App() {
   }
 
   async function handleOpenRecent(projectPath) {
+    if (!recoveryReady || !await finishAutosave()) return;
     if (isDirty && !showStartup) {
       const choice = await window.electronAPI.confirmDiscard("open");
       if (choice === "cancel") return;
@@ -819,18 +920,7 @@ export default function App() {
       return false;
     }
     const result = await window.electronAPI.saveProject({
-      payload: createCsv(
-        projectIndividuals(),
-        graveDimensions,
-        groups,
-        graveOutline,
-        {
-          graves,
-          view: viewportRef.current?.getView() ?? savedView,
-          imageOverlay,
-        },
-        vertical,
-      ),
+      payload: createProjectCsv(),
       filePath: forcePrompt ? null : filePath,
     });
 
@@ -842,6 +932,7 @@ export default function App() {
       return false;
     }
 
+    pendingAutosave.current = Promise.resolve({ ok: true });
     setFilePath(result.path);
     setIsDirty(false);
     setNotice("Project saved successfully.");
@@ -850,6 +941,7 @@ export default function App() {
   }
 
   async function handleRequestClose() {
+    if (!recoveryReady || !await finishAutosave()) return;
     if (isDirty) {
       const choice = await window.electronAPI.confirmDiscard("close");
       if (choice === "cancel") return;
@@ -903,6 +995,8 @@ export default function App() {
     handleImportGraveOutline,
     handleExportCsv,
     handleEscape,
+    handleToggleDarkTheme: () =>
+      setTheme((current) => (current === "dark" ? "light" : "dark")),
     showStartup,
   };
 
@@ -926,6 +1020,8 @@ export default function App() {
       if (action === "menu-redo") actionsRef.current.handleRedo();
       if (action === "menu-change-grave-dimensions")
         actionsRef.current.handleChangeGraveDimensions();
+      if (action === "menu-toggle-dark-theme")
+        actionsRef.current.handleToggleDarkTheme();
     });
     return () => unsubscribe?.();
   }, []);
@@ -999,11 +1095,16 @@ export default function App() {
   const focusedIndividual =
     individuals.find((individual) => individual.id === focusedId) ?? null;
 
+
   return (
     <div className="app-shell d-flex flex-column vh-100 overflow-hidden">
       <StartupScreen
         show={showStartup}
         recentProjects={recentProjects}
+        autosaveSnapshot={autosaveSnapshot}
+        autosaveError={autosaveError}
+        autosaveLoading={!recoveryReady}
+        onRestoreAutosave={handleRestoreAutosave}
         graveDimensions={graveDimensions}
         setGraveDimensions={(dimensions) => {
           setGraveDimensions(dimensions);
@@ -1097,7 +1198,7 @@ export default function App() {
 
         <button
           type="button"
-          className={`btn btn-light sidebar-edge-toggle border ${isSidebarOpen ? "" : "sidebar-edge-toggle-collapsed"}`}
+          className={`btn ${theme === "dark" ? "btn-dark" : "btn-light"} sidebar-edge-toggle border ${isSidebarOpen ? "" : "sidebar-edge-toggle-collapsed"}`}
           aria-label={`${isSidebarOpen ? "Hide" : "Show"} sidebar`}
           aria-controls="individuals-sidebar"
           aria-expanded={isSidebarOpen}
@@ -1122,7 +1223,10 @@ export default function App() {
             hiddenGraves={hiddenGraves}
             savedView={savedView}
             frameRequest={frameRequest}
-            onViewChange={() => setIsDirty(true)}
+            onViewChange={() => {
+              setIsDirty(true);
+              setViewRevision((revision) => revision + 1);
+            }}
             targetId={selectedId}
             selectedId={selectedId}
             vertical={vertical}
@@ -1132,6 +1236,7 @@ export default function App() {
             onOverlayError={setNotice}
             onSelect={openAndSelect}
             onClearSelection={() => setSelectedId(null)}
+            theme={theme}
           />
           <FocusBar
             individual={focusedIndividual}

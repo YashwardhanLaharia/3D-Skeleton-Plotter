@@ -204,11 +204,12 @@ export default function LayersPanel({
   }
 
   return (
-    <section
-      className={`layers-panel bg-body border rounded shadow-sm ${
-        isCollapsed ? "layers-panel-collapsed" : ""
-      } ${focusedId ? "layers-panel-focused" : ""}`}
-    >
+    <>
+      <section
+        className={`layers-panel bg-body border rounded shadow-sm ${
+          isCollapsed ? "layers-panel-collapsed" : ""
+        } ${focusedId ? "layers-panel-focused" : ""}`}
+      >
       <header className="layers-header d-flex align-items-center gap-1 px-2 py-1 border-bottom">
         <button
           type="button"
@@ -300,6 +301,7 @@ export default function LayersPanel({
           </footer>
         </>
       )}
-    </section>
+      </section>
+    </>
   );
 }

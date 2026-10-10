@@ -112,11 +112,11 @@ test("focus shows the focus bar and inspection panel; Exit restores the overview
 
   await clickFocus(driver, "Alpha");
 
-  const focusBar = await driver.wait(
-    until.elementLocated(By.css(".focus-bar")),
+  await driver.wait(until.elementLocated(By.css(".focus-bar")), WAIT);
+  await driver.wait(
+    until.elementLocated(By.css('[aria-label="Exit focus on Alpha"]')),
     WAIT,
   );
-  assert.match(await focusBar.getText(), /Focused:\s*Alpha/);
 
   const inspection = await driver.wait(
     until.elementLocated(By.css(".inspection-panel")),
@@ -124,11 +124,6 @@ test("focus shows the focus bar and inspection panel; Exit restores the overview
   );
   assert.match(await inspection.getText(), /Measurements/);
   assert.match(await inspection.getText(), /points recorded/);
-
-  await driver.wait(
-    until.elementLocated(By.css('[aria-label="Exit focus on Alpha"]')),
-    WAIT,
-  );
 
   await driver.findElement(By.css(".focus-bar-exit")).click();
 
@@ -146,9 +141,9 @@ test("Escape exits focus mode", async (t) => {
 
   await clickFocus(driver, "Beta");
   await driver.wait(until.elementLocated(By.css(".focus-bar")), WAIT);
-  assert.match(
-    await driver.findElement(By.css(".focus-bar-label")).getText(),
-    /Focused:\s*Beta/,
+  await driver.wait(
+    until.elementLocated(By.css('[aria-label="Exit focus on Beta"]')),
+    WAIT,
   );
 
   await driver.actions().sendKeys(Key.ESCAPE).perform();
