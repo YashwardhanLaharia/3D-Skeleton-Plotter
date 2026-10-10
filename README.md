@@ -21,8 +21,8 @@ Built with Electron, React and Three.js.
 ### Use the application
 
 1. Launch the packaged desktop app (or run from source).
-2. On **Home**, choose **New project** and set grave dimensions, or **Open
-   project** to load a CSV.
+2. On **Home**, choose **New project** and set grave dimensions, or **Open project**
+   to load a CSV.
 3. Follow the [user guide](docs/user-guide.md) with the sample
    [synthetic-skeleton.csv](docs/examples/synthetic-skeleton.csv).
 
