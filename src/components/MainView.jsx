@@ -49,6 +49,7 @@ import { BODY_DIMENSIONS } from "../rig/scaling/dimensionConfig.js";
 import {
   ORBIT_DRAG_SPEED,
   ZOOM_TWEEN_MS,
+  AxisGizmo,
   CameraControls,
   CameraDriver,
   PresetCamera,
@@ -1099,6 +1100,8 @@ const MainView = forwardRef(function MainView(
     focusedId = null,
     view = null,
     onUserNavigate,
+    onPresetSelect,
+    gizmoBottom = 0,
     onZoom,
     showEnvironment = true,
     contextOpacity = 0.25,
@@ -1246,6 +1249,14 @@ const MainView = forwardRef(function MainView(
           controlsRef={controlsRef}
           driveRef={driveRef}
           onZoom={onZoom}
+        />
+        <AxisGizmo
+          view={view}
+          controlsRef={controlsRef}
+          driveRef={driveRef}
+          gizmoBottom={gizmoBottom}
+          onPresetSelect={onPresetSelect}
+          onUserNavigate={onUserNavigate}
         />
         <ViewportExport
           ref={ref}

@@ -168,6 +168,24 @@ export default function App() {
   // the viewport, so wheel zooms move the slider without re-rendering hot.
   const [zoom, setZoom] = useState(100);
 
+  // Height of the bottom-right dock stack, so the 3D gizmo floats above it.
+  const dockWrapRef = useRef(null);
+  const [dockHeight, setDockHeight] = useState(0);
+
+  useEffect(() => {
+    const element = dockWrapRef.current;
+
+    if (!element) return;
+
+    const measure = () => setDockHeight(element.offsetHeight);
+    measure();
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, []);
+
   // Transient message for changes such as adding individuals, which are inconvenient to highlight in place
   const [notice, setNotice] = useState(null);
 
@@ -1173,6 +1191,8 @@ export default function App() {
             vertical={vertical}
             view={view}
             onUserNavigate={() => setView(null)}
+            onPresetSelect={setView}
+            gizmoBottom={dockHeight + 8}
             onZoom={setZoom}
             onSolverIssues={handleSolverIssues}
             imageOverlay={imageOverlay}
@@ -1211,13 +1231,15 @@ export default function App() {
             />
           )}
 
-          <CameraDock
-            view={view}
-            onPresetChange={setView}
-            onResetView={() => viewportRef.current?.resetView()}
-            zoom={zoom}
-            viewportRef={viewportRef}
-          />
+          <div ref={dockWrapRef} className="dock-stack">
+            <CameraDock
+              view={view}
+              onPresetChange={setView}
+              onResetView={() => viewportRef.current?.resetView()}
+              zoom={zoom}
+              viewportRef={viewportRef}
+            />
+          </div>
 
           <div
             className={`viewport-panels ${focusedId ? "viewport-panels-focused" : ""}`}

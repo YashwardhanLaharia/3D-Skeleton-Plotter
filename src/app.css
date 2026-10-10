@@ -1263,11 +1263,21 @@
 .focus-bar input[type="range"] { width: 6rem; }
 
 /* Bottom-right camera dock: orientation gizmo, navigation pill, presets. */
-.camera-dock {
+/* Bottom-right camera dock: navigation pill, presets, with the 3D gizmo
+   floating above. The stack is transparent to pointer events except on the
+   dock itself, so canvas drags pass through the gaps. */
+.dock-stack {
   position: absolute;
   right: 1.25rem;
   bottom: 1.25rem;
   z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  pointer-events: none;
+}
+
+.camera-dock {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
