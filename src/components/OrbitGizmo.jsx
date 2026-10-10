@@ -148,13 +148,13 @@ export default function OrbitGizmo({ onDrag, onBallTap, onCenterTap }) {
 
       return {
         key: `axis-${handle.axis}`,
-        text: `${handle.axis.toUpperCase()} axis — click for ${preset.label} view`,
+        text: `${handle.axis.toUpperCase()} axis: click or press ${preset.key} for ${preset.label} view`,
       };
     }
 
     return {
       key: "orbit",
-      text: "Orbit — drag to look around, click to reset",
+      text: "Orbit: drag to look around, click to reset (4 leaves presets)",
     };
   }
 
