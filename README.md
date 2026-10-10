@@ -9,7 +9,7 @@ Built with Electron, React and Three.js.
 ## Features
 
 - Record landmarks for one or more individuals in a local site grid
-- Height-above-floor or reduced vertical conventions
+- Height-above-floor or reduced level (RL) measurements
 - Colour-code, group and focus individuals in a mass-grave context
 - Displaced / split joints for disarticulated remains
 - Import surveyed grave outlines and site photographs

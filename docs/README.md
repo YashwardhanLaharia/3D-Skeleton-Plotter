@@ -18,7 +18,7 @@ Choose the path that matches your job. Each link is a standalone document.
 | Import a client grave outline (XLSX / ROT) | [Grave outline](data-formats/grave-outline.md)                                                      |
 | Load or align a site photograph            | [Image overlay](data-formats/image-overlay.md)                                                      |
 | See how the app is structured              | [Architecture](architecture.md)                                                                     |
-| Work on the skeleton rig or solver         | [Rig API](rig-api.md); [Rig README.md](src/rig/README.md); [Solver README.md](src/solver/README.md) |
+| Work on the skeleton rig or solver         | [Rig API](rig-api.md); [Rig README.md](../src/rig/README.md); [Solver README.md](../src/solver/README.md) |
 | Run tests or package builds                | [Testing](development/testing.md); [Dependencies](development/dependencies.md)                      |
 
 
@@ -101,9 +101,9 @@ docs/
 | Location                                         | Purpose                                    |
 | ------------------------------------------------ | ------------------------------------------ |
 | [../README.md](../README.md)                     | Repository overview                        |
-| [src/rig/README.md](src/rig/README.md)           | Rig behaviour, spawned bones, bindings     |
-| [src/solver/README.md](src/solver/README.md)     | Solver topology, pose application, scaling |
-| [tests/selenium/README.md](src/solver/README.md) | Packaged-app Selenium setup                |
+| [src/rig/README.md](../src/rig/README.md)           | Rig behaviour, spawned bones, bindings     |
+| [src/solver/README.md](../src/solver/README.md)     | Solver topology, pose application, scaling |
+| [tests/selenium/README.md](../tests/selenium/README.md) | Packaged-app Selenium setup                |
 
 
 ## Full index
