@@ -72,3 +72,30 @@ test('opening autosave.csv does not overwrite it on an edit', async (t) => {
   assert.equal(await fs.readFile(filePath, 'utf8'), payloadFor(0));
   assert.equal(await fs.readFile(path.join(directory, 'autosave-backup.csv'), 'utf8'), payloadFor(1));
 });
+
+test('ossuary label edit retains RL through backup recovery and Save', async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'plotter-ossuary-'));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const original = await fs.readFile(new URL('../../docs/examples/ossuary.csv', import.meta.url), 'utf8');
+  const project = csvToProject(original);
+  assert.equal(project.ok, true, project.error);
+  project.individuals[0].label = 'Edited label';
+  const serialize = (value) => createCsv(value.individuals, value.graveDimensions, value.groups,
+    value.graveOutline, { graves: value.graves, imageOverlay: value.imageOverlay, view: value.view }, value.vertical);
+  const filePath = path.join(directory, 'ossuary.csv');
+  await fs.writeFile(filePath, original);
+  const userData = path.join(directory, 'app-data');
+  await createAutosaveStore(userData).save({ payload: serialize(project), filePath });
+  assert.equal(await fs.readFile(filePath, 'utf8'), original);
+  const snapshot = await createAutosaveStore(userData).read();
+  assert.match(snapshot.payload, /vertical_reference,,,,1\.98,,,,rl/);
+  const recovered = csvToProject(snapshot.payload);
+  assert.equal(recovered.ok, true, recovered.error);
+  assert.deepEqual(recovered.vertical, project.vertical);
+  assert.deepEqual(recovered.individuals[0].coords, project.individuals[0].coords);
+  assert.equal(recovered.individuals[0].label, 'Edited label');
+  await fs.writeFile(snapshot.filePath, serialize(recovered));
+  const saved = csvToProject(await fs.readFile(filePath, 'utf8'));
+  assert.deepEqual(saved.vertical, { convention: 'rl', floorRL: 1.98 });
+  assert.deepEqual(saved.individuals[0].coords, project.individuals[0].coords);
+});

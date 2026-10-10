@@ -92,6 +92,7 @@ export default function App() {
   const [graveAssignments, setGraveAssignments] = useState({});
   const [hiddenGraves, setHiddenGraves] = useState([]);
   const [savedView, setSavedView] = useState(null);
+  const [viewRevision, setViewRevision] = useState(0);
   const [frameRequest, setFrameRequest] = useState(null);
   const graveOutline = graves[0] ?? { top: [], bottom: [] };
   const [recentProjects, setRecentProjects] = useState([]);
@@ -282,10 +283,7 @@ export default function App() {
   function handleRestoreAutosave() {
     if (!recoveryReady || !autosaveSnapshot) return;
     try {
-      const document = autosaveSnapshot.document;
-      const loaded = document
-        ? { ...document, ok: Array.isArray(document.individuals) && Array.isArray(document.groups) && Array.isArray(document.graveDimensions) }
-        : csvToProject(autosaveSnapshot.payload);
+      const loaded = csvToProject(autosaveSnapshot.payload);
       if (!loaded.ok) throw new Error(loaded.error || "Invalid autosaved project");
       applyLoadedProject(loaded, autosaveSnapshot.filePath ?? null);
       setJointDetails(autosaveSnapshot.jointDetails ?? {});
@@ -299,8 +297,7 @@ export default function App() {
   useEffect(() => {
     if (!recoveryReady) return;
     const snapshot = {
-      payload: createCsv(individuals, graveDimensions, groups),
-      document: { individuals, groups, graveDimensions },
+      payload: createProjectCsv(),
       jointDetails,
     };
     const data = JSON.stringify({ ...snapshot, filePath });
@@ -317,7 +314,8 @@ export default function App() {
     pendingAutosave.current.then(result => {
       if (!result.ok) setNotice(`Autosave failed: ${result.error}`);
     });
-  }, [recoveryReady, individuals, groups, graveDimensions, jointDetails, filePath]);
+  }, [recoveryReady, individuals, groups, graveDimensions, jointDetails, filePath,
+    graves, graveAssignments, imageOverlay, vertical, savedView, viewRevision]);
 
   async function finishAutosave() {
     const result = await pendingAutosave.current;
@@ -701,6 +699,18 @@ export default function App() {
     }));
   }
 
+  // Save and autosave share the full editable project format.
+  function createProjectCsv() {
+    return createCsv(
+      projectIndividuals(),
+      graveDimensions,
+      groups,
+      graveOutline,
+      { graves, imageOverlay, view: viewportRef.current?.getView() ?? savedView },
+      vertical,
+    );
+  }
+
   async function handleImport() {
     const result = await importCsv();
 
@@ -910,18 +920,7 @@ export default function App() {
       return false;
     }
     const result = await window.electronAPI.saveProject({
-      payload: createCsv(
-        projectIndividuals(),
-        graveDimensions,
-        groups,
-        graveOutline,
-        {
-          graves,
-          view: viewportRef.current?.getView() ?? savedView,
-          imageOverlay,
-        },
-        vertical,
-      ),
+      payload: createProjectCsv(),
       filePath: forcePrompt ? null : filePath,
     });
 
@@ -1224,7 +1223,10 @@ export default function App() {
             hiddenGraves={hiddenGraves}
             savedView={savedView}
             frameRequest={frameRequest}
-            onViewChange={() => setIsDirty(true)}
+            onViewChange={() => {
+              setIsDirty(true);
+              setViewRevision((revision) => revision + 1);
+            }}
             targetId={selectedId}
             selectedId={selectedId}
             vertical={vertical}

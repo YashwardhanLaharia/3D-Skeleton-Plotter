@@ -1,6 +1,6 @@
 # Autosave
 
-Autosave writes a backup when individuals, groups or grave dimensions change.
+Autosave writes a backup when project data or the overview camera changes.
 It runs after edits rather than on a timer. Normal **Save** still updates the
 project file; autosave writes a separate CSV.
 
@@ -34,10 +34,11 @@ replace the backup; editing it does.
 
 ### Recovery limits and errors
 
-Autosave currently stores individuals, groups and grave dimensions. It does
-not store grave outlines, named graves, photographs, camera state or the
-Height/RL reference. Use normal **Save** for these, and check them after recovery.
-Changes to those fields alone do not trigger autosave.
+Autosave uses the same project CSV serializer as normal **Save**, including
+individuals, groups, display settings, grave dimensions, named graves, outlines,
+grave assignments, photographs, camera state and the Height/RL preference with
+its floor RL value. Changes to these fields trigger autosave. Camera changes
+trigger autosave when navigation ends. Recovery parses the full backup CSV.
 
 Changes to `jointDetails` also trigger autosave, but that object is not written
 to the backup CSV.
