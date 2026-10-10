@@ -1,13 +1,14 @@
 // On-screen camera controls for the viewport, bottom-right.
 //
-// Navigation pill (zoom buttons, zoom slider, pan handle, orbit handle) plus
-// the Plan / Front / Side / Orbit preset row in one cluster. All motion goes
-// through the viewport drive, so every move lands smoothly instead of cutting.
+// Navigation pill (zoom buttons, zoom slider, pan joystick, orbit handle)
+// plus the Plan / Front / Side / Orbit preset row in one cluster. All motion
+// goes through the viewport drive, so every move lands smoothly instead of
+// cutting.
 //
 // The pose maths lives in cameraViews and cameraNavigation; this file only
 // turns pointer gestures into calls on the viewport handle.
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CAMERA_PRESETS } from "../cameraViews.js";
 import { ZOOM_STEP } from "./CameraRig.jsx";
 
@@ -22,6 +23,19 @@ const SLIDER_MAX_ZOOM = 2000;
 // Slider granularity. Zoom moves in log space and this only sets how finely
 // the slider steps through it.
 const SLIDER_STEPS = 1000;
+
+// Joystick feel. Full deflection pans this many screen pixels per second;
+// the viewport converts to world units from the zoom, so the feel stays the
+// same however far in or out the camera is.
+const PAN_RATE = 240;
+
+// Stick travel in pixels, and the dead zone around the centre as a fraction
+// of it. Inside the dead zone a resting thumb does not drift the view.
+const STICK_TRAVEL = 22;
+const STICK_DEADZONE = 0.12;
+
+// Keyboard nudge for the focused joystick, in screen pixels per press.
+const STICK_NUDGE = 24;
 
 function zoomToSlider(zoom) {
   const clamped = Math.min(
@@ -133,11 +147,85 @@ function MinusIcon() {
   );
 }
 
-function HandIcon() {
+// Pan joystick: two concentric circles. The stick is dragged off-centre and
+// held there; the view glides in that direction until the stick springs back.
+// Rate control rather than drag control, so panning far never runs the pointer
+// into the edge of the screen.
+function Joystick({ onDeflect, onNudge, ...props }) {
+  const [knob, setKnob] = useState({ x: 0, y: 0 });
+  const [holding, setHolding] = useState(false);
+  const gesture = useRef(null);
+
+  function deflect(clientX, clientY) {
+    const origin = gesture.current?.origin;
+
+    if (!origin) return;
+
+    let dx = clientX - origin.x;
+    let dy = clientY - origin.y;
+    const dist = Math.hypot(dx, dy);
+
+    if (dist > STICK_TRAVEL) {
+      dx = (dx / dist) * STICK_TRAVEL;
+      dy = (dy / dist) * STICK_TRAVEL;
+    }
+
+    setKnob({ x: dx, y: dy });
+
+    const nx = dx / STICK_TRAVEL;
+    const ny = dy / STICK_TRAVEL;
+
+    onDeflect?.(
+      Math.hypot(nx, ny) < STICK_DEADZONE ? { x: 0, y: 0 } : { x: nx, y: ny },
+    );
+  }
+
+  function release() {
+    gesture.current = null;
+    setKnob({ x: 0, y: 0 });
+    setHolding(false);
+    onDeflect?.({ x: 0, y: 0 });
+  }
+
   return (
-    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M8 12.5V6a1.5 1.5 0 0 1 3 0v5m0-7.5a1.5 1.5 0 0 1 3 0V11m0-5a1.5 1.5 0 0 1 3 0v6.5m0-2.5a1.5 1.5 0 0 1 3 0V15c0 4-2.6 6.5-6.5 6.5S7.2 19.4 5.7 17.5l-1.9-2.9c-.6-1 .1-2.1 1.2-1.8l3 1.2" />
-    </svg>
+    <div
+      {...props}
+      role="application"
+      tabIndex={0}
+      className={`dock-joystick${holding ? " dock-joystick-holding" : ""}`}
+      onPointerDown={(event) => {
+        event.preventDefault();
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+        gesture.current = { origin: { x: event.clientX, y: event.clientY } };
+        setHolding(true);
+        deflect(event.clientX, event.clientY);
+      }}
+      onPointerMove={(event) => {
+        if (gesture.current) deflect(event.clientX, event.clientY);
+      }}
+      onPointerUp={release}
+      onPointerCancel={release}
+      onKeyDown={(event) => {
+        if (event.key === "ArrowUp") {
+          event.preventDefault();
+          onNudge?.({ dx: 0, dy: -STICK_NUDGE });
+        } else if (event.key === "ArrowDown") {
+          event.preventDefault();
+          onNudge?.({ dx: 0, dy: STICK_NUDGE });
+        } else if (event.key === "ArrowLeft") {
+          event.preventDefault();
+          onNudge?.({ dx: -STICK_NUDGE, dy: 0 });
+        } else if (event.key === "ArrowRight") {
+          event.preventDefault();
+          onNudge?.({ dx: STICK_NUDGE, dy: 0 });
+        }
+      }}
+    >
+      <div
+        className="dock-stick"
+        style={{ transform: `translate(${knob.x}px, ${knob.y}px)` }}
+      />
+    </div>
   );
 }
 
@@ -159,6 +247,39 @@ export default function CameraDock({
 }) {
   const api = () => viewportRef.current;
   const sliderValue = zoomToSlider(Number.isFinite(zoom) ? zoom : 100);
+
+  // Joystick rate loop. While the stick is held off-centre, feed pixel
+  // deltas into the viewport every frame; the drive damps them into a glide
+  // that eases to a stop on release. The loop runs only while deflected.
+  const deflectRef = useRef({ x: 0, y: 0 });
+  const loopRef = useRef(null);
+
+  useEffect(() => () => cancelAnimationFrame(loopRef.current), []);
+
+  function startLoop() {
+    if (loopRef.current) return;
+
+    let last = performance.now();
+
+    const tick = (now) => {
+      const deflection = deflectRef.current;
+      const dt = Math.min((now - last) / 1000, 0.05);
+      last = now;
+
+      if (deflection.x === 0 && deflection.y === 0) {
+        loopRef.current = null;
+        return;
+      }
+
+      viewportRef.current?.panBy({
+        dx: deflection.x * PAN_RATE * dt,
+        dy: deflection.y * PAN_RATE * dt,
+      });
+      loopRef.current = requestAnimationFrame(tick);
+    };
+
+    loopRef.current = requestAnimationFrame(tick);
+  }
 
   return (
     <div className="camera-dock" role="toolbar" aria-label="Camera controls" data-testid="camera-dock">
@@ -193,16 +314,17 @@ export default function CameraDock({
         >
           <MinusIcon />
         </HoldButton>
-        <DragButton
-          type="button"
-          className="dock-nav-btn dock-pan-btn"
+        <Joystick
           data-testid="dock-pan"
-          title="Pan (drag to slide the view)"
-          aria-label="Pan"
-          onDrag={(dx, dy) => api()?.panBy({ dx, dy })}
-        >
-          <HandIcon />
-        </DragButton>
+          title="Pan joystick (drag and hold to glide the view)"
+          aria-label="Pan joystick. Drag and hold to glide the view. Arrow keys nudge."
+          onDeflect={(deflection) => {
+            deflectRef.current = deflection;
+
+            if (deflection.x !== 0 || deflection.y !== 0) startLoop();
+          }}
+          onNudge={(delta) => api()?.panBy(delta)}
+        />
         <DragButton
           type="button"
           className="dock-nav-btn dock-orbit-btn"

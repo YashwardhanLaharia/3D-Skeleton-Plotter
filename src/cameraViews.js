@@ -25,16 +25,16 @@ export const CAMERA_PRESETS = {
     id: "front",
     label: "Front",
     key: "2",
-    // Front looks along +X. Screen-up is world up.
-    offset: { x: 1, y: 0, z: 0 },
+    // Front looks along +Z down the grave length. Screen-up is world up.
+    offset: { x: 0, y: 0, z: 1 },
     up: { x: 0, y: 1, z: 0 },
   },
   side: {
     id: "side",
     label: "Side",
     key: "3",
-    // Side looks along +Z down the grave length. Screen-up is world up.
-    offset: { x: 0, y: 0, z: 1 },
+    // Side looks along +X across the grave width. Screen-up is world up.
+    offset: { x: 1, y: 0, z: 0 },
     up: { x: 0, y: 1, z: 0 },
   },
 };
