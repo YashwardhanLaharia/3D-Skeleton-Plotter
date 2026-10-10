@@ -637,7 +637,8 @@ const ViewportExport = forwardRef(function ViewportExport(
         });
       },
       // Fly back to the pose the viewport opened with. Doubles as leaving
-      // any preset, since home looks from no preset direction.
+      // any preset, since home looks from no preset direction. Marks the
+      // drive so leaving-preset bookkeeping does not disturb the flight.
       resetView() {
         const controls = controlsRef.current;
         const home = driveRef.current.initial;
@@ -645,6 +646,7 @@ const ViewportExport = forwardRef(function ViewportExport(
         if (!controls || !home) return;
 
         driveRef.current.desired = null;
+        driveRef.current.resetting = true;
         driveRef.current.tween = {
           from: readPose(camera, controls),
           to: {
@@ -1101,6 +1103,7 @@ const MainView = forwardRef(function MainView(
     view = null,
     onUserNavigate,
     onPresetSelect,
+    onResetView,
     gizmoBottom = 0,
     onZoom,
     showEnvironment = true,
@@ -1256,6 +1259,7 @@ const MainView = forwardRef(function MainView(
           driveRef={driveRef}
           gizmoBottom={gizmoBottom}
           onPresetSelect={onPresetSelect}
+          onResetView={onResetView}
           onUserNavigate={onUserNavigate}
         />
         <ViewportExport

@@ -63,7 +63,7 @@ const DAMP_RATE = 14;
 const SNAP_DIST = 1e-4;
 
 export function createDrive() {
-  return { tween: null, desired: null, initial: null };
+  return { tween: null, desired: null, initial: null, resetting: false };
 }
 
 export function CameraControls({ controlsRef }) {
@@ -321,6 +321,12 @@ export function PresetCamera({
     if (!controls || focusedId) return;
 
     if (!view) {
+      // A reset flight carries its own up vector home; leave it alone.
+      const wasReset = driveRef.current.resetting;
+      driveRef.current.resetting = false;
+
+      if (wasReset) return;
+
       // Nothing is driving the camera, so hand the up vector back. A preset
       // sets it to that view's own screen-up, and leaving it there would mean
       // the free orbit that follows orbits about the wrong vertical.
@@ -541,6 +547,7 @@ export function AxisGizmo({
   driveRef,
   gizmoBottom,
   onPresetSelect,
+  onResetView,
   onUserNavigate,
 }) {
   const { camera, gl } = useThree();
@@ -558,6 +565,8 @@ export function AxisGizmo({
   viewRef.current = view;
   const selectRef = useRef(onPresetSelect);
   selectRef.current = onPresetSelect;
+  const resetRef = useRef(onResetView);
+  resetRef.current = onResetView;
   const navigateRef = useRef(onUserNavigate);
   navigateRef.current = onUserNavigate;
 
@@ -735,15 +744,15 @@ export function AxisGizmo({
       canvas.releasePointerCapture?.(event.pointerId);
       canvas.style.cursor = "";
 
-      // A press without movement is a tap: balls work exactly like their
-      // preset buttons (toggle the matching view, which then frames it),
-      // the centre leaves the presets like the pill's orbit handle.
+      // A press without movement is a tap: balls work exactly like the
+      // preset views (toggle the matching one, which then frames it), the
+      // centre resets the view like the pill's orbit handle.
       if (!active.moved) {
         if (active.handle.kind === "axis") {
           const preset = AXIS_PRESET[active.handle.axis];
           selectRef.current?.(viewRef.current === preset ? null : preset);
         } else {
-          selectRef.current?.(null);
+          resetRef.current?.();
         }
       }
     }

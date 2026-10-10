@@ -457,6 +457,13 @@ export default function App() {
     else setSelectedId(null);
   }
 
+  // Reset the viewport home and report free orbit. Clearing the state first
+  // keeps the badge truthful for the whole flight.
+  function handleResetView() {
+    setView(null);
+    viewportRef.current?.resetView();
+  }
+
   // Reveal the effect: expand the affected individual and flash the field, so
   // an undo inside a collapsed section isn't silent.
   function revealChange(before, after) {
@@ -1192,6 +1199,7 @@ export default function App() {
             view={view}
             onUserNavigate={() => setView(null)}
             onPresetSelect={setView}
+            onResetView={handleResetView}
             gizmoBottom={dockHeight + 8}
             onZoom={setZoom}
             onSolverIssues={handleSolverIssues}
@@ -1234,8 +1242,7 @@ export default function App() {
           <div ref={dockWrapRef} className="dock-stack">
             <CameraDock
               view={view}
-              onPresetChange={setView}
-              onResetView={() => viewportRef.current?.resetView()}
+              onResetView={handleResetView}
               zoom={zoom}
               viewportRef={viewportRef}
             />

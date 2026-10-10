@@ -1,9 +1,10 @@
 // On-screen camera controls for the viewport, bottom-right.
 //
-// Navigation pill (zoom buttons, zoom slider, pan joystick, orbit handle)
-// plus the Plan / Front / Side / Orbit preset row in one cluster. All motion
-// goes through the viewport drive, so every move lands smoothly instead of
-// cutting.
+// A view-status badge plus the navigation pill: orbit handle first, then the
+// zoom buttons and slider, then the pan joystick. Preset views live on the 3D
+// gizmo's balls and the number keys; the badge only reports which view the
+// viewport is in. All motion goes through the viewport drive, so every move
+// lands smoothly instead of cutting.
 //
 // The pose maths lives in cameraViews and cameraNavigation; this file only
 // turns pointer gestures into calls on the viewport handle.
@@ -11,8 +12,6 @@
 import { useEffect, useRef, useState } from "react";
 import { CAMERA_PRESETS } from "../cameraViews.js";
 import { ZOOM_STEP } from "./CameraRig.jsx";
-
-const PRESET_ORDER = ["plan", "front", "side"];
 
 // The slider covers the zooms a grave is actually viewed at. The app-wide
 // clamps reach far beyond this in both directions, and the buttons and wheel
@@ -240,7 +239,6 @@ function OrbitIcon() {
 
 export default function CameraDock({
   view,
-  onPresetChange,
   onResetView,
   zoom,
   viewportRef,
@@ -283,7 +281,26 @@ export default function CameraDock({
 
   return (
     <div className="camera-dock" role="toolbar" aria-label="Camera controls" data-testid="camera-dock">
+      <div
+        className="dock-view-label"
+        role="status"
+        data-testid="dock-view-label"
+      >
+        {view ? CAMERA_PRESETS[view].label : "Orbit"}
+      </div>
+
       <div className="dock-nav" role="group" aria-label="Navigate">
+        <DragButton
+          type="button"
+          className="dock-nav-btn dock-orbit-btn dock-orbit-lead"
+          data-testid="dock-orbit-handle"
+          title="Orbit (drag to look around, click to reset the view)"
+          aria-label="Orbit"
+          onDrag={(dx, dy) => api()?.orbitBy({ dx, dy })}
+          onTap={() => onResetView?.()}
+        >
+          <OrbitIcon />
+        </DragButton>
         <HoldButton
           type="button"
           className="dock-nav-btn"
@@ -325,51 +342,6 @@ export default function CameraDock({
           }}
           onNudge={(delta) => api()?.panBy(delta)}
         />
-        <DragButton
-          type="button"
-          className="dock-nav-btn dock-orbit-btn"
-          data-testid="dock-orbit-handle"
-          title="Orbit (drag to look around, click to leave presets)"
-          aria-label="Orbit"
-          onDrag={(dx, dy) => api()?.orbitBy({ dx, dy })}
-          onTap={() => onPresetChange?.(null)}
-        >
-          <OrbitIcon />
-        </DragButton>
-      </div>
-
-      <div className="dock-presets" role="group" aria-label="Preset views">
-        {PRESET_ORDER.map((id) => {
-          const preset = CAMERA_PRESETS[id];
-          const active = view === id;
-
-          return (
-            <button
-              key={id}
-              type="button"
-              className={`dock-preset-btn ${active ? "dock-preset-btn-active" : ""}`}
-              data-testid={`dock-preset-${id}`}
-              aria-pressed={active}
-              title={`${preset.label} view (${preset.key})`}
-              onClick={() => onPresetChange?.(active ? null : id)}
-            >
-              {preset.label}
-            </button>
-          );
-        })}
-        <button
-          type="button"
-          className={`dock-preset-btn ${view ? "" : "dock-preset-btn-active"}`}
-          data-testid="dock-preset-orbit"
-          aria-pressed={!view}
-          title="Reset the view (4)"
-          onClick={() => {
-            onPresetChange?.(null);
-            onResetView?.();
-          }}
-        >
-          Orbit
-        </button>
       </div>
     </div>
   );
