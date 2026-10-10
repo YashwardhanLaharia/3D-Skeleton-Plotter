@@ -48,9 +48,7 @@ import { boneName } from "../inspection/boneLabels.js";
 import { BODY_DIMENSIONS } from "../rig/scaling/dimensionConfig.js";
 import {
   ORBIT_DRAG_SPEED,
-  RESET_TWEEN_MS,
   ZOOM_TWEEN_MS,
-  AxisGizmo,
   CameraControls,
   CameraDriver,
   PresetCamera,
@@ -58,6 +56,7 @@ import {
   createDrive,
   readPose,
 } from "./CameraRig.jsx";
+import { CameraSyncBridge } from "./OrbitGizmo.jsx";
 import {
   CAMERA_PRESETS,
   ZOOM_MAX,
@@ -657,7 +656,7 @@ const ViewportExport = forwardRef(function ViewportExport(
             zoom: home.zoom,
           },
           start: performance.now(),
-          duration: RESET_TWEEN_MS,
+          duration: 600,
         };
       },
       async captureScreenshot() {
@@ -1103,9 +1102,6 @@ const MainView = forwardRef(function MainView(
     focusedId = null,
     view = null,
     onUserNavigate,
-    onPresetSelect,
-    onResetView,
-    gizmoBottom = 0,
     onZoom,
     showEnvironment = true,
     contextOpacity = 0.25,
@@ -1254,15 +1250,7 @@ const MainView = forwardRef(function MainView(
           driveRef={driveRef}
           onZoom={onZoom}
         />
-        <AxisGizmo
-          view={view}
-          controlsRef={controlsRef}
-          driveRef={driveRef}
-          gizmoBottom={gizmoBottom}
-          onPresetSelect={onPresetSelect}
-          onResetView={onResetView}
-          onUserNavigate={onUserNavigate}
-        />
+        <CameraSyncBridge />
         <ViewportExport
           ref={ref}
           controlsRef={controlsRef}

@@ -1292,12 +1292,9 @@
   align-items: stretch;
   gap: 0.55rem;
   padding: 0.5rem 0.45rem;
-  /* No box: the controls float on the viewport. White glyphs keep their
-     contrast on light and dark scenes through the drop shadow. */
-  background: transparent;
   border-radius: 1.1rem;
-  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.65));
-  color: #fff;
+  background: rgba(27, 31, 36, 0.88);
+  box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.3);
 }
 
 /* Left column: orbit on top, joystick anchoring the bottom. */
@@ -1336,17 +1333,16 @@
   background: rgba(255, 255, 255, 0.12);
 }
 
-/* Orbit leads as the primary control: slightly larger than the rest. */
-.dock-orbit-lead {
-  width: 2.4rem;
-  height: 2.4rem;
-}
-
-.dock-orbit-btn {
+/* Embedded 3D orbit gizmo: fixed square canvas topping the left column. */
+.dock-gizmo-canvas {
+  display: block;
+  width: 72px;
+  height: 72px;
   cursor: grab;
+  touch-action: none;
 }
 
-.dock-orbit-btn:active {
+.dock-gizmo-canvas:active {
   cursor: grabbing;
 }
 
@@ -1400,11 +1396,8 @@
 }
 
 .dock-view-label {
-  padding: 0.2rem 0.7rem;
-  border-radius: 1rem;
-  background: rgba(27, 31, 36, 0.88);
-  box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.3);
-  color: #fff;
+  padding: 0 0.2rem;
+  color: var(--bs-body-color);
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -1413,7 +1406,8 @@
 }
 
 .dock-nav-btn:focus-visible,
-.dock-zoom-slider:focus-visible {
+.dock-zoom-slider:focus-visible,
+.dock-gizmo-canvas:focus-visible {
   outline: 2px solid var(--bs-primary);
   outline-offset: 2px;
 }

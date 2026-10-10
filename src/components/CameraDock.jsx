@@ -12,6 +12,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CAMERA_PRESETS } from "../cameraViews.js";
 import { ZOOM_STEP } from "./CameraRig.jsx";
+import OrbitGizmo, { AXIS_PRESET } from "./OrbitGizmo.jsx";
 
 // The slider covers the zooms a grave is actually viewed at. The app-wide
 // clamps reach far beyond this in both directions, and the buttons and wheel
@@ -54,48 +55,6 @@ function sliderToZoom(value) {
     Math.log(SLIDER_MIN_ZOOM) +
       (Math.min(SLIDER_STEPS, Math.max(0, value)) / SLIDER_STEPS) *
         (Math.log(SLIDER_MAX_ZOOM) - Math.log(SLIDER_MIN_ZOOM)),
-  );
-}
-
-// A button that drags. Pointer capture keeps the gesture alive under the
-// finger; a press without movement counts as a tap instead.
-function DragButton({ onDrag, onTap, ...props }) {
-  const gesture = useRef(null);
-
-  return (
-    <button
-      type="button"
-      {...props}
-      onPointerDown={(event) => {
-        event.preventDefault();
-        event.currentTarget.setPointerCapture?.(event.pointerId);
-        gesture.current = { x: event.clientX, y: event.clientY, moved: false };
-      }}
-      onPointerMove={(event) => {
-        const active = gesture.current;
-
-        if (!active) return;
-
-        const dx = event.clientX - active.x;
-        const dy = event.clientY - active.y;
-        active.x = event.clientX;
-        active.y = event.clientY;
-
-        if (dx !== 0 || dy !== 0) {
-          active.moved = true;
-          onDrag?.(dx, dy);
-        }
-      }}
-      onPointerUp={() => {
-        const active = gesture.current;
-        gesture.current = null;
-
-        if (active && !active.moved) onTap?.();
-      }}
-      onPointerCancel={() => {
-        gesture.current = null;
-      }}
-    />
   );
 }
 
@@ -228,25 +187,18 @@ function Joystick({ onDeflect, onNudge, ...props }) {
   );
 }
 
-function OrbitIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20 12a8 8 0 1 1-2.4-5.7" />
-      <path d="M20 3v4.5h-4.5" />
-    </svg>
-  );
-}
-
 function ResetIcon() {
   return (
     <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" />
+      <path d="M4 12a8 8 0 1 0 2.34-5.66" />
+      <path d="M4 3v4.5h4.5" />
     </svg>
   );
 }
 
 export default function CameraDock({
   view,
+  onPresetSelect,
   onResetView,
   zoom,
   viewportRef,
@@ -299,17 +251,14 @@ export default function CameraDock({
 
       <div className="dock-nav" role="group" aria-label="Navigate">
         <div className="dock-motion">
-          <DragButton
-            type="button"
-            className="dock-nav-btn dock-orbit-btn dock-orbit-lead"
-            data-testid="dock-orbit-handle"
-            title="Orbit (drag to look around, click to reset the view)"
-            aria-label="Orbit"
+          <OrbitGizmo
             onDrag={(dx, dy) => api()?.orbitBy({ dx, dy })}
-            onTap={() => onResetView?.()}
-          >
-            <OrbitIcon />
-          </DragButton>
+            onBallTap={(axis) => {
+              const preset = AXIS_PRESET[axis];
+              onPresetSelect?.(view === preset ? null : preset);
+            }}
+            onCenterTap={() => onResetView?.()}
+          />
           <Joystick
             data-testid="dock-pan"
             title="Pan joystick (drag and hold to glide the view)"
