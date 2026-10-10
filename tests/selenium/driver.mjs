@@ -151,7 +151,11 @@ export async function launchSkeletonPlotter({ inspectorPort } = {}) {
     );
 
   if (process.env.SELENIUM_HEADLESS !== "false") {
-    options.addArguments("--headless=new");
+    // Headless Chrome's virtual screen is 800x600 by default. The app maximises
+    // into it and docks DevTools, leaving the page about 230px wide, so sidebar
+    // controls fall outside the viewport ("element not interactable"). A desktop
+    // screen size gives headless runs the same room as a visible window.
+    options.addArguments("--headless=new", "--screen-info={1920x1080}");
   }
 
   if (inspectorPort) {
