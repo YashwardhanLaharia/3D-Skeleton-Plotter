@@ -44,7 +44,7 @@ test("slider pins out-of-range zooms at its ends", () => {
 });
 
 test("slider round-trips through log space", () => {
-  for (const zoom of [2, 5, 20, 100, 400, 1500, 2000]) {
+  for (const zoom of [20, 50, 100, 400, 1000, 2000]) {
     const there = sliderToZoom(zoomToSlider(zoom));
     // One slider step spans a few percent at this granularity.
     close(there / zoom, 1, 0.02, `round trip for zoom ${zoom}`);
@@ -57,9 +57,9 @@ test("slider moves in log space, not linear space", () => {
   const high = sliderToZoom((3 * SLIDER_STEPS) / 4);
 
   // Equal slider steps multiply the zoom by equal ratios: each quarter
-  // covers a factor of 10^(3/4) over the three-decade range.
+  // covers a factor of 10^0.5 over the two-decade range.
   close(mid / low, high / mid, 1e-9, "equal slider steps, equal ratios");
-  close(mid / low, Math.pow(10, 0.75), 1e-9, "quarter range ratio");
+  close(mid / low, Math.pow(10, 0.5), 1e-9, "quarter range ratio");
 });
 
 test("slider monotonicity: dragging up always zooms in", () => {
@@ -73,7 +73,7 @@ test("slider monotonicity: dragging up always zooms in", () => {
 });
 
 test("typical grave zooms sit mid-slider, not pinned at an end", () => {
-  for (const zoom of [20, 100, 400]) {
+  for (const zoom of [50, 100, 400]) {
     const position = zoomToSlider(zoom);
     assert.ok(position > 0, `zoom ${zoom} must clear the bottom`);
     assert.ok(position < SLIDER_STEPS, `zoom ${zoom} must clear the top`);

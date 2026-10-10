@@ -7,10 +7,12 @@ import { ZOOM_MAX, ZOOM_MIN } from "./cameraViews.js";
 // Which preset an axis ball snaps to: the positive-axis views.
 export const AXIS_PRESET = { x: "side", y: "plan", z: "front" };
 
-// The slider covers the zooms a grave is actually viewed at. The app-wide
-// clamps reach far beyond this in both directions, and the buttons and wheel
-// can still take the camera there; the slider just stays pinned at its end.
-export const SLIDER_MIN_ZOOM = 2;
+// The slider covers the zooms a grave is actually viewed at, bottoming out
+// where the grave still fills a useful portion of the screen rather than
+// shrinking to nothing. The app-wide clamps reach far beyond this in both
+// directions, and the buttons and wheel can still take the camera there; the
+// slider just stays pinned at its end.
+export const SLIDER_MIN_ZOOM = 20;
 export const SLIDER_MAX_ZOOM = 2000;
 
 // Slider granularity. Zoom moves in log space and this only sets how finely
