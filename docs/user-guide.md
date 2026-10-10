@@ -32,9 +32,9 @@ The sections below describe each part in detail.
 
 ## Light and dark mode
 
-Click the circular theme button in the 3D overview to switch between light and
-dark mode. The app remembers your choice across restarts. See
-[dark mode](dark-mode.md) for details.
+Use **View → Dark theme** to switch between light and dark mode. A
+checkmark shows when dark mode is on. The app remembers your choice across
+restarts. See [dark mode](dark-mode.md) for details.
 
 ## Quick start with the supplied sample
 

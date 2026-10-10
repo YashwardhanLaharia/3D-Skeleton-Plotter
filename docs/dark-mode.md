@@ -1,7 +1,7 @@
 # Dark mode
 
-Click the theme button to the left of the View panel in the 3D overview to switch between light and
-dark mode. Leave focus to see the button. It changes the interface, viewport
+Use **View → Dark theme** to switch between light and dark mode. A
+checkmark shows when dark mode is on. It changes the interface, viewport
 background and grid colours.
 
 The app uses the system colour preference until a theme has been saved. It then
@@ -12,5 +12,5 @@ automatically.
 `src/theme.js` stores the choice as `skeleton-plotter-theme` in `localStorage`
 and applies it through Bootstrap's `data-bs-theme` attribute. If storage is
 unavailable, switching still works but the choice may not be remembered.
-`App.jsx` holds the theme state and button, and
+`App.jsx` holds the theme state and responds to the menu action, and
 `MainView.jsx` sets the viewport colours.

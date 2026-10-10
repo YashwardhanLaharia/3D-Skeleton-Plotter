@@ -51,7 +51,12 @@ const PALETTE = [
 
 // Behind the startup screen only these menu items make sense. Anything else
 // would act on a project the user cannot see (#83).
-const STARTUP_MENU_ACTIONS = new Set(["menu-home", "menu-new", "menu-open"]);
+const STARTUP_MENU_ACTIONS = new Set([
+  "menu-home",
+  "menu-new",
+  "menu-open",
+  "menu-toggle-dark-theme",
+]);
 
 const STARTING_STATE = [
   {
@@ -329,6 +334,7 @@ export default function App() {
 
   useEffect(() => {
     applyTheme(theme);
+    void window.electronAPI?.setMenuTheme?.(theme === "dark");
   }, [theme]);
 
   function handleChange(individualId, jointId, axis, rawValue, part = "point") {
@@ -990,6 +996,8 @@ export default function App() {
     handleImportGraveOutline,
     handleExportCsv,
     handleEscape,
+    handleToggleDarkTheme: () =>
+      setTheme((current) => (current === "dark" ? "light" : "dark")),
     showStartup,
   };
 
@@ -1013,6 +1021,8 @@ export default function App() {
       if (action === "menu-redo") actionsRef.current.handleRedo();
       if (action === "menu-change-grave-dimensions")
         actionsRef.current.handleChangeGraveDimensions();
+      if (action === "menu-toggle-dark-theme")
+        actionsRef.current.handleToggleDarkTheme();
     });
     return () => unsubscribe?.();
   }, []);
@@ -1254,19 +1264,6 @@ export default function App() {
                 setIsDirty(true);
               }}
             />
-          )}
-
-          {!focusedId && (
-            <button
-              type="button"
-              className="viewport-theme-toggle bg-body border rounded shadow-sm"
-              onClick={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
-              title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-              aria-pressed={theme === "dark"}
-            >
-              <span aria-hidden="true">{theme === "dark" ? "◑︎" : "◐︎"}</span>
-            </button>
           )}
 
           <div

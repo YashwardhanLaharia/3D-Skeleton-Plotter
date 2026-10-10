@@ -349,8 +349,23 @@ ipcMain.handle("confirm-close", async () => {
   return { ok: true };
 });
 
+let menuStartup = true;
+let menuDarkTheme = false;
+
+function refreshApplicationMenu(updates = {}) {
+  if ("startup" in updates) menuStartup = Boolean(updates.startup);
+  if ("darkTheme" in updates) menuDarkTheme = Boolean(updates.darkTheme);
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate(buildMenuTemplate(menuStartup, menuDarkTheme)),
+  );
+}
+
 ipcMain.handle("set-startup-menu", (_event, startup) => {
-  setApplicationMenu(Boolean(startup));
+  refreshApplicationMenu({ startup });
+});
+
+ipcMain.handle("set-menu-theme", (_event, darkTheme) => {
+  refreshApplicationMenu({ darkTheme });
 });
 
 const sendToRenderer = (channel) => {
@@ -361,9 +376,15 @@ const sendToRenderer = (channel) => {
 
 // On the startup screen only Home / New / Open / Quit apply (#83). Disabled
 // items are also unreachable via their accelerators.
-const STARTUP_ENABLED_LABELS = new Set(["Home", "New…", "Open…", "Quit"]);
+const STARTUP_ENABLED_LABELS = new Set([
+  "Home",
+  "New…",
+  "Open…",
+  "Quit",
+  "Dark theme",
+]);
 
-function buildMenuTemplate(startup) {
+function buildMenuTemplate(startup, darkTheme) {
   const itemEnabled = (label) => !startup || STARTUP_ENABLED_LABELS.has(label);
 
   return [
@@ -469,11 +490,19 @@ function buildMenuTemplate(startup) {
         },
       ],
     },
+    {
+      label: "View",
+      submenu: [
+        {
+          label: "Dark theme",
+          type: "checkbox",
+          checked: darkTheme,
+          enabled: itemEnabled("Dark theme"),
+          click: () => sendToRenderer("menu-toggle-dark-theme"),
+        },
+      ],
+    },
   ];
-}
-
-function setApplicationMenu(startup) {
-  Menu.setApplicationMenu(Menu.buildFromTemplate(buildMenuTemplate(startup)));
 }
 
 const createWindow = () => {
@@ -509,7 +538,7 @@ const createWindow = () => {
 app.whenReady().then(() => {
   createWindow();
   // App starts on the startup screen; the renderer confirms via set-startup-menu.
-  setApplicationMenu(true);
+  refreshApplicationMenu({ startup: true });
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {

@@ -55,7 +55,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return ipcRenderer.invoke('confirm-close');
   },
   onMenuAction(callback) {
-    const channels = ['menu-home', 'menu-new', 'menu-open', 'menu-save', 'menu-save-as', 'menu-export-screenshot', 'menu-export-glb', 'menu-import', 'menu-import-grave-outline', 'menu-export-csv', 'menu-undo', 'menu-redo', 'menu-change-grave-dimensions'];
+    const channels = ['menu-home', 'menu-new', 'menu-open', 'menu-save', 'menu-save-as', 'menu-export-screenshot', 'menu-export-glb', 'menu-import', 'menu-import-grave-outline', 'menu-export-csv', 'menu-undo', 'menu-redo', 'menu-change-grave-dimensions', 'menu-toggle-dark-theme'];
     const removers = channels.map((channel) => {
       const listener = () => callback(channel);
       ipcRenderer.on(channel, listener);
@@ -65,5 +65,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   setStartupMenu(startup) {
     return ipcRenderer.invoke('set-startup-menu', startup);
+  },
+  setMenuTheme(darkTheme) {
+    return ipcRenderer.invoke('set-menu-theme', darkTheme);
   },
 });
