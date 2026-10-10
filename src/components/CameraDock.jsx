@@ -204,7 +204,7 @@ export default function CameraDock({
   viewportRef,
 }) {
   const api = () => viewportRef.current;
-  const sliderValue = zoomToSlider(Number.isFinite(zoom) ? zoom : 100);
+  const sliderValue = zoomToSlider(Number.isFinite(zoom) ? zoom : 400);
 
   // Joystick rate loop. While the stick is held off-centre, feed pixel
   // deltas into the viewport every frame; the drive damps them into a glide

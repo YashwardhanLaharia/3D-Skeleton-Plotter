@@ -1133,9 +1133,10 @@ const MainView = forwardRef(function MainView(
         orthographic
         camera={{
           // Opening overview, and the reset-home pose: a slight
-          // three-quarter view from a moderate distance.
+          // three-quarter view, close enough that the grave fills a
+          // comfortable portion of the screen.
           position: [0, 5, 30],
-          zoom: 100,
+          zoom: 400,
           near: 0.1,
           far: 1000,
         }}

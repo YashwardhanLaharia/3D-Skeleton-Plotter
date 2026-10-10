@@ -166,7 +166,7 @@ export default function App() {
 
   // Live orthographic zoom for the dock slider. Reported back throttled from
   // the viewport, so wheel zooms move the slider without re-rendering hot.
-  const [zoom, setZoom] = useState(100);
+  const [zoom, setZoom] = useState(400);
 
   // Transient message for changes such as adding individuals, which are inconvenient to highlight in place
   const [notice, setNotice] = useState(null);
