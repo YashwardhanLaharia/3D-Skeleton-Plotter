@@ -241,24 +241,25 @@ export default function CameraDock({
 
   return (
     <div className="camera-dock" role="toolbar" aria-label="Camera controls" data-testid="camera-dock">
-      <div
-        className="dock-view-label"
-        role="status"
-        data-testid="dock-view-label"
-      >
-        {view ? CAMERA_PRESETS[view].label : "Orbit"}
-      </div>
-
       <div className="dock-nav" role="group" aria-label="Navigate">
         <div className="dock-motion">
-          <OrbitGizmo
-            onDrag={(dx, dy) => api()?.orbitBy({ dx, dy })}
-            onBallTap={(axis) => {
-              const preset = AXIS_PRESET[axis];
-              onPresetSelect?.(view === preset ? null : preset);
-            }}
-            onCenterTap={() => onResetView?.()}
-          />
+          <div className="dock-orbit-group">
+            <OrbitGizmo
+              onDrag={(dx, dy) => api()?.orbitBy({ dx, dy })}
+              onBallTap={(axis) => {
+                const preset = AXIS_PRESET[axis];
+                onPresetSelect?.(view === preset ? null : preset);
+              }}
+              onCenterTap={() => onResetView?.()}
+            />
+            <div
+              className="dock-view-label"
+              role="status"
+              data-testid="dock-view-label"
+            >
+              {view ? CAMERA_PRESETS[view].label : "Orbit"}
+            </div>
+          </div>
           <Joystick
             data-testid="dock-pan"
             title="Pan joystick (drag and hold to glide the view)"

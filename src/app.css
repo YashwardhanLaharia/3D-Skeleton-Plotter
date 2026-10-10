@@ -1416,13 +1416,25 @@
   cursor: grabbing;
 }
 
+/* Gizmo with its view label grouped snug beneath it, so the label reads
+   as part of the orbit control rather than the joystick below. The label
+   tucks into the canvas's own empty margin to sit as close as possible. */
+.dock-orbit-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
 .dock-view-label {
+  margin-top: -0.45rem;
   padding: 0 0.2rem;
-  color: var(--bs-body-color);
+  color: #fff;
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  text-align: center;
   user-select: none;
 }
 
