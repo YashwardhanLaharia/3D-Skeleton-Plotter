@@ -5,6 +5,7 @@ import {
   createDrive,
   dampFactor,
   dampPose,
+  dampedApplyPose,
   easeOutCubic,
   posesMatch,
   tweenPose,
@@ -121,4 +122,22 @@ test("posesMatch snaps only when every channel agrees", () => {
   const rezoomed = structuredClone(FROM);
   rezoomed.zoom *= 1.01;
   assert.equal(posesMatch(FROM, rezoomed), false, "zoom drift blocks");
+});
+
+test("damped apply poses always carry the camera up vector through", () => {
+  // The renderer reads pose.up unconditionally, so a pose without one
+  // crashes the frame loop on the first dock drag. Damping never turns the
+  // camera, hence the up vector passes through untouched at every factor.
+  for (const factor of [0, 0.2, 1]) {
+    const next = dampedApplyPose(FROM, TO, factor, FROM.up);
+
+    assert.deepEqual(next.up, FROM.up, `up passes through at factor ${factor}`);
+
+    for (const axis of ["x", "y", "z"]) {
+      assert.ok(
+        Number.isFinite(next.up[axis]),
+        `up ${axis} stays finite at factor ${factor}`,
+      );
+    }
+  }
 });

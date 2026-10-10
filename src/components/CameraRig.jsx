@@ -31,7 +31,7 @@ import {
 } from "../cameraViews.js";
 import {
   dampFactor,
-  dampPose,
+  dampedApplyPose,
   posesMatch,
   tweenPose,
 } from "../cameraDrive.js";
@@ -127,15 +127,16 @@ export function CameraDriver({ controlsRef, driveRef, onZoom }) {
         );
         drive.desired = null;
       } else {
-        const next = dampPose(
+        const next = dampedApplyPose(
           readPose(camera, controls),
           wanted,
           dampFactor(dt, DAMP_RATE),
+          readUp(camera),
         );
 
-        // Damped drags never turn the camera: keep its up vector, like the
-        // reduced-motion and settle paths below do.
-        applyPose({ ...next, up: readUp(camera) }, camera, controls);
+        // Damped drags never turn the camera: its up vector passes through
+        // untouched, like the reduced-motion and settle paths below do.
+        applyPose(next, camera, controls);
 
         if (posesMatch(next, wanted)) {
           applyPose(

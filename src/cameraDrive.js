@@ -77,6 +77,17 @@ export function dampPose(current, desired, factor) {
   };
 }
 
+/**
+ * Pose to hand to the renderer for one damped step: the eased
+ * position/target/zoom plus the given up vector. Damped drags never turn
+ * the camera, so callers pass its current up through untouched. Kept here
+ * rather than inline at the call site so tests can pin that every applied
+ * pose carries a finite up vector: applying one without it crashes.
+ */
+export function dampedApplyPose(current, desired, factor, up) {
+  return { ...dampPose(current, desired, factor), up: { ...up } };
+}
+
 /** Close enough to snap exactly and stop driving. */
 export function posesMatch(a, b) {
   const position = Math.sqrt(
