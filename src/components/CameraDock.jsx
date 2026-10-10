@@ -27,7 +27,7 @@ const SLIDER_STEPS = 1000;
 // Joystick feel. Full deflection pans this many screen pixels per second;
 // the viewport converts to world units from the zoom, so the feel stays the
 // same however far in or out the camera is.
-const PAN_RATE = 240;
+const PAN_RATE = 320;
 
 // Stick travel in pixels, and the dead zone around the centre as a fraction
 // of it. Inside the dead zone a resting thumb does not drift the view.
