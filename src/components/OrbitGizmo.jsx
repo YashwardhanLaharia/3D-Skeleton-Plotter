@@ -7,7 +7,7 @@
 // matching preset view, the centre tap resets. Arrow keys nudge the orbit so
 // keyboard users keep a path now the pill handle is gone.
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import {
   Color,
@@ -21,6 +21,7 @@ import {
   Vector2,
   WebGLRenderer,
 } from "three";
+import { CAMERA_PRESETS } from "../cameraViews.js";
 
 export const AXIS_PRESET = { x: "side", y: "plan", z: "front" };
 
@@ -124,6 +125,39 @@ export default function OrbitGizmo({ onDrag, onBallTap, onCenterTap }) {
   const apiRef = useRef({ onDrag, onBallTap, onCenterTap });
   apiRef.current = { onDrag, onBallTap, onCenterTap };
 
+  // Hovered handle for the tooltip. Updated only on change, so hovering
+  // does not re-render every pointer move.
+  const [hoverTip, setHoverTip] = useState(null);
+  const hoverRef = useRef(null);
+
+  function setHover(next) {
+    const prevKey = hoverRef.current?.key ?? null;
+    const nextKey = next?.key ?? null;
+
+    if (prevKey === nextKey) return;
+
+    hoverRef.current = next;
+    setHoverTip(next);
+  }
+
+  function tipFor(handle) {
+    if (!handle) return null;
+
+    if (handle.kind === "axis") {
+      const preset = CAMERA_PRESETS[AXIS_PRESET[handle.axis]];
+
+      return {
+        key: `axis-${handle.axis}`,
+        text: `${handle.axis.toUpperCase()} axis — click for ${preset.label} view`,
+      };
+    }
+
+    return {
+      key: "orbit",
+      text: "Orbit — drag to look around, click to reset",
+    };
+  }
+
   useEffect(() => {
     const canvas = canvasRef.current;
 
@@ -195,6 +229,7 @@ export default function OrbitGizmo({ onDrag, onBallTap, onCenterTap }) {
         lastY: event.clientY,
         moved: false,
       };
+      setHover(null);
       canvas.style.cursor = "grabbing";
     }
 
@@ -202,7 +237,9 @@ export default function OrbitGizmo({ onDrag, onBallTap, onCenterTap }) {
       if (!gesture.active) {
         if (event.buttons !== 0) return;
 
-        canvas.style.cursor = pick(event) ? "grab" : "";
+        const hovered = pick(event);
+        setHover(tipFor(hovered?.userData.handle ?? null));
+        canvas.style.cursor = hovered ? "grab" : "";
         return;
       }
 
@@ -225,6 +262,7 @@ export default function OrbitGizmo({ onDrag, onBallTap, onCenterTap }) {
       gesture.active = null;
       canvas.releasePointerCapture?.(event.pointerId);
       canvas.style.cursor = "";
+      setHover(null);
 
       if (!active.moved) {
         if (active.handle.kind === "axis") {
@@ -275,15 +313,23 @@ export default function OrbitGizmo({ onDrag, onBallTap, onCenterTap }) {
   }, []);
 
   return (
-    <canvas
-      ref={canvasRef}
-      className="dock-gizmo-canvas"
-      data-testid="dock-orbit-gizmo"
-      tabIndex={0}
-      role="application"
-      aria-label="Orbit gizmo. Drag to look around. Arrow keys nudge."
-      width={GIZMO_PX}
-      height={GIZMO_PX}
-    />
+    <div className="dock-gizmo-wrap">
+      <canvas
+        ref={canvasRef}
+        className="dock-gizmo-canvas"
+        data-testid="dock-orbit-gizmo"
+        tabIndex={0}
+        role="application"
+        aria-label="Orbit gizmo. Drag to look around. Arrow keys nudge."
+        width={GIZMO_PX}
+        height={GIZMO_PX}
+        onPointerLeave={() => setHover(null)}
+      />
+      {hoverTip && (
+        <div className="dock-gizmo-tip" role="tooltip">
+          {hoverTip.text}
+        </div>
+      )}
+    </div>
   );
 }
