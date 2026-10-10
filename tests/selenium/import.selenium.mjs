@@ -4,11 +4,42 @@ import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { createServer } from "node:net";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { By, until } from "selenium-webdriver";
 import { launchSkeletonPlotter } from "./driver.mjs";
 
 const WAIT = 10_000;
-const HEADER = "individual_id,joint_id,x,y,z,label\n";
+const FILE_IMPORTS = fileURLToPath(new URL("./file-imports/", import.meta.url));
+const EXAMPLE_ROT = path.join(FILE_IMPORTS, "example.rot");
+const EXAMPLE_PNG = path.join(FILE_IMPORTS, "example.png");
+
+// Nine-column project CSV + required application identity row (see project-file.md).
+const HEADER = "individual_id,joint_id,x,y,z,x_inferior,y_inferior,z_inferior,label\n";
+const APP_ROW = "application,,,,,,,,3d_skeleton_plotter\n";
+
+function escapeCsvCell(value) {
+  const text = String(value ?? "");
+  return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+}
+
+/** Build a data row from nine cells so commas inside labels are quoted, not counted. */
+function csvRow([
+  individualId,
+  jointId,
+  x = "",
+  y = "",
+  z = "",
+  xInferior = "",
+  yInferior = "",
+  zInferior = "",
+  label = "",
+]) {
+  return [individualId, jointId, x, y, z, xInferior, yInferior, zInferior, label]
+    .map(escapeCsvCell)
+    .join(",");
+}
+
+const BODY = (rows) => HEADER + APP_ROW + rows.join("\n") + "\n";
 
 async function openImportApp(t) {
   const server = createServer();
@@ -55,24 +86,69 @@ async function openImportApp(t) {
   await driver.wait(until.elementLocated(By.id("confirm-grave-dimensions")), WAIT).click();
   const directory = await mkdtemp(path.join(os.tmpdir(), "skeleton-import-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
+
+  async function mockOpenDialog({ canceled = false, filePaths = [] } = {}) {
+    await evaluate(`(async () => {
+      const { dialog } = process.mainModule.require('electron');
+      const original = dialog.showOpenDialog;
+      dialog.showOpenDialog = async () => {
+        dialog.showOpenDialog = original;
+        return ${JSON.stringify({ canceled, filePaths: canceled ? [] : filePaths })};
+      };
+    })()`);
+  }
+
+  async function clickMenuItem(label) {
+    await evaluate(`(async () => {
+      const { Menu } = process.mainModule.require('electron');
+      const item = Menu.getApplicationMenu().items
+        .flatMap(item => item.submenu?.items ?? [])
+        .find(item => item.label === ${JSON.stringify(label)});
+      if (!item) throw new Error(${JSON.stringify(`${label} menu item not found`)});
+      item.click();
+    })()`);
+  }
+
+  async function expandViewPanel() {
+    const toggle = await driver.wait(
+      until.elementLocated(By.css('button[aria-controls="graves-list"]')),
+      WAIT,
+    );
+    if ((await toggle.getAttribute("aria-expanded")) !== "true") {
+      await toggle.click();
+    }
+    await driver.wait(
+      until.elementLocated(By.css('section[aria-label="Grave contours"]')),
+      WAIT,
+    );
+  }
+
   return {
     driver,
+    directory,
+    expandViewPanel,
     async importFile(text, { canceled = false, missing = false } = {}) {
       const file = path.join(directory, missing ? "missing.csv" : "input.csv");
       if (!missing) await writeFile(file, text ?? "");
-      await evaluate(`(async () => {
-        const { dialog, Menu } = require('electron');
-        const original = dialog.showOpenDialog;
-        dialog.showOpenDialog = async () => {
-          dialog.showOpenDialog = original;
-          return ${JSON.stringify({ canceled, filePaths: canceled ? [] : [file] })};
-        };
-        const item = Menu.getApplicationMenu().items
-          .flatMap(item => item.submenu?.items ?? [])
-          .find(item => item.label === 'Import');
-        if (!item) throw new Error('Import menu item not found');
-        item.click();
-      })()`);
+      await mockOpenDialog({ canceled, filePaths: [file] });
+      await clickMenuItem("Add Skeletons…");
+    },
+    async importGraveOutline(filePath, { canceled = false } = {}) {
+      await mockOpenDialog({
+        canceled,
+        filePaths: canceled ? [] : [filePath],
+      });
+      await clickMenuItem("Import Grave Outline…");
+    },
+    async loadPhotograph(filePath, { canceled = false } = {}) {
+      await expandViewPanel();
+      await mockOpenDialog({
+        canceled,
+        filePaths: canceled ? [] : [filePath],
+      });
+      await driver
+        .findElement(By.css('section[aria-label="Site photograph"] .graves-import'))
+        .click();
     },
   };
 }
@@ -94,16 +170,37 @@ async function labels(driver) {
     .map(element => element.getAttribute("value")));
 }
 
+async function selectOption(driver, id, value) {
+  const element = await driver.wait(until.elementLocated(By.id(id)), WAIT);
+  await driver.executeScript(
+    `arguments[0].value = arguments[1];
+     arguments[0].dispatchEvent(new Event('change', { bubbles: true }));`,
+    element,
+    value,
+  );
+}
+
 test("CSV import appends individuals, preserves coordinates, and undoes/redoes as one action", async (t) => {
   const { driver, importFile } = await openImportApp(t);
-  await importFile(HEADER + 'ind-1,chin,-1.5,2,3,"Case, A"\nind-1,head_centre,4,,,\nind-2,chin,7,8,9,');
+  // Hide viewport overlays that can overlap sidebar controls at small window sizes
+  const viewportPanels = await driver.wait(
+    until.elementLocated(By.className("viewport-panels")),
+    WAIT,
+  );
+  await driver.executeScript("arguments[0].style.display = 'none';", viewportPanels);
+  await importFile(BODY([
+    csvRow(["ind-1", "chin", "-1.5", "2", "3", "", "", "", "Case, A"]),
+    csvRow(["ind-1", "head_centre", "4"]),
+    csvRow(["ind-2", "chin", "7", "8", "9"]),
+  ]));
   await notice(driver, "Imported 2 individuals");
   await count(driver, 3);
   assert.deepEqual(await labels(driver), ["", "Case, A", "Skeleton 2"]);
   const individuals = await driver.findElements(By.css(".individual"));
   const values = await Promise.all((await individuals[1].findElements(By.css(".coord-input")))
     .map(element => element.getAttribute("value")));
-  assert.deepEqual(values.slice(0, 6), ["4", "", "", "-1.5", "2", "3"]);
+  // JOINTS order: head_proximal, head_centre, chin, …
+  assert.deepEqual(values.slice(0, 9), ["", "", "", "4", "", "", "-1.5", "2", "3"]);
   const colours = await Promise.all(individuals.map(async (element) =>
     element.findElement(By.css('input[type="color"]')).getAttribute("value")));
   assert.equal(new Set(colours).size, 3);
@@ -114,16 +211,39 @@ test("CSV import appends individuals, preserves coordinates, and undoes/redoes a
   await driver.findElement(By.css('[aria-label="Redo"]')).click();
   await count(driver, 3);
   assert.deepEqual(await labels(driver), ["", "Case, A", "Skeleton 2"]);
-  await importFile(HEADER + "ind-1,chin,10,11,12,Repeated");
+  await importFile(BODY([csvRow(["ind-1", "chin", "10", "11", "12", "", "", "", "Repeated"])]));
   await notice(driver, "Imported 1 individuals");
   await count(driver, 4);
   assert.deepEqual(await labels(driver), ["", "Case, A", "Skeleton 2", "Repeated"]);
 });
 
+// Expected strings match docs/client-import-errors.md / csvImport.js.
+// Row numbers count header (1) + application row (2) + data rows.
 for (const [name, text, options, expected] of [
-  ["missing column", "individual_id,joint_id,x,y,label\na,chin,1,2,A", {}, "Missing CSV columns: z"],
-  ["invalid later row", HEADER + "a,chin,1,2,3,A\nb,chin,nope,2,3,B", {}, "Row 3 has invalid coordinates"],
-  ["duplicate joint", HEADER + "a,chin,1,2,3,A\na,chin,4,5,6,A", {}, "Row 3 repeats chin for a"],
+  [
+    "missing column",
+    "individual_id,joint_id,x,y,label\na,chin,1,2,A",
+    {},
+    "Missing CSV columns: z",
+  ],
+  [
+    "invalid later row",
+    BODY([
+      csvRow(["a", "chin", "1", "2", "3", "", "", "", "A"]),
+      csvRow(["b", "chin", "nope", "2", "3", "", "", "", "B"]),
+    ]),
+    {},
+    "Row 4 has invalid coordinates",
+  ],
+  [
+    "duplicate joint",
+    BODY([
+      csvRow(["a", "chin", "1", "2", "3", "", "", "", "A"]),
+      csvRow(["a", "chin", "4", "5", "6", "", "", "", "A"]),
+    ]),
+    {},
+    "Row 4 repeats chin for a",
+  ],
   ["unreadable file", "", { missing: true }, "Could not read CSV:"],
 ]) {
   test(`CSV import reports ${name} without changing the project`, async (t) => {
@@ -138,15 +258,62 @@ for (const [name, text, options, expected] of [
   });
 }
 
-test("canceling CSV import leaves the project unchanged and permits another import", async (t) => {
+test("cancelling CSV import leaves the project unchanged and permits another import", async (t) => {
   const { driver, importFile } = await openImportApp(t);
+  // Hide viewport overlays that can overlap sidebar controls at small window sizes
+  const viewportPanels = await driver.wait(
+    until.elementLocated(By.className("viewport-panels")),
+    WAIT,
+  );
+  await driver.executeScript("arguments[0].style.display = 'none';", viewportPanels);
   const title = await driver.getTitle();
   await importFile("", { canceled: true });
-  await importFile(HEADER + "a,chin,1,2,3,After cancel");
+  await importFile(BODY([csvRow(["a", "chin", "1", "2", "3", "", "", "", "After cancel"])]));
   await notice(driver, "Imported 1 individuals");
   await count(driver, 2);
   await driver.findElement(By.css('[aria-label="Undo"]')).click();
   await count(driver, 1);
   assert.deepEqual(await labels(driver), [""]);
   assert.equal(await driver.findElement(By.css('[aria-label="Undo"]')).isEnabled(), false);
+});
+
+test("grave outline import opens the modal, imports a top contour, and lists the grave", async (t) => {
+  const { driver, importGraveOutline, expandViewPanel } = await openImportApp(t);
+  await importGraveOutline(EXAMPLE_ROT);
+  await driver.wait(until.elementLocated(By.id("grave-outline-title")), WAIT);
+  await selectOption(driver, "outline-level", "top");
+  await selectOption(driver, "outline-mode", "height");
+  await driver.findElement(By.css('button[type="submit"]')).click();
+  await notice(driver, "Imported 3 top contour vertices");
+  await expandViewPanel();
+  const grave = await driver.wait(
+    until.elementLocated(By.css(".grave-item")),
+    WAIT,
+  );
+  // Modal names from basename (example.rot), not the LN19 section header.
+  assert.equal(
+    await grave.findElement(By.css(".layer-name")).getText(),
+    "Grave outline",
+  );
+  assert.match(
+    await grave.findElement(By.css(".grave-edit summary")).getText(),
+    /3 top \/ 0 base/,
+  );
+  assert.ok((await driver.getTitle()).startsWith("• "));
+});
+
+test("site photograph load shows the source in the View panel and overlay bar", async (t) => {
+  const { driver, loadPhotograph } = await openImportApp(t);
+  await loadPhotograph(EXAMPLE_PNG);
+  await notice(driver, "Photograph loaded. Enter its grid alignment.");
+  const photoBody = await driver.findElement(
+    By.css('section[aria-label="Site photograph"] .graves-photo-body'),
+  );
+  assert.equal((await photoBody.getText()).trim(), "example.png");
+  const barLabel = await driver.wait(
+    until.elementLocated(By.css(".image-overlay-bar-label")),
+    WAIT,
+  );
+  assert.equal(await barLabel.getText(), "example.png");
+  assert.ok((await driver.getTitle()).startsWith("• "));
 });
