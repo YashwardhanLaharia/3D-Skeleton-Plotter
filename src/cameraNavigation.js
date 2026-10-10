@@ -94,17 +94,17 @@ export function orbitAboutAxisPose(pose, axis, angle) {
  * The drag is converted to world units from the current zoom, so a pixel of
  * swipe moves the same distance on screen whatever the camera is zoomed to.
  */
-export function panPose(pose, { dx = 0, dy = 0, viewportWidth = 0, zoom = 1 }) {
+export function panPose(pose, { dx = 0, dy = 0, viewportWidth = 0, zoom = 1, up = null }) {
   const offset = poseOffset(pose);
-  const up = usableUp(offset, WORLD_UP);
-  const right = normalize(cross(up, normalize(offset)));
+  const screenUp = pickPanUp(offset, up);
+  const right = normalize(cross(screenUp, normalize(offset)));
 
   // The orthographic viewport shows viewportWidth / zoom world units across
   // viewportWidth pixels, so one pixel spans 1 / zoom world units on screen.
   const perPixel = viewportWidth > 0 && zoom > 0 ? 1 / zoom : 0;
   const shift = add(
     scale(right, -dx * perPixel),
-    scale(up, dy * perPixel),
+    scale(screenUp, dy * perPixel),
   );
 
   return {
@@ -124,6 +124,25 @@ export function zoomPose(pose, factor) {
       ? Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom))
       : pose.zoom,
   };
+}
+
+/**
+ * The axis vertical drags move along: the camera's own screen-up, so panning
+ * always slides across what is on screen.
+ *
+ * World up is only the default. Near the poles it points almost straight at
+ * the camera, and panning along it would push the view along its own viewing
+ * axis to nearly no visible effect. The camera up vector always lies in the
+ * screen plane, so it stays a good pan axis at every angle.
+ */
+function pickPanUp(offset, hint) {
+  const direction = normalize(offset);
+
+  if (hint && magnitude(cross(normalize(hint), direction)) > 1e-6) {
+    return normalize(hint);
+  }
+
+  return usableUp(offset, WORLD_UP);
 }
 
 /**

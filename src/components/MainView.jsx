@@ -587,6 +587,9 @@ const ViewportExport = forwardRef(function ViewportExport(
             dy,
             viewportWidth: sizeRef.current.width,
             zoom: base.zoom,
+            // Pan in the screen plane at every angle: near the poles world
+            // up points at the camera, so it cannot be the pan axis there.
+            up: { x: camera.up.x, y: camera.up.y, z: camera.up.z },
           }),
         );
       },
