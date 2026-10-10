@@ -36,5 +36,5 @@ camera framing and visible/hidden scene export. Run `npm test` for the current
 suite; [the testing guide](../development/testing.md#excavation-context-checks)
 lists focused checks and an interactive acceptance workflow.
 
-Client acceptance still needs an overhead photograph with measured local-grid corner coordinates and the intended image elevation. The corner transformation is affine; photographs with significant perspective distortion need rectification before use. Grave contours and the photograph share the same local site grid, but retain
+The corner transformation is affine; photographs with significant perspective distortion need rectification before use. Grave contours and the photograph share the same local site grid, but retain
 separate vertical references and placement metadata.

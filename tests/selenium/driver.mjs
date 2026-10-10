@@ -1,13 +1,52 @@
+import { execFile } from "node:child_process";
 import { access, mkdtemp, readdir, rm } from "node:fs/promises";
+import { createServer } from "node:net";
 import os from "node:os";
 import { createRequire } from "node:module";
 import path from "node:path";
+import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import { Browser, Builder } from "selenium-webdriver";
 import chrome from "selenium-webdriver/chrome.js";
 
 const PROJECT_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const CHROMEDRIVER_NAME = process.platform === "win32" ? "chromedriver.exe" : "chromedriver";
+const CLOSE_TIMEOUT_MS = 3_000;
+const execFileAsync = promisify(execFile);
+
+async function withTimeout(promise, ms) {
+  let timer;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`Timed out after ${ms}ms`)), ms);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function reservePort() {
+  const server = createServer();
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolve);
+  });
+  const { port } = server.address();
+  await new Promise((resolve) => server.close(resolve));
+  return port;
+}
+
+/** Best-effort kill of Electron/ChromeDriver leftovers for this session. */
+async function forceKillSession(profileDirectory, chromedriverPort) {
+  if (process.platform === "win32") return;
+  await Promise.all([
+    execFileAsync("pkill", ["-f", `--user-data-dir=${profileDirectory}`]).catch(() => {}),
+    execFileAsync("fuser", ["-k", `${chromedriverPort}/tcp`]).catch(() => {}),
+  ]);
+}
 
 async function firstExistingPath(paths) {
   for (const candidate of paths) {
@@ -112,7 +151,11 @@ export async function launchSkeletonPlotter({ inspectorPort } = {}) {
     );
 
   if (process.env.SELENIUM_HEADLESS !== "false") {
-    options.addArguments("--headless=new");
+    // Headless Chrome's virtual screen is 800x600 by default. The app maximises
+    // into it and docks DevTools, leaving the page about 230px wide, so sidebar
+    // controls fall outside the viewport ("element not interactable"). A desktop
+    // screen size gives headless runs the same room as a visible window.
+    options.addArguments("--headless=new", "--screen-info={1920x1080}");
   }
 
   if (inspectorPort) {
@@ -121,14 +164,42 @@ export async function launchSkeletonPlotter({ inspectorPort } = {}) {
       ? path.resolve(appBinary, "../../Resources/app.asar")
       : path.join(path.dirname(appBinary), "resources", "app.asar");
     await access(appArchive);
+    // ChromeDriver prefixes bare paths with `--`, turning `/path/app.asar` into
+    // `--/path/app.asar`, which Electron treats as an unknown flag and falls back
+    // to default_app (blank window). Pass `--app=` so the path stays intact.
     options.setChromeBinaryPath(require("electron"));
-    options.addArguments(`--inspect=127.0.0.1:${inspectorPort}`, appArchive);
+    options.addArguments(
+      `--inspect=127.0.0.1:${inspectorPort}`,
+      `--app=${appArchive}`,
+    );
   }
 
   const environment = { ...process.env };
   delete environment.ELECTRON_RUN_AS_NODE;
-  const service = new chrome.ServiceBuilder(chromeDriverBinary).setEnvironment(environment);
+  // Pin ChromeDriver's port so a hung quit() can still be force-killed.
+  const chromedriverPort = await reservePort();
+  const service = new chrome.ServiceBuilder(chromeDriverBinary)
+    .setEnvironment(environment)
+    .setPort(chromedriverPort);
   let driver;
+
+  async function shutdown() {
+    try {
+      await withTimeout(
+        (async () => {
+          await driver
+            .executeScript("void window.electronAPI?.confirmClose()")
+            .catch(() => {});
+          await driver.quit().catch(() => {});
+        })(),
+        CLOSE_TIMEOUT_MS,
+      );
+    } catch {
+      await forceKillSession(profileDirectory, chromedriverPort);
+    } finally {
+      await rm(profileDirectory, { recursive: true, force: true }).catch(() => {});
+    }
+  }
 
   try {
     driver = await new Builder()
@@ -141,32 +212,14 @@ export async function launchSkeletonPlotter({ inspectorPort } = {}) {
 
     return {
       driver,
-      async close() {
-        try {
-          // Test cleanup 
-          await driver
-            .executeScript("void window.electronAPI?.confirmClose()")
-            .catch(() => {});
-
-          await driver
-            .wait(async () => {
-              try {
-                return (await driver.getAllWindowHandles()).length === 0;
-              } catch {
-                return true;
-              }
-            }, 2_000)
-            .catch(() => {});
-
-          await driver.quit().catch(() => {});
-        } finally {
-          await rm(profileDirectory, { recursive: true, force: true });
-        }
-      },
+      close: shutdown,
     };
   } catch (error) {
-    if (driver) await driver.quit().catch(() => {});
-    await rm(profileDirectory, { recursive: true, force: true });
+    if (driver) await shutdown();
+    else {
+      await forceKillSession(profileDirectory, chromedriverPort);
+      await rm(profileDirectory, { recursive: true, force: true }).catch(() => {});
+    }
     throw error;
   }
 }

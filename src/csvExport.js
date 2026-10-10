@@ -15,6 +15,10 @@ function escapeCsvCell(value) {
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
+/**
+ * Project → nine-column CSV (Save / Export). Always includes the application
+ * row; RL adds vertical_reference; graves/photo/camera ride in `options`.
+ */
 export function createCsv(
   individuals,
   projectGraveDimensions,
@@ -254,6 +258,7 @@ export function createCsv(
   return `${lines.join("\r\n")}\r\n`;
 }
 
+/** Save-dialog export of visible individuals (hidden IDs omitted). */
 export async function exportCsv(
   individuals,
   projectGraveDimensions,
@@ -263,8 +268,6 @@ export async function exportCsv(
   options = {},
   vertical = DEFAULT_VERTICAL,
 ) {
-  console.log(hidden);
-
   const visibleIndividuals = individuals.filter(
     (individual) => !hidden.includes(individual.id),
   );

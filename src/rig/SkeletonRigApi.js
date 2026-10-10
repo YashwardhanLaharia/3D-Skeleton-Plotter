@@ -14,7 +14,13 @@ export const RIG_BODY_DIMENSION_IDS = Object.freeze(
 export const RIG_SPAWNABLE_BONE_IDS = SPAWNABLE_BONE_IDS;
 
 /**
- * Public model-control facade. Callers use rig joint IDs and never GLB bone names.
+ * Anatomical control surface for one cloned skeleton scene.
+ *
+ * Use the RIG_* ID lists — never GLB bone names. Commands return
+ * `{ ok: true, ... }` or `{ ok: false, error }`. Spawn endpoints must already
+ * be in scene space (site-grid metres go through toSceneSpace first). One
+ * instance per individual so pose and spawn state stay independent. Full
+ * spawn semantics: src/rig/README.md.
  */
 export class SkeletonRigApi {
   #controller;
@@ -23,16 +29,12 @@ export class SkeletonRigApi {
     this.#controller = new SkeletonRigController(scene);
   }
 
-  /**
-   * Executes the low-level command format used by the Electron controls.
-   */
+  /** Low-level `{ type, ... }` command; prefer the helpers below. */
   execute(command) {
     return this.#controller.execute(command);
   }
 
-  /**
-   * Applies an incremental rotation to a configured joint.
-   */
+  /** Incremental joint rotation in degrees. */
   rotateJoint(jointId, axis, degrees) {
     return this.execute({
       type: "rotate-joint",
@@ -42,16 +44,12 @@ export class SkeletonRigApi {
     });
   }
 
-  /**
-   * Compatibility alias for rotateJoint().
-   */
+  /** Alias for rotateJoint. */
   rotate(jointId, axis, degrees) {
     return this.rotateJoint(jointId, axis, degrees);
   }
 
-  /**
-   * Applies an incremental rotation to one configured finger or toe digit.
-   */
+  /** Incremental finger/toe digit rotation in degrees. */
   rotateDigit(jointId, digit, axis, degrees) {
     return this.execute({
       type: "rotate-digit",
@@ -62,168 +60,152 @@ export class SkeletonRigApi {
     });
   }
 
-  /** Resets one joint to its captured model pose. */
+  /** Rest pose for one joint. */
   resetJoint(jointId) {
     return this.execute({ type: "reset-joint", jointId });
   }
 
-  /** Resets one finger or toe digit to its captured model pose. */
+  /** Rest pose for one digit. */
   resetDigit(jointId, digit) {
     return this.execute({ type: "reset-digit", jointId, digit });
   }
 
-  /** Resets all joint and digit rotations for this skeleton instance. */
+  /** Rest pose for every joint and digit. */
   resetAll() {
     return this.execute({ type: "reset-all" });
   }
 
-  /** Sets one bone segment's length relative to its imported rest length. */
+  /** Limb length as measured/rest (no clamp). */
   setSegmentScale(segmentId, factor) {
     return this.execute({ type: "set-segment-scale", segmentId, factor });
   }
 
-  /** Applies one relative length to every segment in a configured group. */
+  /** Same factor on every segment in a named group. */
   setSegmentGroupScale(groupId, factor) {
     return this.execute({ type: "set-segment-group-scale", groupId, factor });
   }
 
-  /** Resets one segment to its imported rest length. */
   resetSegmentScale(segmentId) {
     return this.execute({ type: "reset-segment-scale", segmentId });
   }
 
-  /** Resets every segment without changing joint or digit rotations. */
+  /** Rest lengths only; leaves joint rotations alone. */
   resetAllSegmentScales() {
     return this.execute({ type: "reset-all-segment-scales" });
   }
 
-  /** Updates only the supplied absolute segment scale factors. */
+  /** Merge absolute segment factors. */
   patchSegmentScales(scales) {
     return this.#controller.patchSegmentScales(scales);
   }
 
-  /** Resets all segment lengths, then applies the supplied factors. */
+  /** Reset segments, then apply the given factors. */
   replaceSegmentScales(scales) {
     return this.#controller.replaceSegmentScales(scales);
   }
 
-  /** Sets one torso or pelvic dimension relative to the imported model. */
+  /** Torso/pelvis dimension relative to the imported model. */
   setBodyDimension(dimensionId, factor) {
     return this.execute({ type: "set-body-dimension", dimensionId, factor });
   }
 
-  /** Resets one body dimension to its imported value. */
   resetBodyDimension(dimensionId) {
     return this.execute({ type: "reset-body-dimension", dimensionId });
   }
 
-  /** Resets all body dimensions without changing pose or limb lengths. */
+  /** Body dimensions only; pose and limb lengths unchanged. */
   resetAllBodyDimensions() {
     return this.execute({ type: "reset-all-body-dimensions" });
   }
 
-  /** Updates only the supplied absolute body-dimension factors. */
   patchBodyDimensions(dimensions) {
     return this.#controller.patchBodyDimensions(dimensions);
   }
 
-  /** Resets body dimensions, then applies the supplied factors. */
   replaceBodyDimensions(dimensions) {
     return this.#controller.replaceBodyDimensions(dimensions);
   }
 
-  /** Applies one factor to every configured segment and body dimension. */
+  /** One factor on every segment and body dimension. */
   setSkeletonScale(factor) {
     return this.execute({ type: "set-skeleton-scale", factor });
   }
 
-  /** Uniformly resizes the complete skeleton scene, including all geometry. */
+  /** Uniform resize of the whole skeleton scene. */
   setUniformScale(factor) {
     return this.execute({ type: "set-uniform-scale", factor });
   }
 
-  /** Compatibility shorthand for setUniformScale(). */
+  /** Alias for setUniformScale. */
   resize(factor) {
     return this.setUniformScale(factor);
   }
 
-  /** Restores the complete skeleton scene to its imported size. */
   resetUniformScale() {
     return this.execute({ type: "reset-uniform-scale" });
   }
 
-  /**
-   * Applies a partial pose while preserving the existing setPose contract.
-   */
+  /** Partial pose (alias for patchPose). */
   setPose(pose) {
     return this.#controller.setPose(pose);
   }
 
-  /**
-   * Updates only the joints included in the supplied pose.
-   */
+  /** Update only the joints in `pose`; keep the rest. */
   patchPose(pose) {
     return this.#controller.patchPose(pose);
   }
 
-  /**
-   * Resets the current pose, then applies the supplied joint rotations.
-   */
+  /** Clear pose, then apply `pose`. */
   replacePose(pose) {
     return this.#controller.replacePose(pose);
   }
 
-  /** Returns a defensive snapshot of pose and morphology state. */
+  /** Snapshot of pose and morphology for this instance. */
   getState() {
     return this.#controller.getState();
   }
 
   /**
-   * Spawns one independent bone instance from superior/inferior endpoints.
-   * Hides the corresponding master meshes by default; the articulated
-   * hierarchy itself is never reparented.
+   * Independent bone from superior→inferior (scene space). Hides matching
+   * master meshes; scale defaults to measured/rest unless options.scale is false.
    */
   spawnBone(boneId, superior, inferior, options) {
     return this.#controller.spawnBone(boneId, superior, inferior, options);
   }
 
-  /** Recomputes placement for one spawned instance. */
+  /** Re-place one spawned instance (scene-space endpoints). */
   updateSpawnedBone(instanceId, superior, inferior) {
     return this.#controller.updateSpawnedBone(instanceId, superior, inferior);
   }
 
-  /** Removes one spawned instance and restores master meshes when unreferenced. */
+  /** Drop one spawn; restore master meshes when nothing else references them. */
   despawnBone(instanceId) {
     return this.#controller.despawnBone(instanceId);
   }
 
-  /** Removes every spawned instance for this skeleton. */
   clearSpawnedBones() {
     return this.#controller.clearSpawnedBones();
   }
 
-  /** Lists spawned instance records. */
   getSpawnedBones() {
     return this.#controller.getSpawnedBones();
   }
 
-  /** Toggles visibility of one spawned instance (master stays hidden). */
+  /** Show/hide a spawn; master stays hidden while any spawn references it. */
   setSpawnedBoneVisibility(instanceId, visible) {
     return this.#controller.setSpawnedBoneVisibility(instanceId, visible);
   }
 
-  /** Shows or hides the model's own meshes for one catalog bone. */
   setMasterBoneVisibility(boneId, visible) {
     return this.#controller.setMasterBoneVisibility(boneId, visible);
   }
 
-  /** Returns model binding and attachment diagnostics for this instance. */
   getDiagnostics() {
     return this.#controller.getDiagnostics();
   }
 }
 
-/** Creates an isolated rig facade for one loaded Three.js scene. */
+/** One rig facade per loaded skeleton scene. */
 export function createSkeletonRig(scene) {
   return new SkeletonRigApi(scene);
 }

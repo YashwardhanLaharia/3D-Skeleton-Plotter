@@ -47,9 +47,8 @@ points in the ROT file have Y values 4 m greater than the screenshot. Use zero
 offset when skeleton and outline come from the ROT frame. Confirm the intended
 frame before applying -4 m to an outline paired with screenshot coordinates.
 
-Use the same grid and floor reference as the skeleton data. This feature does
-not change skeleton inputs, solver orientation, `sceneSpace.js`, or issue #71.
-Skeleton rendering now uses the project vertical convention in `sceneSpace.js`.
+Use the same grid and floor reference as the skeleton data. Skeleton rendering
+now uses the project vertical convention in `sceneSpace.js`.
 Contours use their saved per-contour reference to produce heights above floor,
 then enter scene space without a second RL conversion. When both datasets use
 RL, confirm that their floor RL and datum agree; a height-mode skeleton must

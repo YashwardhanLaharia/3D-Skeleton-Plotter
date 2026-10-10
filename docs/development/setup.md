@@ -17,7 +17,6 @@ Run these from the repository root:
 | `npm run package` | Bundle and package the app for the current platform/architecture. |
 | `npm run make` | Package and create configured platform distributables. |
 | `npm run test:selenium` | Package, then run all Selenium workflow tests serially. |
-| `npm run test:selenium:import` | Package, then run the import Selenium workflow. |
 | `npm run lint` | Print a placeholder; no lint rules are configured. |
 
 `npm run publish` exists, but no publisher is configured in `forge.config.js`.
