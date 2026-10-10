@@ -133,7 +133,9 @@ export function CameraDriver({ controlsRef, driveRef, onZoom }) {
           dampFactor(dt, DAMP_RATE),
         );
 
-        applyPose(next, camera, controls);
+        // Damped drags never turn the camera: keep its up vector, like the
+        // reduced-motion and settle paths below do.
+        applyPose({ ...next, up: readUp(camera) }, camera, controls);
 
         if (posesMatch(next, wanted)) {
           applyPose(
