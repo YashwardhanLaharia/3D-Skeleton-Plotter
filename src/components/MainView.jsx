@@ -46,6 +46,12 @@ import {
 } from "../solver/boneModes.js";
 import { boneName } from "../inspection/boneLabels.js";
 import { BODY_DIMENSIONS } from "../rig/scaling/dimensionConfig.js";
+import {
+  CameraControls,
+  PresetCamera,
+  UserNavigation,
+} from "./CameraRig.jsx";
+import { CAMERA_PRESETS } from "../cameraViews.js";
 
 // Make Three.js orbit controls available as a React Three Fiber element.
 extend({ OrbitControls: ThreeOrbitControls });
@@ -470,12 +476,6 @@ function LoadingModel() {
   );
 }
 
-function CameraControls({ controlsRef }) {
-  const { camera, gl } = useThree();
-
-  return <orbitControls ref={controlsRef} args={[camera, gl.domElement]} />;
-}
-
 const SCREENSHOT_WIDTH = 1920;
 const SCREENSHOT_HEIGHT = 1080;
 
@@ -553,6 +553,7 @@ const ViewportExport = forwardRef(function ViewportExport(
 // Orthographic framing is zoom-based: distance only sets the view angle.
 function FocusCamera({
   focusedId,
+  view = null,
   showEnvironment,
   graveDimensions,
   graves,
@@ -580,6 +581,7 @@ function FocusCamera({
         saved.current = {
           position: camera.position.clone(),
           target: controls.target.clone(),
+          up: camera.up.clone(),
           zoom: camera.zoom,
         };
       }
@@ -617,15 +619,27 @@ function FocusCamera({
       // Distance does not affect ortho scale; keep a short offset for orbit feel.
       const distance = Math.max(extent * 2, 2);
 
+      // A chosen preset decides the viewing direction while focused; without
+      // one this is the slight three-quarter view focus has always used.
+      const preset = view ? CAMERA_PRESETS[view] : null;
+
       tween.current = {
         from: {
           position: camera.position.clone(),
           target: controls.target.clone(),
+          up: camera.up.clone(),
           zoom: camera.zoom,
         },
         to: {
-          position: centre.clone().add(new Vector3(0, extent * 0.15, distance)),
+          position: preset
+            ? centre.clone().add(
+              new Vector3(preset.offset.x, preset.offset.y, preset.offset.z).multiplyScalar(distance),
+            )
+            : centre.clone().add(new Vector3(0, extent * 0.15, distance)),
           target: centre.clone(),
+          up: preset
+            ? new Vector3(preset.up.x, preset.up.y, preset.up.z)
+            : new Vector3(0, 1, 0),
           zoom,
         },
         start: performance.now(),
@@ -635,6 +649,7 @@ function FocusCamera({
         from: {
           position: camera.position.clone(),
           target: controls.target.clone(),
+          up: camera.up.clone(),
           zoom: camera.zoom,
         },
         to: saved.current,
@@ -643,7 +658,7 @@ function FocusCamera({
 
       saved.current = null;
     }
-  }, [focusedId, showEnvironment, graveDimensions, graves, hiddenGraves, camera, scene, controlsRef, viewport.width, viewport.height]);
+  }, [focusedId, view, showEnvironment, graveDimensions, graves, hiddenGraves, camera, scene, controlsRef, viewport.width, viewport.height]);
 
   useFrame(() => {
     const active = tween.current;
@@ -664,6 +679,10 @@ function FocusCamera({
     );
 
     controls.target.lerpVectors(active.from.target, active.to.target, eased);
+
+    camera.up
+      .lerpVectors(active.from.up, active.to.up, eased)
+      .normalize();
 
     camera.zoom =
       active.from.zoom + (active.to.zoom - active.from.zoom) * eased;
@@ -918,6 +937,8 @@ const MainView = forwardRef(function MainView(
     selectedId = null,
     hidden = [],
     focusedId = null,
+    view = null,
+    onUserNavigate,
     showEnvironment = true,
     contextOpacity = 0.25,
     onFocusAlone,
@@ -1030,6 +1051,7 @@ const MainView = forwardRef(function MainView(
         />
         <FocusCamera
           focusedId={focusedId}
+          view={view}
           showEnvironment={showEnvironment}
           graveDimensions={graveDimensions}
           graves={graves}
@@ -1038,6 +1060,21 @@ const MainView = forwardRef(function MainView(
           savedView={savedView}
           frameRequest={frameRequest}
           resetKey={overlayFrame}
+        />
+        <PresetCamera
+          view={view}
+          graveDimensions={graveDimensions}
+          graves={graves}
+          hiddenGraves={hiddenGraves}
+          individuals={individuals}
+          hidden={hidden}
+          focusedId={focusedId}
+          controlsRef={controlsRef}
+        />
+        <UserNavigation
+          view={view}
+          controlsRef={controlsRef}
+          onUserNavigate={onUserNavigate}
         />
         <ViewportExport
           ref={ref}

@@ -36,6 +36,7 @@ import {
 import { csvToProject, importCsv, rowsToIndividuals } from "./csvImport";
 import { createCsv, exportCsv } from "./csvExport";
 import { DEFAULT_VERTICAL } from "./sceneSpace";
+import { presetForKey } from "./cameraViews.js";
 import "./app.css";
 
 const PALETTE = [
@@ -69,6 +70,22 @@ function makeBlankCoords() {
   return Object.fromEntries(
     JOINTS.map((joint) => [joint.id, { x: "", y: "", z: "" }]),
   );
+}
+
+/**
+ * Whether a keystroke is destined for a field rather than the application.
+ *
+ * The view shortcuts are bare number keys, which is also what every coordinate
+ * is made of, so the distinction has to be made here rather than by choosing
+ * more awkward shortcuts.
+ */
+function isTypingTarget(target) {
+  if (!target) return false;
+  if (target.isContentEditable) return true;
+
+  const tag = target.tagName;
+
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
 }
 
 export default function App() {
@@ -141,6 +158,10 @@ export default function App() {
   const [focusedId, setFocusedId] = useState(null);
   const [showEnvironment, setShowEnvironment] = useState(true);
   const [contextOpacity, setContextOpacity] = useState(0.25);
+
+  // The chosen preset view, or null for free orbit. View state, like `hidden`
+  // — not undoable, not saved.
+  const [view, setView] = useState(null);
 
   // Transient message for changes such as adding individuals, which are inconvenient to highlight in place
   const [notice, setNotice] = useState(null);
@@ -240,6 +261,7 @@ export default function App() {
     setIsDirty(false);
     setHidden([]);
     setFocusedId(null);
+    setView(null);
     setShowStartup(false);
     setIsGraveDimensionsModalOpen(false);
     setNotice("Project opened successfully.");
@@ -404,9 +426,11 @@ export default function App() {
     setFocusedId(null);
   }
 
-  // Esc backs out one level at a time: focus first, then the selection.
+  // Esc backs out one level at a time: focus first, then the preset view,
+  // then the selection.
   function handleEscape() {
     if (focusedId) setFocusedId(null);
+    else if (view) setView(null);
     else setSelectedId(null);
   }
 
@@ -488,6 +512,7 @@ export default function App() {
     setIsDirty(false);
     setHidden([]);
     setFocusedId(null);
+    setView(null);
     setOpenId(null);
     setSelectedId(null);
     setJointDetails({});
@@ -724,6 +749,7 @@ export default function App() {
     openAndSelect(STARTING_STATE[0].id);
     setHidden([]);
     setFocusedId(null);
+    setView(null);
     setIsDirty(true);
   }
 
@@ -904,6 +930,7 @@ export default function App() {
     handleExportCsv,
     handleEscape,
     showStartup,
+    setView,
   };
 
   useEffect(() => {
@@ -968,6 +995,19 @@ export default function App() {
       if (event.key === "Escape") {
         actionsRef.current.handleEscape();
         return;
+      }
+
+      // Bare number keys switch preset views. Coordinates are numbers too, so
+      // keystrokes aimed at a field are left alone.
+      if (!event.ctrlKey && !event.metaKey) {
+        if (!isTypingTarget(event.target)) {
+          const preset = presetForKey(event.key);
+
+          if (preset !== undefined) {
+            actionsRef.current.setView(preset);
+            return;
+          }
+        }
       }
 
       if (!event.ctrlKey && !event.metaKey) return;
@@ -1126,6 +1166,8 @@ export default function App() {
             targetId={selectedId}
             selectedId={selectedId}
             vertical={vertical}
+            view={view}
+            onUserNavigate={() => setView(null)}
             onSolverIssues={handleSolverIssues}
             imageOverlay={imageOverlay}
             overlayFrame={overlayFrame}
