@@ -22,17 +22,23 @@
 
 import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { Box3, Vector3 } from "three";
+import { Box3 } from "three";
 import {
   CAMERA_PRESETS,
   graveBox,
   isPresetDirection,
   presetPose,
 } from "../cameraViews.js";
+import {
+  dampFactor,
+  dampPose,
+  posesMatch,
+  tweenPose,
+} from "../cameraDrive.js";
 import { graveContourToSceneSpace } from "../graveOutline.js";
 import { isVisible } from "../visibility.js";
 
-const WORLD_UP = new Vector3(0, 1, 0);
+const WORLD_UP = { x: 0, y: 1, z: 0 };
 
 // The tween all preset moves share: long enough to read as a move, short
 // enough to not stand between the user and measuring.
@@ -46,11 +52,6 @@ export const ZOOM_TWEEN_MS = 250;
 
 // How fast dock drags catch up: responsive under the finger, visibly smooth.
 const DAMP_RATE = 14;
-const SNAP_DIST = 1e-4;
-
-export function createDrive() {
-  return { tween: null, desired: null, initial: null, resetting: false };
-}
 
 export function CameraControls({ controlsRef }) {
   const { camera, gl } = useThree();
@@ -108,25 +109,8 @@ export function CameraDriver({ controlsRef, driveRef, onZoom }) {
           (performance.now() - active.start) / active.duration,
           1,
         );
-        const eased = 1 - Math.pow(1 - t, 3);
-        const pose = {
-          position: new Vector3(),
-          target: new Vector3(),
-          up: new Vector3(),
-          zoom: active.from.zoom,
-        };
 
-        pose.position.lerpVectors(
-          active.from.position,
-          active.to.position,
-          eased,
-        );
-        pose.target.lerpVectors(active.from.target, active.to.target, eased);
-        pose.up.lerpVectors(active.from.up, active.to.up, eased).normalize();
-        pose.zoom =
-          active.from.zoom + (active.to.zoom - active.from.zoom) * eased;
-
-        applyPose(pose, camera, controls);
+        applyPose(tweenPose(active.from, active.to, t), camera, controls);
 
         if (t === 1) drive.tween = null;
       }
@@ -137,33 +121,26 @@ export function CameraDriver({ controlsRef, driveRef, onZoom }) {
 
       if (reduced) {
         applyPose(
-          { ...wanted, up: camera.up.clone() },
+          { ...wanted, up: readUp(camera) },
           camera,
           controls,
         );
         drive.desired = null;
       } else {
-        const step = 1 - Math.exp(-dt * DAMP_RATE);
+        const next = dampPose(
+          readPose(camera, controls),
+          wanted,
+          dampFactor(dt, DAMP_RATE),
+        );
 
-        camera.position.lerp(wanted.position, step);
-        controls.target.lerp(wanted.target, step);
+        applyPose(next, camera, controls);
 
-        const zoom = Math.log(camera.zoom);
-        const targetZoom = Math.log(wanted.zoom);
-        camera.zoom = Math.exp(zoom + (targetZoom - zoom) * step);
-        camera.updateProjectionMatrix();
-        controls.update();
-
-        if (
-          camera.position.distanceTo(wanted.position) < SNAP_DIST &&
-          controls.target.distanceTo(wanted.target) < SNAP_DIST &&
-          Math.abs(Math.log(camera.zoom / wanted.zoom)) < 1e-4
-        ) {
-          camera.position.copy(wanted.position);
-          controls.target.copy(wanted.target);
-          camera.zoom = wanted.zoom;
-          camera.updateProjectionMatrix();
-          controls.update();
+        if (posesMatch(next, wanted)) {
+          applyPose(
+            { ...wanted, up: readUp(camera) },
+            camera,
+            controls,
+          );
           drive.desired = null;
         }
       }
@@ -256,30 +233,42 @@ function presetPoseFor({
   if (!pose) return null;
 
   return {
-    position: new Vector3(pose.position.x, pose.position.y, pose.position.z),
-    target: new Vector3(pose.target.x, pose.target.y, pose.target.z),
+    position: { x: pose.position.x, y: pose.position.y, z: pose.position.z },
+    target: { x: pose.target.x, y: pose.target.y, z: pose.target.z },
     zoom: pose.zoom,
     // The up vector is what makes a plan view a plan view: without it the
     // camera above the grave would still be standing the world up.
-    up: new Vector3(preset.up.x, preset.up.y, preset.up.z),
+    up: { x: preset.up.x, y: preset.up.y, z: preset.up.z },
   };
 }
 
 export function readPose(camera, controls) {
   return {
-    position: camera.position.clone(),
-    target: controls.target.clone(),
-    up: camera.up.clone(),
+    position: {
+      x: camera.position.x,
+      y: camera.position.y,
+      z: camera.position.z,
+    },
+    target: {
+      x: controls.target.x,
+      y: controls.target.y,
+      z: controls.target.z,
+    },
+    up: { x: camera.up.x, y: camera.up.y, z: camera.up.z },
     zoom: camera.zoom,
   };
 }
 
+export function readUp(camera) {
+  return { x: camera.up.x, y: camera.up.y, z: camera.up.z };
+}
+
 export function applyPose(pose, camera, controls) {
-  camera.position.copy(pose.position);
-  camera.up.copy(pose.up);
+  camera.position.set(pose.position.x, pose.position.y, pose.position.z);
+  camera.up.set(pose.up.x, pose.up.y, pose.up.z);
   camera.zoom = pose.zoom;
   camera.updateProjectionMatrix();
-  controls.target.copy(pose.target);
+  controls.target.set(pose.target.x, pose.target.y, pose.target.z);
   // Recomputes the orientation from the new up, and fires the change event
   // the rest of the viewport relies on.
   controls.update();
@@ -318,8 +307,12 @@ export function PresetCamera({
       // the free orbit that follows orbits about the wrong vertical.
       const from = readPose(camera, controls);
 
-      if (from.up.distanceTo(WORLD_UP) > 1e-6) {
-        applyPose({ ...from, up: WORLD_UP.clone() }, camera, controls);
+      if (
+        Math.abs(from.up.x - WORLD_UP.x) > 1e-6 ||
+        Math.abs(from.up.y - WORLD_UP.y) > 1e-6 ||
+        Math.abs(from.up.z - WORLD_UP.z) > 1e-6
+      ) {
+        applyPose({ ...from, up: { ...WORLD_UP } }, camera, controls);
       }
 
       driveRef.current.tween = null;

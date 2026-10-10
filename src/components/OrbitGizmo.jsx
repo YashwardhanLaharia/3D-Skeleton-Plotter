@@ -22,8 +22,7 @@ import {
   WebGLRenderer,
 } from "three";
 import { CAMERA_PRESETS } from "../cameraViews.js";
-
-export const AXIS_PRESET = { x: "side", y: "plan", z: "front" };
+import { AXIS_PRESET } from "../dockMapping.js";
 
 const AXIS_COLORS = { x: "#e2564d", y: "#8fbf4a", z: "#4d7fe2" };
 

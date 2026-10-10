@@ -12,51 +12,17 @@
 import { useEffect, useRef, useState } from "react";
 import { CAMERA_PRESETS } from "../cameraViews.js";
 import { ZOOM_STEP } from "./CameraRig.jsx";
-import OrbitGizmo, { AXIS_PRESET } from "./OrbitGizmo.jsx";
-
-// The slider covers the zooms a grave is actually viewed at. The app-wide
-// clamps reach far beyond this in both directions, and the buttons and wheel
-// can still take the camera there; the slider just stays pinned at its end.
-const SLIDER_MIN_ZOOM = 2;
-const SLIDER_MAX_ZOOM = 2000;
-
-// Slider granularity. Zoom moves in log space and this only sets how finely
-// the slider steps through it.
-const SLIDER_STEPS = 1000;
-
-// Joystick feel. Full deflection pans this many screen pixels per second;
-// the viewport converts to world units from the zoom, so the feel stays the
-// same however far in or out the camera is.
-const PAN_RATE = 320;
-
-// Stick travel in pixels, and the dead zone around the centre as a fraction
-// of it. Inside the dead zone a resting thumb does not drift the view.
-const STICK_TRAVEL = 26;
-const STICK_DEADZONE = 0.12;
-
-// Keyboard nudge for the focused joystick, in screen pixels per press.
-const STICK_NUDGE = 24;
-
-function zoomToSlider(zoom) {
-  const clamped = Math.min(
-    SLIDER_MAX_ZOOM,
-    Math.max(SLIDER_MIN_ZOOM, zoom),
-  );
-
-  return Math.round(
-    ((Math.log(clamped) - Math.log(SLIDER_MIN_ZOOM)) /
-      (Math.log(SLIDER_MAX_ZOOM) - Math.log(SLIDER_MIN_ZOOM))) *
-      SLIDER_STEPS,
-  );
-}
-
-function sliderToZoom(value) {
-  return Math.exp(
-    Math.log(SLIDER_MIN_ZOOM) +
-      (Math.min(SLIDER_STEPS, Math.max(0, value)) / SLIDER_STEPS) *
-        (Math.log(SLIDER_MAX_ZOOM) - Math.log(SLIDER_MIN_ZOOM)),
-  );
-}
+import OrbitGizmo from "./OrbitGizmo.jsx";
+import {
+  AXIS_PRESET,
+  PAN_RATE,
+  SLIDER_STEPS,
+  STICK_NUDGE,
+  STICK_TRAVEL,
+  normalizeDeflection,
+  sliderToZoom,
+  zoomToSlider,
+} from "../dockMapping.js";
 
 // Zoom buttons step once per click and repeat while held.
 function HoldButton({ onFire, ...props }) {
@@ -119,23 +85,16 @@ function Joystick({ onDeflect, onNudge, ...props }) {
 
     if (!origin) return;
 
-    let dx = clientX - origin.x;
-    let dy = clientY - origin.y;
-    const dist = Math.hypot(dx, dy);
-
-    if (dist > STICK_TRAVEL) {
-      dx = (dx / dist) * STICK_TRAVEL;
-      dy = (dy / dist) * STICK_TRAVEL;
-    }
-
-    setKnob({ x: dx, y: dy });
-
-    const nx = dx / STICK_TRAVEL;
-    const ny = dy / STICK_TRAVEL;
-
-    onDeflect?.(
-      Math.hypot(nx, ny) < STICK_DEADZONE ? { x: 0, y: 0 } : { x: nx, y: ny },
+    const deflection = normalizeDeflection(
+      clientX - origin.x,
+      clientY - origin.y,
     );
+
+    setKnob({
+      x: deflection.x * STICK_TRAVEL,
+      y: deflection.y * STICK_TRAVEL,
+    });
+    onDeflect?.(deflection);
   }
 
   function release() {

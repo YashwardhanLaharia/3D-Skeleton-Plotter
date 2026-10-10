@@ -53,9 +53,9 @@ import {
   CameraDriver,
   PresetCamera,
   UserNavigation,
-  createDrive,
   readPose,
 } from "./CameraRig.jsx";
+import { createDrive } from "../cameraDrive.js";
 import { CameraSyncBridge } from "./OrbitGizmo.jsx";
 import {
   CAMERA_PRESETS,
@@ -543,8 +543,8 @@ const ViewportExport = forwardRef(function ViewportExport(
   function steer(next) {
     driveRef.current.tween = null;
     driveRef.current.desired = {
-      position: new Vector3(next.position.x, next.position.y, next.position.z),
-      target: new Vector3(next.target.x, next.target.y, next.target.z),
+      position: { ...next.position },
+      target: { ...next.target },
       zoom: next.zoom,
     };
   }
@@ -650,9 +650,9 @@ const ViewportExport = forwardRef(function ViewportExport(
         driveRef.current.tween = {
           from: readPose(camera, controls),
           to: {
-            position: home.position.clone(),
-            target: home.target.clone(),
-            up: home.up.clone(),
+            position: { ...home.position },
+            target: { ...home.target },
+            up: { ...home.up },
             zoom: home.zoom,
           },
           start: performance.now(),
