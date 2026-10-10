@@ -47,8 +47,6 @@ import {
 import { boneName } from "../inspection/boneLabels.js";
 import { BODY_DIMENSIONS } from "../rig/scaling/dimensionConfig.js";
 import {
-  AXIS_DIRECTIONS,
-  AXIS_DRAG_SPEED,
   ORBIT_DRAG_SPEED,
   ZOOM_TWEEN_MS,
   CameraControls,
@@ -66,7 +64,6 @@ import {
 } from "../cameraViews.js";
 import {
   freeOrbitPose,
-  orbitAboutAxisPose,
   panPose,
   zoomPose,
 } from "../cameraNavigation.js";
@@ -604,18 +601,6 @@ const ViewportExport = forwardRef(function ViewportExport(
         steer(next);
         maybeExitPreset(next);
       },
-      axisOrbitBy(axis, dx = 0) {
-        if (!controlsRef.current || !AXIS_DIRECTIONS[axis]) return;
-
-        const next = orbitAboutAxisPose(
-          driveBase(),
-          AXIS_DIRECTIONS[axis],
-          dx * AXIS_DRAG_SPEED,
-        );
-
-        steer(next);
-        maybeExitPreset(next);
-      },
       zoomBy(factor) {
         const controls = controlsRef.current;
 
@@ -646,6 +631,27 @@ const ViewportExport = forwardRef(function ViewportExport(
           ...driveBase(),
           zoom: Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom)),
         });
+      },
+      // Fly back to the pose the viewport opened with. Doubles as leaving
+      // any preset, since home looks from no preset direction.
+      resetView() {
+        const controls = controlsRef.current;
+        const home = driveRef.current.initial;
+
+        if (!controls || !home) return;
+
+        driveRef.current.desired = null;
+        driveRef.current.tween = {
+          from: readPose(camera, controls),
+          to: {
+            position: home.position.clone(),
+            target: home.target.clone(),
+            up: home.up.clone(),
+            zoom: home.zoom,
+          },
+          start: performance.now(),
+          duration: 600,
+        };
       },
       async captureScreenshot() {
         const canvas = gl.domElement;

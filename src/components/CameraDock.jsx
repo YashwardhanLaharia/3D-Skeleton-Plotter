@@ -1,45 +1,46 @@
 // On-screen camera controls for the viewport, bottom-right.
 //
-// Separate elements for orientation, navigation and preset views in one
-// cluster: axis handles and a free-orbit handle (orientation gizmo), zoom
-// buttons with a zoom slider plus a pan handle (navigation pill), and the
-// Plan / Front / Side / Orbit preset row. All motion goes through the viewport
-// drive, so every move lands smoothly instead of cutting.
+// Navigation pill (zoom buttons, zoom slider, pan handle, orbit handle) plus
+// the Plan / Front / Side / Orbit preset row in one cluster. All motion goes
+// through the viewport drive, so every move lands smoothly instead of cutting.
 //
 // The pose maths lives in cameraViews and cameraNavigation; this file only
 // turns pointer gestures into calls on the viewport handle.
 
 import { useEffect, useRef } from "react";
-import { CAMERA_PRESETS, ZOOM_MAX, ZOOM_MIN } from "../cameraViews.js";
+import { CAMERA_PRESETS } from "../cameraViews.js";
 import { ZOOM_STEP } from "./CameraRig.jsx";
 
 const PRESET_ORDER = ["plan", "front", "side"];
 
-// Tapping an axis handle looks straight down that axis; dragging it orbits
-// about that axis instead.
-const AXIS_TAP_VIEW = { x: "front", y: "plan", z: "side" };
+// The slider covers the zooms a grave is actually viewed at. The app-wide
+// clamps reach far beyond this in both directions, and the buttons and wheel
+// can still take the camera there; the slider just stays pinned at its end.
+const SLIDER_MIN_ZOOM = 2;
+const SLIDER_MAX_ZOOM = 2000;
 
-const AXIS_COLOURS = { x: "#e2564d", y: "#8fbf4a", z: "#4d7fe2" };
-
-// Slider granularity. The zoom range spans orders of magnitude, so the slider
-// moves in log space and this only sets how finely it steps.
+// Slider granularity. Zoom moves in log space and this only sets how finely
+// the slider steps through it.
 const SLIDER_STEPS = 1000;
 
 function zoomToSlider(zoom) {
-  const clamped = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom));
+  const clamped = Math.min(
+    SLIDER_MAX_ZOOM,
+    Math.max(SLIDER_MIN_ZOOM, zoom),
+  );
 
   return Math.round(
-    ((Math.log(clamped) - Math.log(ZOOM_MIN)) /
-      (Math.log(ZOOM_MAX) - Math.log(ZOOM_MIN))) *
+    ((Math.log(clamped) - Math.log(SLIDER_MIN_ZOOM)) /
+      (Math.log(SLIDER_MAX_ZOOM) - Math.log(SLIDER_MIN_ZOOM))) *
       SLIDER_STEPS,
   );
 }
 
 function sliderToZoom(value) {
   return Math.exp(
-    Math.log(ZOOM_MIN) +
+    Math.log(SLIDER_MIN_ZOOM) +
       (Math.min(SLIDER_STEPS, Math.max(0, value)) / SLIDER_STEPS) *
-        (Math.log(ZOOM_MAX) - Math.log(ZOOM_MIN)),
+        (Math.log(SLIDER_MAX_ZOOM) - Math.log(SLIDER_MIN_ZOOM)),
   );
 }
 
@@ -106,8 +107,8 @@ function HoldButton({ onFire, ...props }) {
         event.preventDefault();
         onFire?.();
         timers.current.delay = setTimeout(() => {
-          timers.current.repeat = setInterval(() => onFire?.(), 120);
-        }, 350);
+          timers.current.repeat = setInterval(() => onFire?.(), 180);
+        }, 400);
       }}
       onPointerUp={clear}
       onPointerCancel={clear}
@@ -149,41 +150,18 @@ function OrbitIcon() {
   );
 }
 
-export default function CameraDock({ view, onPresetChange, zoom, viewportRef }) {
+export default function CameraDock({
+  view,
+  onPresetChange,
+  onResetView,
+  zoom,
+  viewportRef,
+}) {
   const api = () => viewportRef.current;
   const sliderValue = zoomToSlider(Number.isFinite(zoom) ? zoom : 100);
 
   return (
     <div className="camera-dock" role="toolbar" aria-label="Camera controls" data-testid="camera-dock">
-      <div className="dock-gizmo" role="group" aria-label="Orientation">
-        {Object.keys(AXIS_COLOURS).map((axis) => (
-          <DragButton
-            key={axis}
-            type="button"
-            className="axis-btn"
-            style={{ "--axis-colour": AXIS_COLOURS[axis] }}
-            data-testid={`dock-axis-${axis}`}
-            title={`${axis.toUpperCase()} axis (drag to orbit, click for ${CAMERA_PRESETS[AXIS_TAP_VIEW[axis]].label} view)`}
-            aria-label={`${axis.toUpperCase()} axis`}
-            onDrag={(dx) => api()?.axisOrbitBy(axis, dx)}
-            onTap={() => onPresetChange?.(AXIS_TAP_VIEW[axis])}
-          >
-            {axis.toUpperCase()}
-          </DragButton>
-        ))}
-        <DragButton
-          type="button"
-          className="dock-orbit-btn"
-          data-testid="dock-orbit-handle"
-          title="Free orbit (drag to orbit, click to leave presets)"
-          aria-label="Free orbit"
-          onDrag={(dx, dy) => api()?.orbitBy({ dx, dy })}
-          onTap={() => onPresetChange?.(null)}
-        >
-          <OrbitIcon />
-        </DragButton>
-      </div>
-
       <div className="dock-nav" role="group" aria-label="Navigate">
         <HoldButton
           type="button"
@@ -225,6 +203,17 @@ export default function CameraDock({ view, onPresetChange, zoom, viewportRef }) 
         >
           <HandIcon />
         </DragButton>
+        <DragButton
+          type="button"
+          className="dock-nav-btn dock-orbit-btn"
+          data-testid="dock-orbit-handle"
+          title="Orbit (drag to look around, click to leave presets)"
+          aria-label="Orbit"
+          onDrag={(dx, dy) => api()?.orbitBy({ dx, dy })}
+          onTap={() => onPresetChange?.(null)}
+        >
+          <OrbitIcon />
+        </DragButton>
       </div>
 
       <div className="dock-presets" role="group" aria-label="Preset views">
@@ -251,8 +240,11 @@ export default function CameraDock({ view, onPresetChange, zoom, viewportRef }) 
           className={`dock-preset-btn ${view ? "" : "dock-preset-btn-active"}`}
           data-testid="dock-preset-orbit"
           aria-pressed={!view}
-          title="Free orbit (4)"
-          onClick={() => onPresetChange?.(null)}
+          title="Reset the view (4)"
+          onClick={() => {
+            onPresetChange?.(null);
+            onResetView?.();
+          }}
         >
           Orbit
         </button>

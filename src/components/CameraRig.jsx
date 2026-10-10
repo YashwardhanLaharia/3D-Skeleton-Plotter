@@ -41,22 +41,15 @@ const PRESET_TWEEN_MS = 600;
 // Dock drag speeds. A full turn per few hundred pixels feels like the mouse
 // drag the buttons stand in for.
 export const ORBIT_DRAG_SPEED = (Math.PI * 2) / 400;
-export const AXIS_DRAG_SPEED = (Math.PI * 2) / 260;
 export const ZOOM_STEP = 1.25;
 export const ZOOM_TWEEN_MS = 250;
-
-export const AXIS_DIRECTIONS = {
-  x: { x: 1, y: 0, z: 0 },
-  y: { x: 0, y: 1, z: 0 },
-  z: { x: 0, y: 0, z: 1 },
-};
 
 // How fast dock drags catch up: responsive under the finger, visibly smooth.
 const DAMP_RATE = 14;
 const SNAP_DIST = 1e-4;
 
 export function createDrive() {
-  return { tween: null, desired: null };
+  return { tween: null, desired: null, initial: null };
 }
 
 export function CameraControls({ controlsRef }) {
@@ -76,6 +69,7 @@ export function CameraControls({ controlsRef }) {
       args={[camera, gl.domElement]}
       enableDamping
       dampingFactor={0.08}
+      zoomSpeed={0.6}
     />
   );
 }
@@ -95,6 +89,9 @@ export function CameraDriver({ controlsRef, driveRef, onZoom }) {
 
     const drive = driveRef.current;
     const dt = Math.min(rawDt, 0.05);
+
+    // The pose the viewport opened with. Resetting flies back here.
+    if (!drive.initial) drive.initial = readPose(camera, controls);
     const reduced = window.matchMedia?.(
       "(prefers-reduced-motion: reduce)",
     ).matches;

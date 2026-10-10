@@ -1276,54 +1276,6 @@
   user-select: none;
 }
 
-.dock-gizmo {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.axis-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: var(--axis-colour, var(--bs-secondary));
-  color: #fff;
-  font-size: 0.8rem;
-  font-weight: 700;
-  box-shadow: 0 0.15rem 0.5rem rgba(0, 0, 0, 0.3);
-  cursor: grab;
-  touch-action: none;
-}
-
-.axis-btn:active {
-  cursor: grabbing;
-}
-
-.dock-orbit-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: rgba(27, 31, 36, 0.88);
-  color: #fff;
-  box-shadow: 0 0.15rem 0.5rem rgba(0, 0, 0, 0.3);
-  cursor: grab;
-  touch-action: none;
-}
-
-.dock-orbit-btn:active {
-  cursor: grabbing;
-}
-
 .dock-nav {
   display: flex;
   flex-direction: column;
@@ -1354,11 +1306,13 @@
   background: rgba(255, 255, 255, 0.12);
 }
 
-.dock-pan-btn {
+.dock-pan-btn,
+.dock-orbit-btn {
   cursor: grab;
 }
 
-.dock-pan-btn:active {
+.dock-pan-btn:active,
+.dock-orbit-btn:active {
   cursor: grabbing;
 }
 
@@ -1405,8 +1359,6 @@
   color: #fff;
 }
 
-.axis-btn:focus-visible,
-.dock-orbit-btn:focus-visible,
 .dock-nav-btn:focus-visible,
 .dock-preset-btn:focus-visible,
 .dock-zoom-slider:focus-visible {

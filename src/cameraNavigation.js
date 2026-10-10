@@ -99,8 +99,9 @@ export function panPose(pose, { dx = 0, dy = 0, viewportWidth = 0, zoom = 1 }) {
   const up = usableUp(offset, WORLD_UP);
   const right = normalize(cross(up, normalize(offset)));
 
-  // The orthographic viewport shows viewportWidth / zoom world units across.
-  const perPixel = viewportWidth > 0 && zoom > 0 ? viewportWidth / zoom : 0;
+  // The orthographic viewport shows viewportWidth / zoom world units across
+  // viewportWidth pixels, so one pixel spans 1 / zoom world units on screen.
+  const perPixel = viewportWidth > 0 && zoom > 0 ? 1 / zoom : 0;
   const shift = add(
     scale(right, -dx * perPixel),
     scale(up, dy * perPixel),

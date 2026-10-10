@@ -1214,6 +1214,7 @@ export default function App() {
           <CameraDock
             view={view}
             onPresetChange={setView}
+            onResetView={() => viewportRef.current?.resetView()}
             zoom={zoom}
             viewportRef={viewportRef}
           />
