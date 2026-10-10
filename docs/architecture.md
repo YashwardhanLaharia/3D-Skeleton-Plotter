@@ -58,6 +58,22 @@ SkeletonRigApi
 Three.js skeleton scene
 ```
 
+## Camera Views and Controls
+
+Preset measurement views (Plan, Front, Side) are orthographic framings computed
+in `src/cameraViews.js` from the grave, the visible skeletons, and the surveyed
+contours. `src/cameraNavigation.js` holds the matching orbit, pan, and zoom
+pose maths, and `src/cameraDrive.js` the eased-flight and damped-drag stepping.
+All three modules are dependency-free plain data so unit tests cover them
+directly.
+
+`src/components/CameraRig.jsx` files flights for preset changes and watches
+for manual navigation. `src/components/CameraDock.jsx` (reset, zoom buttons
+and slider, pan joystick) and `src/components/OrbitGizmo.jsx` (3D gizmo canvas,
+synced from the main camera each frame) drive that same smoothed camera, and
+`src/dockMapping.js` holds the slider and joystick mappings. The chosen view
+lives in `App` state next to visibility: not undoable, not saved.
+
 ## Coordinate-to-Rig Pipeline
 
 Coordinate values entered through the UI are stored as strings. These strings
