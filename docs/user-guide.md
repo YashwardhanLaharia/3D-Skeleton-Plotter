@@ -30,6 +30,12 @@ window has three parts:
 
 The sections below describe each part in detail.
 
+## Light and dark mode
+
+Click the circular theme button in the 3D overview to switch between light and
+dark mode. The app remembers your choice across restarts. See
+[dark mode](dark-mode.md) for details.
+
 ## Quick start with the supplied sample
 
 Download [synthetic-skeleton.csv](examples/synthetic-skeleton.csv). On GitHub,
@@ -450,10 +456,17 @@ client accuracy. See [photograph formats and limits](data-formats/image-overlay.
 ## Save your work
 
 **Save** writes the current project to its existing path; a new project asks for
-a filename. **Save As…** writes to a new selected path. Save often: there is no
-autosave. Before leaving, opening another project or closing, a prompt offers
-Save, Discard or Cancel when there are unsaved changes. Discard loses the unsaved
-edits; Cancel lets you continue working.
+a filename. **Save As…** writes to a new selected path. Autosave keeps a separate
+recovery CSV beside a saved project, or in the app's user-data folder before the
+first save. Restore it from the **Autosave** section on Home, then save manually.
+Before leaving, opening another project or closing, a prompt offers Save,
+Don't save or Cancel. Don't save leaves the main file unchanged and keeps the
+latest backup until later edits replace it; Cancel lets you continue working.
+
+Autosave currently preserves individuals, groups and grave dimensions, but not
+grave outlines, photographs, camera state or the Height/RL reference. Save manually to preserve
+the complete project. See [autosave](autosave.md)
+for storage locations, recovery steps and limitations.
 
 Project CSVs include editable joint data and excavation context. A saved photograph
 is embedded, so the project does not depend on the original image path. Photograph
@@ -821,8 +834,9 @@ The modelling limits of the 3D skeleton itself are explained in
 
 ### Data and saving
 
-- **There is no autosave.** Work since the last save is lost if the app closes
-  unexpectedly. Save often, and keep a copy before large changes.
+- **Autosave has recovery limits.** It does not preserve grave outlines,
+  photographs, camera state or the Height/RL reference. Save often, and keep a copy before large changes.
+  See [autosave recovery](autosave.md#recovery-limits-and-errors).
 - **Undo does not cover grave dimensions or the Height/RL setting.** Change
   them back with **Ctrl+G**.
 - **Hidden individuals are shown again on reopening.** Visibility is not saved;

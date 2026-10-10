@@ -13,6 +13,8 @@ docs/
 ├── README.md                 # General overview file
 ├── getting-started.md        # Install, run, build, first use
 ├── user-guide.md             # Using the app: projects, coordinates, reconstruction, viewing, export
+├── dark-mode.md              # Theme controls and preference storage
+├── autosave.md               # Backup locations and recovery
 ├── examples/                 # Synthetic sample projects used by the user guide
 ├── client-import-errors.md   # Import messages, causes and fixes
 ├── architecture.md           # High-level: main / renderer / preload, data flow
@@ -45,6 +47,8 @@ More detailed system inforamation can be found in `architecture`, `rig-api`, `de
 - [README.md](./README.md)
 - [getting-started.md](./getting-started.md)
 - [user-guide.md](./user-guide.md)
+- [dark-mode.md](./dark-mode.md)
+- [autosave.md](./autosave.md)
 - [client-import-errors.md](./client-import-errors.md)
 - [architecture.md](./architecture.md)
 - [rig-api.md](./rig-api.md)
