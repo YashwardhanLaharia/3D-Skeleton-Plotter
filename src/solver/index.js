@@ -11,5 +11,10 @@ export {
 export { BONES, getBone, bonesForJoint, UNUSED_JOINTS } from "./topology.js";
 export { applySolvedPose, placeSkeleton } from "./applyPose.js";
 export { solveRootRotation, computeBodyDimensions } from "./bodyFrame.js";
-export { LANDMARK_OBJECTS, landmarkObject } from "./modelLandmarks.js";
+export {
+  LANDMARK_OBJECTS,
+  LANDMARK_REFERENCES,
+  landmarkObject,
+  landmarkPoint,
+} from "./modelLandmarks.js";
 export { findPlacementAnchor, PLACEMENT_ANCHORS } from "./placementAnchor.js";

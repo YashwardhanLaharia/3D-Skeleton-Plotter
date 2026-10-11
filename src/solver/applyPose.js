@@ -22,7 +22,6 @@
 //   6. Translation, last, once every rotation that can move the anchor has been
 //      applied.
 
-import { Vector3 } from "three";
 import { solveSkeleton } from "./solveSkeleton.js";
 import { computeSegmentScales } from "./segmentScales.js";
 import { computeBodyDimensions, solveRootRotation } from "./bodyFrame.js";
@@ -157,7 +156,7 @@ export function placeSkeleton({ scene, root, joints = {} }) {
   const anchor = findPlacementAnchor(joints, scene);
   if (!anchor) return null;
 
-  const modelPosition = anchor.modelAnchor.getWorldPosition(new Vector3());
+  const modelPosition = anchor.modelPosition;
 
   root.position.set(
     anchor.measuredAnchor.x - modelPosition.x,

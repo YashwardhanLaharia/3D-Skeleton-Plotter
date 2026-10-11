@@ -13,7 +13,7 @@ steps run in.
 | `solveBone.js` | one bone's rotation, against the loaded model |
 | `segmentScales.js` | bone lengths from measured distances |
 | `bodyFrame.js` | whole-body orientation and torso proportions |
-| `modelLandmarks.js` | which model object each landmark sits on |
+| `modelLandmarks.js` | which model object or mesh point each landmark sits on |
 | `placementAnchor.js` | which landmark the skeleton is positioned by |
 | `applyPose.js` | the composition, in the order that matters |
 
@@ -269,7 +269,18 @@ Two facts about the model this module still depends on, both verified:
 The topology-id to GLB-name mapping lives here, not in `topology.js` — topology
 describes anatomy, this describes one particular mesh. Where each *landmark*
 sits on the model is a separate map, `modelLandmarks.js`, because the distal end
-of every chain is a recorded point that rotates nothing.
+of every chain is a recorded point that rotates nothing. Most references are
+bone origins; `head_proximal` resolves to the most superior vertices of the skull
+mesh.
+
+## Whole-Skeleton Placement
+
+Whole-skeleton placement prefers `head_proximal`, matching the measured crown
+point used with the toes for total burial length. The point is resolved from the
+most superior vertices in the Skull mesh's local geometry and transformed to
+world space after posing; it is not `DEF-Skull`'s origin near the skull base.
+`head_centre` and the remaining landmarks are fallbacks when the crown was not
+recorded or the model reference cannot be resolved.
 
 ## Independent Placement
 

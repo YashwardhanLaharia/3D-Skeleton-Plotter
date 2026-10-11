@@ -22,7 +22,10 @@ import {
   computeBodyDimensions,
   solveRootRotation,
 } from "../../src/solver/bodyFrame.js";
-import { LANDMARK_OBJECTS } from "../../src/solver/modelLandmarks.js";
+import {
+  LANDMARK_OBJECTS,
+  landmarkPoint,
+} from "../../src/solver/modelLandmarks.js";
 import { toNumericJoints } from "../../src/solver/numericJoints.js";
 import {
   BONE_OBJECTS,
@@ -245,12 +248,42 @@ test("the anchor landmark renders exactly on its coordinate", async () => {
   const { scene, joints, anchor } = await poseIndividual();
 
   assert.ok(anchor, "an anchor should be found");
+  assert.equal(anchor.jointId, "head_proximal");
 
-  const error = worldPoint(scene, LANDMARK_OBJECTS[anchor.jointId]).distanceTo(
+  const error = landmarkPoint(scene, anchor.jointId).distanceTo(
     vector(joints[anchor.jointId]),
   );
 
   assert.ok(error < 1e-6, `anchor off by ${error}`);
+});
+
+test("head_proximal resolves to the skull mesh's most superior vertices", async () => {
+  const scene = await loadFreshTestScene();
+  const skull = scene.getObjectByName("Skull");
+  const positions = skull.geometry.attributes.position;
+  skull.geometry.computeBoundingBox();
+  const maximumY = skull.geometry.boundingBox.max.y;
+  const crown = skull.worldToLocal(landmarkPoint(scene, "head_proximal"));
+
+  assert.ok(
+    Math.abs(crown.y - maximumY) < 1e-7,
+    `crown y=${crown.y} should be skull maximum y=${maximumY}`,
+  );
+
+  let sumX = 0;
+  let sumZ = 0;
+  let count = 0;
+  const tolerance = Math.max(1e-9, Math.abs(maximumY) * 1e-7);
+  for (let index = 0; index < positions.count; index += 1) {
+    if (Math.abs(positions.getY(index) - maximumY) > tolerance) continue;
+    sumX += positions.getX(index);
+    sumZ += positions.getZ(index);
+    count += 1;
+  }
+
+  assert.ok(count > 0, "the skull mesh should contain a crown vertex");
+  assert.ok(Math.abs(crown.x - sumX / count) < 1e-7);
+  assert.ok(Math.abs(crown.z - sumZ / count) < 1e-7);
 });
 
 // Two individuals recorded a metre apart must render a metre apart. Placement
