@@ -44,6 +44,10 @@ function FolderIcon() {
 function StartupScreen({
   show,
   recentProjects = [],
+  autosaveSnapshot,
+  autosaveError,
+  autosaveLoading = false,
+  onRestoreAutosave,
   graveDimensions,
   setGraveDimensions,
   vertical,
@@ -121,6 +125,7 @@ function StartupScreen({
                 <button
                   type="button"
                   id="startup-create"
+                  disabled={autosaveLoading}
                   className="startup-card"
                   onClick={handleCreateClick}
                 >
@@ -136,6 +141,7 @@ function StartupScreen({
                 <button
                   type="button"
                   id="startup-open"
+                  disabled={autosaveLoading}
                   className="startup-card"
                   onClick={onOpen}
                 >
@@ -147,6 +153,36 @@ function StartupScreen({
                     Resume a saved project from disk
                   </span>
                 </button>
+              </div>
+            </section>
+
+            <section className="startup-section" aria-labelledby="startup-autosave-heading">
+              <h2 id="startup-autosave-heading" className="startup-section-label">
+                Autosave
+              </h2>
+              <div className="startup-recent" aria-busy={autosaveLoading}>
+                {autosaveError && <p className="startup-recent-empty" role="alert">{autosaveError}</p>}
+                {autosaveLoading ? (
+                  <p className="startup-recent-empty">Checking autosave…</p>
+                ) : autosaveSnapshot ? (
+                  <button
+                    type="button"
+                    id="startup-restore-autosave"
+                    className="startup-recent-item mb-2 mt-2"
+                    onClick={onRestoreAutosave}
+                  >
+                    <span className="startup-recent-main">
+                      <span className="startup-recent-name">Autosave</span>
+                      <span className="startup-recent-meta">
+                        {autosaveSnapshot.filePath
+                          ? `Recover latest edits to ${autosaveSnapshot.filePath.split(/[\\/]/).pop()}`
+                          : "Recover your latest unsaved project"}
+                      </span>
+                    </span>
+                  </button>
+                ) : !autosaveError ? (
+                  <p className="startup-recent-empty">No autosaved project</p>
+                ) : null}
               </div>
             </section>
 
@@ -172,6 +208,7 @@ function StartupScreen({
                           <button
                             type="button"
                             className="startup-recent-item mb-2 mt-2"
+                            disabled={autosaveLoading}
                             onClick={() => onOpenRecent(project.path)}
                           >
                             <span className="startup-recent-main">
