@@ -674,6 +674,19 @@ distance. Drag with the left mouse button to orbit, drag with the right mouse
 button to pan, and use the wheel to zoom. These operations change the camera,
 not the recorded points. Use Frame on a grave or photograph to bring it into view.
 
+Fixed measurement views sit alongside free orbit: Plan (top-down), Front and
+Side elevations. Choose them by tapping the matching ball on the 3D gizmo in
+the bottom-right dock, or with keys 1–4 (4 returns to free orbit). Number keys
+typed into coordinate fields never switch views, and Esc steps back through
+focus, then the preset view, then the selection. Orbiting away from a preset
+returns to free orbit; panning and zooming stay in the view, and the badge in
+the dock always names it.
+
+The dock's other controls are the pan joystick (drag and hold to glide; arrow
+keys nudge when it is focused), zoom buttons and slider, the orbit gizmo
+itself (drag to look around, with hover tips), and reset, which flies back to
+the opening view. Every move eases to its destination rather than cutting.
+
 The sidebar history buttons and **Edit → Undo/Redo** undo recorded individual
 and group edits, including coordinate changes, offsets, labels, colours and
 adding/removing individuals. Camera moves, focus and temporary visibility are
