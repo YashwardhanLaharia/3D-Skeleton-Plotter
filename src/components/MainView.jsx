@@ -26,7 +26,6 @@ import { graveDimensionsToGridScale } from "../graveDimensions.js";
 import { graveContourToSceneSpace } from "../graveOutline.js";
 import { toSceneSpace, graveOrigin, DEFAULT_VERTICAL } from "../sceneSpace.js";
 import ImageOverlay from "./ImageOverlay";
-import { overlayCameraView } from "../imageOverlay.js";
 import { captureProjectView, applyProjectView } from "../projectView.js";
 import { makeGLBExportScene } from "../exportScene.js";
 import {
@@ -724,7 +723,6 @@ function FocusCamera({
   controlsRef,
   savedView,
   frameRequest,
-  resetKey,
 }) {
   const { camera, scene, size: viewport } = useThree();
   const saved = useRef(null);
@@ -732,7 +730,7 @@ function FocusCamera({
   useEffect(() => {
     saved.current = null;
     tween.current = null;
-  }, [savedView, frameRequest, resetKey]);
+  }, [savedView, frameRequest]);
 
   useEffect(() => {
     const controls = controlsRef.current;
@@ -858,23 +856,6 @@ function FocusCamera({
     }
   });
 
-  return null;
-}
-
-function OverlayCamera({ overlay, graveDimensions, request, controlsRef }) {
-  const { camera, size } = useThree();
-  useEffect(() => {
-    const controls = controlsRef.current;
-    if (!overlay || !request || !controls) return;
-    const view = overlayCameraView(overlay, graveDimensions, size, globalScale);
-    camera.position.fromArray(view.position);
-    camera.zoom = view.zoom;
-    controls.target.fromArray(view.target);
-    camera.updateProjectionMatrix();
-    controls.update();
-    camera.updateMatrixWorld();
-    // Explicit frame requests do not change the photograph or follow orbit/resize.
-  }, [request, camera, controlsRef]);
   return null;
 }
 
@@ -1108,7 +1089,6 @@ const MainView = forwardRef(function MainView(
     onFocusAlone,
     onSolverIssues,
     imageOverlay = null,
-    overlayFrame,
     onOverlayError,
     onSelect,
     onClearSelection,
@@ -1204,12 +1184,6 @@ const MainView = forwardRef(function MainView(
         <SelectionOutline selectedId={selectedId} colour={selectedColour} />
         <IgnoreHiddenObjects />
         <CameraControls controlsRef={controlsRef} />
-        <OverlayCamera
-          overlay={imageOverlay}
-          graveDimensions={graveDimensions}
-          request={overlayFrame}
-          controlsRef={controlsRef}
-        />
         <GraveCamera
           graves={graves}
           graveDimensions={graveDimensions}
@@ -1230,7 +1204,6 @@ const MainView = forwardRef(function MainView(
           controlsRef={controlsRef}
           savedView={savedView}
           frameRequest={frameRequest}
-          resetKey={overlayFrame}
         />
         <PresetCamera
           view={view}

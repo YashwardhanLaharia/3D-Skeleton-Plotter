@@ -302,18 +302,16 @@ test("grave outline import opens the modal, imports a top contour, and lists the
   assert.ok((await driver.getTitle()).startsWith("• "));
 });
 
-test("site photograph load shows the source in the View panel and overlay bar", async (t) => {
+test("site photograph load shows the source and settings in the View panel", async (t) => {
   const { driver, loadPhotograph } = await openImportApp(t);
   await loadPhotograph(EXAMPLE_PNG);
   await notice(driver, "Photograph loaded. Enter its grid alignment.");
   const photoBody = await driver.findElement(
     By.css('section[aria-label="Site photograph"] .graves-photo-body'),
   );
-  assert.equal((await photoBody.getText()).trim(), "example.png");
-  const barLabel = await driver.wait(
-    until.elementLocated(By.css(".image-overlay-bar-label")),
-    WAIT,
+  assert.match((await photoBody.getText()).trim(), /example\.png/);
+  assert.ok(
+    await driver.findElement(By.css('[aria-label="Photograph settings"]')),
   );
-  assert.equal(await barLabel.getText(), "example.png");
   assert.ok((await driver.getTitle()).startsWith("• "));
 });

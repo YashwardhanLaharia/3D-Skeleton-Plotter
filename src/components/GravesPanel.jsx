@@ -1,10 +1,27 @@
 // Grave decoration over the viewport: surveyed contours, assignments, and
 // loading a site photograph. Advanced photograph alignment opens from the
-// on-image settings bar. Lives here rather than in the sidebar because
-// show/hide and framing answer what you're looking at — same role as the
-// Skeletons layers panel. Stays usable when the sidebar is collapsed.
+// Settings control next to the loaded filename. Lives here rather than in
+// the sidebar because show/hide and framing answer what you're looking at —
+// same role as the Skeletons layers panel. Stays usable when the sidebar is
+// collapsed.
 
 import { useState } from "react";
+
+function SettingsIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      width="12"
+      height="12"
+      fill="currentColor"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492M5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0" />
+      <path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873 1.873 0 0 0 2.693 1.115l.291-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 0 0 1.116 2.692l.318.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 0 0-1.115 2.693l.16.291c.415.764-.42 1.6-1.185 1.184l-.291-.159a1.873 1.873 0 0 0-2.693 1.116l-.094.318c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 0 0-2.692-1.115l-.292.16c-.764.415-1.6-.42-1.184-1.185l.159-.291A1.873 1.873 0 0 0 1.945 8.93l-.319-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 0 0 3.06 4.377l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 0 0 2.692-1.115z" />
+    </svg>
+  );
+}
 
 function GraveRow({
   grave,
@@ -173,6 +190,7 @@ export default function GravesPanel({
   onRemove,
   overlay,
   onLoadOverlay,
+  onOpenOverlaySettings,
 }) {
   const [isCollapsed, setIsCollapsed] = useState(true);
   const visibleCount = graves.filter((grave) => !hidden.includes(grave.id))
@@ -293,9 +311,27 @@ export default function GravesPanel({
                   Load an overhead PNG or JPEG.
                 </p>
               ) : (
-                <p className="graves-empty-copy text-body-secondary mb-0 text-break">
-                  {overlay.source}
-                </p>
+                <div className="d-flex align-items-start gap-2">
+                  <p
+                    className={`graves-empty-copy mb-0 text-break flex-grow-1 ${
+                      overlay.visible
+                        ? "text-body-secondary"
+                        : "text-body-secondary text-decoration-line-through"
+                    }`}
+                    title={overlay.source}
+                  >
+                    {overlay.source}
+                  </p>
+                  <button
+                    type="button"
+                    className="individual-settings-btn flex-shrink-0"
+                    onClick={onOpenOverlaySettings}
+                    title="Photograph settings"
+                    aria-label="Photograph settings"
+                  >
+                    <SettingsIcon />
+                  </button>
+                </div>
               )}
             </div>
           </section>

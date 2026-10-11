@@ -57,7 +57,7 @@ function HoldButton({ onFire, ...props }) {
 
 function PlusIcon() {
   return (
-    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
       <path d="M12 5v14M5 12h14" />
     </svg>
   );
@@ -65,7 +65,7 @@ function PlusIcon() {
 
 function MinusIcon() {
   return (
-    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
       <path d="M5 12h14" />
     </svg>
   );
@@ -148,7 +148,7 @@ function Joystick({ onDeflect, onNudge, ...props }) {
 
 function ResetIcon() {
   return (
-    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M4 12a8 8 0 1 0 2.34-5.66" />
       <path d="M4 3v4.5h4.5" />
     </svg>
@@ -201,57 +201,46 @@ export default function CameraDock({
   return (
     <div className="camera-dock" role="toolbar" aria-label="Camera controls" data-testid="camera-dock">
       <div className="dock-nav" role="group" aria-label="Navigate">
-        <div className="dock-motion">
-          <div className="dock-orbit-group">
-            <OrbitGizmo
-              onDrag={(dx, dy) => api()?.orbitBy({ dx, dy })}
-              onBallTap={(axis) => {
-                const preset = AXIS_PRESET[axis];
-                onPresetSelect?.(view === preset ? null : preset);
-              }}
-              onCenterTap={() => onResetView?.()}
-            />
-            <div
-              className="dock-view-label"
-              role="status"
-              data-testid="dock-view-label"
-            >
-              {view ? CAMERA_PRESETS[view].label : "Orbit"}
-            </div>
-          </div>
-          <Joystick
-            data-testid="dock-pan"
-            title="Pan joystick (drag and hold to glide the view)"
-            aria-label="Pan joystick. Drag and hold to glide the view. Arrow keys nudge."
-            onDeflect={(deflection) => {
-              deflectRef.current = deflection;
-
-              if (deflection.x !== 0 || deflection.y !== 0) startLoop();
+        <div className="dock-orbit-group">
+          <OrbitGizmo
+            onDrag={(dx, dy) => api()?.orbitBy({ dx, dy })}
+            onBallTap={(axis) => {
+              const preset = AXIS_PRESET[axis];
+              onPresetSelect?.(view === preset ? null : preset);
             }}
-            onNudge={(delta) => api()?.panBy(delta)}
+            onCenterTap={() => onResetView?.()}
           />
+          <div
+            className="dock-view-label"
+            role="status"
+            data-testid="dock-view-label"
+          >
+            {view ? CAMERA_PRESETS[view].label : "Orbit"}
+          </div>
         </div>
 
-        <div className="dock-zoomcol">
-          <button
-            type="button"
-            className="dock-nav-btn"
-            data-testid="dock-reset"
-            title="Reset the view"
-            aria-label="Reset the view"
-            onClick={() => onResetView?.()}
-          >
-            <ResetIcon />
-          </button>
+        <Joystick
+          data-testid="dock-pan"
+          title="Pan joystick (drag and hold to glide the view)"
+          aria-label="Pan joystick. Drag and hold to glide the view. Arrow keys nudge."
+          onDeflect={(deflection) => {
+            deflectRef.current = deflection;
+
+            if (deflection.x !== 0 || deflection.y !== 0) startLoop();
+          }}
+          onNudge={(delta) => api()?.panBy(delta)}
+        />
+
+        <div className="dock-zoomrow" role="group" aria-label="Zoom">
           <HoldButton
             type="button"
             className="dock-nav-btn"
-            data-testid="dock-zoom-in"
-            title="Zoom in"
-            aria-label="Zoom in"
-            onFire={() => api()?.zoomBy(ZOOM_STEP)}
+            data-testid="dock-zoom-out"
+            title="Zoom out"
+            aria-label="Zoom out"
+            onFire={() => api()?.zoomBy(1 / ZOOM_STEP)}
           >
-            <PlusIcon />
+            <MinusIcon />
           </HoldButton>
           <input
             type="range"
@@ -266,14 +255,25 @@ export default function CameraDock({
           <HoldButton
             type="button"
             className="dock-nav-btn"
-            data-testid="dock-zoom-out"
-            title="Zoom out"
-            aria-label="Zoom out"
-            onFire={() => api()?.zoomBy(1 / ZOOM_STEP)}
+            data-testid="dock-zoom-in"
+            title="Zoom in"
+            aria-label="Zoom in"
+            onFire={() => api()?.zoomBy(ZOOM_STEP)}
           >
-            <MinusIcon />
+            <PlusIcon />
           </HoldButton>
         </div>
+
+        <button
+          type="button"
+          className="dock-nav-btn"
+          data-testid="dock-reset"
+          title="Reset the view"
+          aria-label="Reset the view"
+          onClick={() => onResetView?.()}
+        >
+          <ResetIcon />
+        </button>
       </div>
     </div>
   );

@@ -426,11 +426,10 @@ an orientation-marked PNG, then check these workflows in the running app:
    RL is rejected and zero is accepted. Check raw coordinates survive saving.
 3. Load the photograph through View, apply size/rotation and surveyed corners,
    and check orientation, height, opacity, hide/show and replacement.
-4. Frame a grave and the photograph. Confirm only the camera changes. Inspect
-   an individual and return to the overview.
+4. Frame a grave. Confirm only the camera changes. Inspect an individual and
+   return to the overview.
 5. Save and reopen. Compare raw joint/contour coordinates, reference metadata,
-   assignments, image bytes and placement. Check camera metadata separately from
-   automatic photograph framing.
+   assignments, image bytes and placement. Check camera metadata separately.
 6. Export a screenshot and GLB with the photograph visible, then hidden. Confirm
    the visible export contains the texture and the hidden export excludes it.
 

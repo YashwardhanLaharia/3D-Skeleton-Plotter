@@ -42,7 +42,7 @@ const WORLD_UP = { x: 0, y: 1, z: 0 };
 
 // The tween all preset moves share: long enough to read as a move, short
 // enough to not stand between the user and measuring.
-const PRESET_TWEEN_MS = 600;
+export const PRESET_TWEEN_MS = 600;
 
 // Dock drag speeds. A full turn per few hundred pixels feels like the mouse
 // drag the buttons stand in for.

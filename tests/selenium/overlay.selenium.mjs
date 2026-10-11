@@ -29,25 +29,6 @@ async function expandViewPanel(driver) {
   );
 }
 
-async function collapseViewPanel(driver) {
-  const toggle = await driver.findElement(
-    By.css('button[aria-controls="graves-list"]'),
-  );
-  if ((await toggle.getAttribute("aria-expanded")) === "true") {
-    await toggle.click();
-  }
-}
-
-async function clickOverlayBar(driver, ariaLabel) {
-  const button = await driver.wait(
-    until.elementLocated(By.css(`[aria-label="${ariaLabel}"]`)),
-    WAIT,
-  );
-  // Headless layouts can leave the bottom overlay bar under the View panel;
-  // script-click bypasses the hit-test.
-  await driver.executeScript("arguments[0].click()", button);
-}
-
 async function openOverlayApp(t) {
   const app = await openInspectedApp(t);
   await createBlankProject(app.driver);
@@ -59,14 +40,18 @@ async function openOverlayApp(t) {
       .findElement(By.css('section[aria-label="Site photograph"] .graves-import'))
       .click();
     await waitForNotice(app.driver, "Photograph loaded. Enter its grid alignment.");
-    await collapseViewPanel(app.driver);
   }
 
   return { ...app, loadPhotograph };
 }
 
 async function openSettings(driver) {
-  await clickOverlayBar(driver, "Photograph settings");
+  await expandViewPanel(driver);
+  const button = await driver.wait(
+    until.elementLocated(By.css('[aria-label="Photograph settings"]')),
+    WAIT,
+  );
+  await driver.executeScript("arguments[0].click()", button);
   await driver.wait(until.elementLocated(By.id("overlay-settings-title")), WAIT);
 }
 
@@ -121,9 +106,11 @@ test("photograph settings can change opacity and it persists after reopen", asyn
   const { driver, loadPhotograph } = await openOverlayApp(t);
   await loadPhotograph(EXAMPLE_PNG);
 
-  assert.equal(
-    await driver.findElement(By.css(".image-overlay-bar-label")).getText(),
-    "example.png",
+  assert.match(
+    await driver
+      .findElement(By.css('section[aria-label="Site photograph"] .graves-photo-body'))
+      .getText(),
+    /example\.png/,
   );
 
   await openSettings(driver);
@@ -172,32 +159,38 @@ test("alignment Apply updates height above the grave floor", async (t) => {
   await closeSettings(driver);
 });
 
-test("Hide then Frame shows the photograph again", async (t) => {
+test("hiding then showing the photograph again updates the View panel", async (t) => {
   const { driver, loadPhotograph } = await openOverlayApp(t);
   await loadPhotograph(EXAMPLE_PNG);
 
-  await clickOverlayBar(driver, "Hide photograph");
-  await driver.wait(
-    until.elementLocated(By.css('[aria-label="Show photograph"]')),
-    WAIT,
+  await openSettings(driver);
+  const showToggle = await driver.findElement(
+    By.xpath(
+      `//*[@id="overlay-settings-title"]/ancestor::div[contains(@class,"modal-content")]//label[contains(., "Show photograph")]//input`,
+    ),
   );
-  assert.ok(
-    await driver
-      .findElement(By.css(".image-overlay-bar-label"))
-      .getAttribute("class")
-      .then((value) => value.includes("image-overlay-bar-hidden")),
-  );
+  assert.equal(await showToggle.isSelected(), true);
+  await driver.executeScript("arguments[0].click()", showToggle);
+  await driver.wait(async () => !(await showToggle.isSelected()), WAIT);
+  await closeSettings(driver);
 
-  await clickOverlayBar(driver, "Frame photograph");
-  await driver.wait(
-    until.elementLocated(By.css('[aria-label="Hide photograph"]')),
-    WAIT,
+  const photoBody = await driver.findElement(
+    By.css('section[aria-label="Site photograph"] .graves-photo-body p'),
   );
+  assert.match(await photoBody.getAttribute("class"), /line-through/);
+
+  await openSettings(driver);
+  const showAgain = await driver.findElement(
+    By.xpath(
+      `//*[@id="overlay-settings-title"]/ancestor::div[contains(@class,"modal-content")]//label[contains(., "Show photograph")]//input`,
+    ),
+  );
+  await driver.executeScript("arguments[0].click()", showAgain);
+  await driver.wait(async () => showAgain.isSelected(), WAIT);
+  await closeSettings(driver);
+
   assert.equal(
-    await driver
-      .findElement(By.css(".image-overlay-bar-label"))
-      .getAttribute("class")
-      .then((value) => value.includes("image-overlay-bar-hidden")),
+    /line-through/.test(await photoBody.getAttribute("class")),
     false,
   );
 });

@@ -28,7 +28,6 @@ import { placementFromSize } from "./imageOverlay.js";
 import { validateImageOverlay } from "./overlayAsset.js";
 import GraveOutlineImportModal from "./components/GraveOutlineImportModal";
 import GravesPanel from "./components/GravesPanel";
-import ImageOverlayBar from "./components/ImageOverlayBar";
 import ImageOverlaySettingsModal from "./components/ImageOverlaySettingsModal";
 import {
   importGraveContour,
@@ -97,7 +96,6 @@ function isTypingTarget(target) {
 
 export default function App() {
   const [imageOverlay, setImageOverlay] = useState(null);
-  const [overlayFrame, setOverlayFrame] = useState(null);
   const [showOverlaySettings, setShowOverlaySettings] = useState(false);
   const [graveSurvey, setGraveSurvey] = useState(null);
   const [theme, setTheme] = useState(readTheme);
@@ -254,7 +252,6 @@ export default function App() {
     setFrameRequest(null);
     setGraveSurvey(null);
     setImageOverlay(loaded.imageOverlay ?? null);
-    setOverlayFrame(loaded.imageOverlay?.visible ? {} : null);
 
     const numbers = loaded.individuals
       .map((individual) => Number(individual.id.replace("ind-", "")))
@@ -614,7 +611,6 @@ export default function App() {
     setSelectedId(null);
     setJointDetails({});
     setImageOverlay(null);
-    setOverlayFrame(null);
     dispatch({ type: "new", individuals: STARTING_STATE, groups: [] });
     nextGroupId.current = 1;
     nextId.current = 2;
@@ -645,7 +641,6 @@ export default function App() {
           heightAboveFloor: 0,
         });
       setImageOverlay(validateImageOverlay({ ...placement, ...asset }));
-      setOverlayFrame({});
       setFocusedId(null);
       setIsDirty(true);
       setNotice(
@@ -845,7 +840,6 @@ export default function App() {
     skipAutosave.current = true;
     setJointDetails({});
     setImageOverlay(null);
-    setOverlayFrame(null);
     dispatch({ type: "new", individuals: STARTING_STATE, groups: [] });
     nextGroupId.current = 1;
     setVertical(DEFAULT_VERTICAL);
@@ -1201,17 +1195,8 @@ export default function App() {
         onHide={() => setShowOverlaySettings(false)}
         onApply={handleApplyOverlay}
         onLoad={handleLoadOverlay}
-        onFrame={() => {
-          if (!imageOverlay?.visible) {
-            setImageOverlay({ ...imageOverlay, visible: true });
-            setIsDirty(true);
-          }
-          setFocusedId(null);
-          setOverlayFrame({});
-        }}
         onRemove={() => {
           setImageOverlay(null);
-          setOverlayFrame(null);
           setShowOverlaySettings(false);
           setIsDirty(true);
         }}
@@ -1287,7 +1272,6 @@ export default function App() {
             onZoom={setZoom}
             onSolverIssues={handleSolverIssues}
             imageOverlay={imageOverlay}
-            overlayFrame={overlayFrame}
             onOverlayError={setNotice}
             onSelect={openAndSelect}
             onClearSelection={() => setSelectedId(null)}
@@ -1301,28 +1285,6 @@ export default function App() {
             contextOpacity={contextOpacity}
             onContextOpacity={setContextOpacity}
           />
-          {!focusedId && imageOverlay && (
-            <ImageOverlayBar
-              overlay={imageOverlay}
-              onOpenSettings={() => setShowOverlaySettings(true)}
-              onFrame={() => {
-                if (!imageOverlay.visible) {
-                  setImageOverlay({ ...imageOverlay, visible: true });
-                  setIsDirty(true);
-                }
-                setFocusedId(null);
-                setOverlayFrame({});
-              }}
-              onToggleVisible={() => {
-                setImageOverlay({
-                  ...imageOverlay,
-                  visible: !imageOverlay.visible,
-                });
-                setIsDirty(true);
-              }}
-            />
-          )}
-
           <div className="dock-stack">
             <CameraDock
               view={view}
@@ -1379,6 +1341,7 @@ export default function App() {
                 }}
                 overlay={imageOverlay}
                 onLoadOverlay={handleLoadOverlay}
+                onOpenOverlaySettings={() => setShowOverlaySettings(true)}
               />
             )}
 
