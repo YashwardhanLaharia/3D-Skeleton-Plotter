@@ -163,9 +163,11 @@ export default function LayersPanel({
   onShowAll,
   focusedId,
   onFocus,
+  guideOpen = false,
 }) {
   const [hoveredId, setHoveredId] = useState(null);
-  const [isCollapsed, setIsCollapsed] = useState(true);
+  const [collapsed, setIsCollapsed] = useState(true);
+  const isCollapsed = guideOpen ? false : collapsed;
   // Group ids in this set are collapsed. Named groups and "Ungrouped" all start open.
   const [collapsedGroups, setCollapsedGroups] = useState(() => new Set());
   if (individuals.length === 0) return null;
@@ -206,6 +208,7 @@ export default function LayersPanel({
   return (
     <>
       <section
+        data-guide="skeletons"
         className={`layers-panel bg-body border rounded shadow-sm ${
           isCollapsed ? "layers-panel-collapsed" : ""
         } ${focusedId ? "layers-panel-focused" : ""}`}
@@ -268,7 +271,7 @@ export default function LayersPanel({
                       memberIds={members.map((member) => member.id)}
                       hidden={hidden}
                       onToggleGroupVisibility={onToggleGroupVisibility}
-                      isOpen={!collapsedGroups.has(group.id)}
+                      isOpen={guideOpen || !collapsedGroups.has(group.id)}
                       onToggle={() => toggleGroup(group.id)}
                       contentId={`layer-group-${group.id}`}
                     >
@@ -283,7 +286,7 @@ export default function LayersPanel({
                     memberIds={ungrouped.map((member) => member.id)}
                     hidden={hidden}
                     onToggleGroupVisibility={onToggleGroupVisibility}
-                    isOpen={!collapsedGroups.has("ungrouped")}
+                    isOpen={guideOpen || !collapsedGroups.has("ungrouped")}
                     onToggle={() => toggleGroup("ungrouped")}
                     contentId="layer-group-ungrouped"
                   >

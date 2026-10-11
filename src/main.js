@@ -355,9 +355,15 @@ let menuDarkTheme = false;
 function refreshApplicationMenu(updates = {}) {
   if ("startup" in updates) menuStartup = Boolean(updates.startup);
   if ("darkTheme" in updates) menuDarkTheme = Boolean(updates.darkTheme);
-  Menu.setApplicationMenu(
-    Menu.buildFromTemplate(buildMenuTemplate(menuStartup, menuDarkTheme)),
+  const menu = Menu.buildFromTemplate(
+    buildMenuTemplate(menuStartup, menuDarkTheme),
   );
+  Menu.setApplicationMenu(menu);
+  if (process.platform !== "darwin" && mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.setMenu(menu);
+    mainWindow.setAutoHideMenuBar(false);
+    mainWindow.setMenuBarVisibility(true);
+  }
 }
 
 ipcMain.handle("set-startup-menu", (_event, startup) => {
@@ -382,6 +388,8 @@ const STARTUP_ENABLED_LABELS = new Set([
   "Open…",
   "Quit",
   "Dark theme",
+  "Guide",
+  "FAQ",
 ]);
 
 function buildMenuTemplate(startup, darkTheme) {
@@ -491,6 +499,16 @@ function buildMenuTemplate(startup, darkTheme) {
       ],
     },
     {
+      label: "Help",
+      // The native Help role adds macOS's search field. Other platforms use a
+      // regular submenu with the same Guide and FAQ actions.
+      ...(process.platform === "darwin" ? { role: "help" } : {}),
+      submenu: [
+        { label: "Guide", click: () => sendToRenderer("menu-guide") },
+        { label: "FAQ", click: () => sendToRenderer("menu-faq") },
+      ],
+    },
+    {
       label: "View",
       submenu: [
         {
@@ -511,10 +529,14 @@ const createWindow = () => {
     width: 800,
     height: 600,
     show: false,
+    autoHideMenuBar: false,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
     },
   });
+
+  // Install the menu on every new window, including windows reopened on macOS.
+  refreshApplicationMenu();
 
   mainWindow.once("ready-to-show", () => {
     mainWindow.maximize();
@@ -536,9 +558,8 @@ const createWindow = () => {
 };
 
 app.whenReady().then(() => {
-  createWindow();
   // App starts on the startup screen; the renderer confirms via set-startup-menu.
-  refreshApplicationMenu({ startup: true });
+  createWindow();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {

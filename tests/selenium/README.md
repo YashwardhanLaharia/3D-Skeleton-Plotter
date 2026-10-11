@@ -51,18 +51,21 @@ Concurrency is always `1` because each test owns a single app instance.
 ```text
 tests/selenium/
 ├── README.md
-├── driver.mjs              # Locate packaged binary, launch ChromeDriver session
-├── helpers.mjs             # Shared waits, blank-project setup, dialog/menu mocks
-├── file-imports/           # Fixture files for import tests
+├── driver.mjs                # Locate packaged binary, launch ChromeDriver session
+├── helpers.mjs               # Shared waits, blank-project setup, dialog/menu mocks
+├── file-imports/             # Fixture files for import tests
 │   ├── example.png
 │   └── example.rot
-├── app.selenium.mjs        # Launch, coordinates, individuals, colour, delete, sidebar, grave size
-├── import.selenium.mjs     # CSV / grave outline / site photograph import
-├── project.selenium.mjs    # Save, Save As, Open, dirty state, Home, discard close
-├── export.selenium.mjs     # Visible skeletons CSV, PNG screenshot, GLB
-├── layers.selenium.mjs     # Layers visibility, focus mode, Escape to exit
-├── overlay.selenium.mjs    # Photograph opacity, alignment height, Hide / Frame
-└── sidebar.selenium.mjs    # Groups, joint split, coordinate offset, part hide
+├── app.selenium.mjs          # Launch, coordinates, individuals, colour, delete, sidebar, grave size
+├── import.selenium.mjs       # CSV / grave outline / site photograph import
+├── project.selenium.mjs      # Save, Save As, Open, dirty state, Home, discard close
+├── export.selenium.mjs       # Visible skeletons CSV, PNG screenshot, GLB
+├── layers.selenium.mjs       # Layers visibility, focus mode, Escape to exit
+├── overlay.selenium.mjs      # Photograph opacity, alignment height, Hide / Frame
+├── sidebar.selenium.mjs      # Groups, joint split, coordinate offset, part hide
+├── help.selenium.mjs         # Help → Guide / FAQ menu flows
+├── help-center.selenium.mjs  # FAQ via Help menu (Home, themes, data untouched)
+└── tutorial.selenium.mjs     # Full Guide walkthrough via Help menu
 ```
 
 ## How dialogs and menus are tested
