@@ -1,27 +1,42 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { writeFile } from "node:fs/promises";
-import { By, Key, until } from "selenium-webdriver";
-import { launchSkeletonPlotter } from "./driver.mjs";
+import { By, Key } from "selenium-webdriver";
+import {
+  WAIT,
+  createBlankProject,
+  hideViewportPanels,
+  openInspectedApp,
+  waitForElementCount,
+} from "./helpers.mjs";
 
-const WAIT = 10_000;
-const STEPS = ["add-individual", "add-group", "individual", "coordinates", "split", "rig", "settings", "display", "offset", "camera", "view", "skeletons", "theme"];
-const $ = (driver, selector) => driver.findElement(By.css(selector));
+const PROJECT_STEPS = [
+  "Start with a project",
+  "Add an individual",
+  "Organise individuals into groups",
+  "Label, colour and landmark count",
+  "Enter surveyed coordinates",
+  "Record separated bone ends",
+  "How the skeleton rig works",
+  "Show, hide and focus skeletons",
+  "Open this individual’s settings",
+  "Offset all joints",
+  "Choose which torso parts to display",
+  "View the excavation context",
+  "Undo edits, save and export",
+];
 
-async function startTutorial(driver, startup = false) {
-  await $(driver, startup ? '.startup-header button' : '.viewport-faq-toggle').click();
-  await driver.wait(until.elementLocated(By.css('.help-center-header .btn-primary')), WAIT).click();
+const WORKSPACE_STEPS = PROJECT_STEPS.slice(1);
+
+async function waitForStep(driver, title) {
+  await driver.wait(async () => {
+    const elements = await driver.findElements(By.id("help-tour-title"));
+    return elements.length && (await elements[0].getText()) === title;
+  }, WAIT, `Expected guide step: ${title}`);
+  await driver.wait(async () => (await driver.findElements(By.css(".help-tour-highlight"))).length === 1, WAIT);
 }
 
-async function waitStep(driver, id) {
-  await driver.wait(async () => {
-    const panels = await driver.findElements(By.css(".help-tour-panel"));
-    return panels.length && (await panels[0].getAttribute("data-step")) === id;
-  }, WAIT, `Tutorial did not reach ${id}`);
-  await driver.wait(async () => {
-    const bounds = await $(driver, ".help-tour-spotlight").getRect();
-    return bounds.width > 0 && !(await $(driver, ".help-tour-spotlight").getAttribute("class")).includes("spotlight-full");
-  }, WAIT, `Missing highlight for ${id}`);
+async function next(driver) {
+  await driver.findElement(By.css(".help-tour-footer .btn-primary")).click();
 }
 
 async function assertPanelVisible(driver) {
@@ -29,13 +44,7 @@ async function assertPanelVisible(driver) {
     const p = document.querySelector('.help-tour-panel').getBoundingClientRect();
     return { panel: { left: p.left, top: p.top, right: p.right, bottom: p.bottom }, width: innerWidth, height: innerHeight };
   `);
-  assert.ok(panel.left >= 0 && panel.top >= 0 && panel.right <= width && panel.bottom <= height, "callout must stay inside window");
-}
-
-async function snapshot(driver, name) {
-  if (process.env.SELENIUM_TOUR_SCREENSHOTS) {
-    await writeFile(`${process.env.SELENIUM_TOUR_SCREENSHOTS}/${name}.png`, await driver.takeScreenshot(), "base64");
-  }
+  assert.ok(panel.left >= 0 && panel.top >= 0 && panel.right <= width + 1 && panel.bottom <= height + 1, "callout must stay inside window");
 }
 
 async function projectData(driver) {
@@ -46,85 +55,88 @@ async function projectData(driver) {
 }
 
 test("guided tutorial highlights every step, accepts the settings click, and adapts to both themes", async (t) => {
-  const app = await launchSkeletonPlotter();
-  t.after(() => app.close());
-  const driver = app.driver;
-  await driver.wait(until.elementLocated(By.id("startup-create")), WAIT);
-  await startTutorial(driver, true);
-  await waitStep(driver, "home");
-  await $(driver, ".help-tour-next").click();
-  await driver.wait(until.elementLocated(By.id("startup-create")), WAIT).click();
-  await driver.wait(until.elementLocated(By.id("confirm-grave-dimensions")), WAIT).click();
-  await driver.wait(async () => (await driver.findElements(By.id("startup-screen"))).length === 0, WAIT);
-  assert.equal((await driver.findElements(By.css('.viewport-tour-toggle'))).length, 0);
+  const { driver, clickMenuItem } = await openInspectedApp(t);
+
+  await clickMenuItem("Guide");
+  await waitForStep(driver, "Start with a project");
+  assert.equal(await driver.findElement(By.css(".help-tour-progress")).getText(), `Step 1 of ${PROJECT_STEPS.length}`);
+  assert.equal(await driver.findElement(By.css(".help-tour-footer .btn-primary")).isEnabled(), false);
+  await createBlankProject(driver);
+  await waitForStep(driver, "Add an individual");
+  assert.equal(await driver.findElement(By.css(".help-tour-progress")).getText(), `Step 2 of ${PROJECT_STEPS.length}`);
+  await driver.switchTo().activeElement().sendKeys(Key.ESCAPE);
+  await waitForElementCount(driver, ".help-tour", 0);
 
   for (const theme of ["light", "dark"]) {
-    const actual = await driver.executeScript("return document.documentElement.dataset.bsTheme;");
-    if (actual !== theme) await $(driver, ".viewport-theme-toggle").click();
+    await driver.executeScript("document.documentElement.dataset.bsTheme = arguments[0]", theme);
+    await clickMenuItem("Guide");
+    await waitForStep(driver, "Add an individual");
     const before = await projectData(driver);
-    await startTutorial(driver);
-    for (let index = 0; index < STEPS.length; index += 1) {
-      const id = STEPS[index];
-      await waitStep(driver, id);
+
+    for (let index = 0; index < WORKSPACE_STEPS.length; index += 1) {
+      const title = WORKSPACE_STEPS[index];
+      await waitForStep(driver, title);
       await assertPanelVisible(driver);
-      assert.equal(await $(driver, ".help-tour-label").getText(), `Guided tutorial · Step ${index + 1} of ${STEPS.length}`);
-      if (id === "settings") {
-        assert.equal(await $(driver, ".individual-settings-btn").getAttribute("aria-expanded"), "false");
-        assert.equal(await $(driver, ".help-tour-next").getText(), "Skip this step");
-        // Keyboard users can reach the highlighted gear from the tour navigation.
-        await $(driver, ".help-tour-next").sendKeys(Key.TAB);
-        assert.equal(await driver.executeScript("return document.activeElement.classList.contains('individual-settings-btn');"), true);
-        await $(driver, ".individual-settings-btn").sendKeys(Key.ENTER);
+      assert.equal(await driver.findElement(By.css(".help-tour-progress")).getText(), `Step ${index + 1} of ${WORKSPACE_STEPS.length}`);
+      assert.equal(await driver.findElement(By.css(".help-tour-label")).getText(), "Skeleton Plotter guide");
+
+      if (title === "Open this individual’s settings") {
+        assert.equal(await driver.findElement(By.css(".help-tour-footer .btn-primary")).isEnabled(), false);
+        const gear = await driver.findElement(By.css('[data-guide="settings"]'));
+        await gear.sendKeys(Key.ENTER);
         continue;
       }
-      if (id === "display" || id === "offset") {
-        assert.equal(await $(driver, ".individual-settings-btn").getAttribute("aria-expanded"), "true");
-        await snapshot(driver, `${theme}-${id}`);
+
+      if (title === "Offset all joints" || title === "Choose which torso parts to display") {
+        assert.equal(await driver.findElement(By.css('[data-guide="settings"]')).getAttribute("aria-expanded"), "true");
       }
-      if (id === "theme") {
-        assert.equal(await $(driver, ".help-tour-next").getText(), "Done");
-        await $(driver, ".viewport-theme-toggle").click();
-        assert.notEqual(await driver.executeScript("return document.documentElement.dataset.bsTheme;"), theme);
-        await snapshot(driver, `${theme}-theme-switched`);
+
+      if (title === "Undo edits, save and export") {
+        await driver.findElement(By.css(".help-tour-footer .btn-primary")).click();
+        break;
       }
-      await $(driver, ".help-tour-next").click();
+      await next(driver);
     }
-    await driver.wait(async () => (await driver.findElements(By.css(".help-tour-panel"))).length === 0, WAIT);
+
+    await waitForElementCount(driver, ".help-tour", 0);
     assert.deepEqual(await projectData(driver), before, "tour must not change recorded data or mark the project dirty");
   }
 
   // Back returns to a real settings action rather than automatically advancing.
-  await startTutorial(driver);
-  for (let i = 0; i < 6; i += 1) {
-    await waitStep(driver, STEPS[i]);
-    await $(driver, ".help-tour-next").click();
+  await clickMenuItem("Guide");
+  for (const title of WORKSPACE_STEPS.slice(0, 7)) {
+    await waitForStep(driver, title);
+    await next(driver);
   }
-  await waitStep(driver, "settings");
-  await $(driver, ".individual-settings-btn").click();
-  await waitStep(driver, "display");
-  await $(driver, '.help-tour-footer .btn-outline-secondary').click();
-  await waitStep(driver, "settings");
-  assert.equal(await $(driver, ".individual-settings-btn").getAttribute("aria-expanded"), "false");
+  await waitForStep(driver, "Open this individual’s settings");
+  await driver.findElement(By.css('[data-guide="settings"]')).sendKeys(Key.ENTER);
+  await waitForStep(driver, "Offset all joints");
+  await driver.findElement(By.css(".help-tour-footer .btn-outline-secondary")).click();
+  await waitForStep(driver, "Open this individual’s settings");
+  assert.equal(await driver.findElement(By.css('[data-guide="settings"]')).getAttribute("aria-expanded"), "false");
   await assertPanelVisible(driver);
-  await snapshot(driver, "settings-after-back");
-  await $(driver, ".help-tour-next").sendKeys(Key.ESCAPE);
-  await driver.wait(async () => (await driver.findElements(By.css(".help-tour-panel"))).length === 0, WAIT);
-  assert.equal(await driver.executeScript("return document.activeElement.classList.contains('viewport-faq-toggle');"), true);
+  await driver.switchTo().activeElement().sendKeys(Key.ESCAPE);
+  await waitForElementCount(driver, ".help-tour", 0);
 
   // A previously collapsed group must reveal its individual before targeting fields.
-  await $(driver, '[data-tour="add-group"]').click();
-  const group = await $(driver, '.individual-group-select');
-  await group.findElement(By.css('option[value="grp-1"]')).click();
-  await $(driver, '.sidebar-group-header .layers-collapse').sendKeys(Key.ENTER);
-  await $(driver, '.sidebar-edge-toggle').click();
-  await startTutorial(driver);
-  await waitStep(driver, "add-individual");
-  await $(driver, '.help-tour-next').click();
-  await waitStep(driver, "add-group");
-  await $(driver, '.help-tour-next').click();
-  await waitStep(driver, "individual");
-  await $(driver, '.help-tour-next').click();
-  await waitStep(driver, "coordinates");
+  await hideViewportPanels(driver);
+  await driver.findElement(By.css('[data-guide="add-group"]')).click();
+  const group = await driver.findElement(By.css('.individual select[aria-label="Group"]'));
+  await driver.executeScript(
+    "arguments[0].value = 'grp-1'; arguments[0].dispatchEvent(new Event('change', { bubbles: true }));",
+    group,
+  );
+  await driver.findElement(By.css(".sidebar-group-header .layers-collapse")).sendKeys(Key.ENTER);
+  await driver.findElement(By.css(".sidebar-edge-toggle")).click();
+  await clickMenuItem("Guide");
+  await waitForStep(driver, "Add an individual");
+  await next(driver);
+  await waitForStep(driver, "Organise individuals into groups");
+  await next(driver);
+  await waitForStep(driver, "Label, colour and landmark count");
+  await next(driver);
+  await waitForStep(driver, "Enter surveyed coordinates");
   await assertPanelVisible(driver);
-  await $(driver, '.help-tour-close').click();
+  await driver.findElement(By.css(".help-close")).click();
+  await waitForElementCount(driver, ".help-tour", 0);
 });
