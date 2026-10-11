@@ -25,8 +25,11 @@ import {
 } from "../dockMapping.js";
 
 // Zoom buttons step once per click and repeat while held.
+// Pointer holds drive the repeat; click covers keyboard activation and
+// drivers that synthesise click without a usable hold gesture.
 function HoldButton({ onFire, ...props }) {
   const timers = useRef({ delay: null, repeat: null });
+  const pointerFired = useRef(false);
 
   const clear = () => {
     clearTimeout(timers.current.delay);
@@ -42,7 +45,9 @@ function HoldButton({ onFire, ...props }) {
       type="button"
       {...props}
       onPointerDown={(event) => {
+        if (event.button !== 0) return;
         event.preventDefault();
+        pointerFired.current = true;
         onFire?.();
         timers.current.delay = setTimeout(() => {
           timers.current.repeat = setInterval(() => onFire?.(), 180);
@@ -51,6 +56,14 @@ function HoldButton({ onFire, ...props }) {
       onPointerUp={clear}
       onPointerCancel={clear}
       onLostPointerCapture={clear}
+      onClick={() => {
+        // Pointer sequences also synthesise click; skip the duplicate step.
+        if (pointerFired.current) {
+          pointerFired.current = false;
+          return;
+        }
+        onFire?.();
+      }}
     />
   );
 }

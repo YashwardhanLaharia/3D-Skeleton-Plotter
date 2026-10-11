@@ -93,6 +93,13 @@ export function CameraDriver({ controlsRef, driveRef, onZoom }) {
 
     // The pose the viewport opened with. Resetting flies back here.
     if (!drive.initial) drive.initial = readPose(camera, controls);
+    // Keep the dock slider in sync even when nothing has animated yet —
+    // framing outside the drive would otherwise leave a stale zoom value.
+    if (!drive.seededZoom) {
+      drive.seededZoom = true;
+      lastReport.current = { zoom: camera.zoom, time: performance.now() };
+      zoomSink.current?.(camera.zoom);
+    }
     const reduced = window.matchMedia?.(
       "(prefers-reduced-motion: reduce)",
     ).matches;
@@ -151,7 +158,14 @@ export function CameraDriver({ controlsRef, driveRef, onZoom }) {
       moved = true;
     }
 
-    if (moved) {
+    // Drive flights set moved; wheel zoom goes through OrbitControls and
+    // only shows up as a change in camera.zoom — report either path.
+    const zoomDrift =
+      Math.abs(camera.zoom - lastReport.current.zoom) /
+        Math.max(lastReport.current.zoom, 1e-9) >
+      0.01;
+
+    if (moved || zoomDrift) {
       const now = performance.now();
       const last = lastReport.current;
 

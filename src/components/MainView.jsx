@@ -923,10 +923,13 @@ function GraveCamera({
   frameRequest,
   overviewRef,
   onViewChange,
+  onZoom,
 }) {
   const { camera, size: viewport } = useThree();
   const currentViewChange = useRef(onViewChange);
   currentViewChange.current = onViewChange;
+  const zoomSink = useRef(onZoom);
+  zoomSink.current = onZoom;
   const focused = useRef(focusedId);
   focused.current = focusedId;
   useEffect(() => {
@@ -947,6 +950,7 @@ function GraveCamera({
     if (savedView && !frameRequest) {
       applyProjectView(camera, controls, savedView);
       overviewRef.current = captureProjectView(camera, controls);
+      zoomSink.current?.(camera.zoom);
       return;
     }
     const framed = frameRequest?.id
@@ -980,14 +984,20 @@ function GraveCamera({
     const centre = box.getCenter(new Vector3());
     const size = box.getSize(new Vector3());
     const extent = Math.max(size.x, size.y, size.z, 0.01);
-    camera.zoom = Math.min(viewport.width, viewport.height) / (extent * 1.8);
+    // After the dimensions modal closes the canvas can still report a tiny
+    // size for a frame; framing then would pin zoom near the slider floor.
+    // Wait for a real layout — this effect re-runs when the size updates.
+    const viewSpan = Math.min(viewport.width, viewport.height);
+    if (viewSpan < 64) return;
+    camera.zoom = viewSpan / (extent * 1.8);
     camera.position.copy(centre).add(new Vector3(extent, extent, extent * 1.5));
     controls.target.copy(centre);
     camera.updateProjectionMatrix();
     controls.update();
     overviewRef.current = captureProjectView(camera, controls);
+    zoomSink.current?.(camera.zoom);
     // Framing is triggered by changed survey data/dimensions, not orbit or resize.
-  }, [graveDimensions, camera, controlsRef, savedView, frameRequest]);
+  }, [graveDimensions, camera, controlsRef, savedView, frameRequest, graves, focusedId, viewport.width, viewport.height]);
   useFrame(() => {
     if (!focusedId && controlsRef.current)
       overviewRef.current = captureProjectView(camera, controlsRef.current);
@@ -1193,6 +1203,7 @@ const MainView = forwardRef(function MainView(
           frameRequest={frameRequest}
           overviewRef={overviewRef}
           onViewChange={onViewChange}
+          onZoom={onZoom}
         />
         <FocusCamera
           focusedId={focusedId}
