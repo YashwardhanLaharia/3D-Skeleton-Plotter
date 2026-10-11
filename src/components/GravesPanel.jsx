@@ -191,13 +191,16 @@ export default function GravesPanel({
   overlay,
   onLoadOverlay,
   onOpenOverlaySettings,
+  guideOpen = false,
 }) {
-  const [isCollapsed, setIsCollapsed] = useState(true);
+  const [collapsed, setIsCollapsed] = useState(true);
+  const isCollapsed = guideOpen ? false : collapsed;
   const visibleCount = graves.filter((grave) => !hidden.includes(grave.id))
     .length;
 
   return (
     <section
+      data-guide="view"
       className={`graves-panel bg-body border rounded shadow-sm ${
         isCollapsed ? "graves-panel-collapsed" : ""
       }`}

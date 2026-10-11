@@ -143,9 +143,12 @@ shoulder width, and pelvis width.
 After orientation and bone solving, the skeleton is translated into its
 recorded grave position.
 
-Placement uses a recorded landmark that can also be located on the loaded
-model. If that landmark cannot be used, the placement code can fall back to
-another usable anchor.
+Placement prefers `head_proximal`, resolved to the crown point on the loaded
+skull mesh. It then falls back to `head_centre` and other recorded landmarks if
+the preferred point is missing or cannot be located on the model. Bone-origin
+landmarks and mesh-surface landmarks are both supported. If `head_centre` is
+split to represent a detached skull, placement uses the connected head-centre
+point so the crown does not drag the rest of the skeleton along with it.
 
 Translation is performed last so rotations and morphology changes cannot move
 the skeleton away from its final recorded position.
