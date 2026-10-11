@@ -25,7 +25,10 @@ async function badgeText(driver) {
       until.elementLocated(By.css('[data-testid="dock-view-label"]')),
       WAIT,
     )
-    .getText();
+    .getText()
+    // The badge is styled with text-transform: uppercase, and getText()
+    // returns the rendered text, so compare case-insensitively.
+    .then((text) => text.charAt(0).toUpperCase() + text.slice(1).toLowerCase());
 }
 
 async function waitForBadge(driver, expected) {
