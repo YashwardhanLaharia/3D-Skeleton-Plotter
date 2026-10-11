@@ -13,6 +13,9 @@ module.exports = {
       name: '@electron-forge/maker-squirrel',
       config: {
         setupIcon: 'assets/icons/icon.ico',
+        // Shown for the app in Windows' installed-apps list; must be a URL.
+        iconUrl:
+          'https://raw.githubusercontent.com/YashwardhanLaharia/3D-Skeleton-Plotter/main/assets/icons/icon.ico',
       },
     },
     {
