@@ -519,6 +519,10 @@ out from that point, so they can sit away from their recorded positions. Any
 difference collects towards the far end of the body from that landmark. Record
 head proximal when available; centre of head remains a fallback.
 
+If the centre-of-head row is expanded to place a detached skull, the connected
+skeleton stays anchored at that row's point while the skull is placed from its
+own endpoints.
+
 If none of these landmarks is recorded, the model stays at its starting
 position, standing upright. This is why a newly added individual shows a
 pelvis and ribcage before any data is entered (see

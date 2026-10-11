@@ -132,7 +132,7 @@ export function applySolvedPose({
   });
 
   // 6. Translation.
-  const anchor = placeSkeleton({ scene, root, joints });
+  const anchor = placeSkeleton({ scene, root, joints, splitJoints });
 
   return { report, segmentScales, bodyDimensions, rootRotation, anchor };
 }
@@ -142,9 +142,15 @@ export function applySolvedPose({
  * coordinate. Separate from the solve because an interactive rig command can
  * move the anchor without changing the landmarks.
  *
+ * @param {object} options
+ * @param {import("three").Object3D} options.scene
+ * @param {import("three").Object3D|null} options.root
+ * @param {Record<string, {x:number,y:number,z:number}>} [options.joints]
+ * @param {Set<string>} [options.splitJoints] expanded rows, used to avoid
+ *        anchoring the connected body to a detached skull crown
  * @returns {object|null} the anchor used, or null when nothing is placeable.
  */
-export function placeSkeleton({ scene, root, joints = {} }) {
+export function placeSkeleton({ scene, root, joints = {}, splitJoints = new Set() }) {
   if (!root) return null;
 
   // Remove the previous translation before reading the model anchor's position.
@@ -153,7 +159,7 @@ export function placeSkeleton({ scene, root, joints = {} }) {
   root.updateWorldMatrix(true, true);
   scene.updateMatrixWorld(true);
 
-  const anchor = findPlacementAnchor(joints, scene);
+  const anchor = findPlacementAnchor(joints, scene, { splitJoints });
   if (!anchor) return null;
 
   const modelPosition = anchor.modelPosition;

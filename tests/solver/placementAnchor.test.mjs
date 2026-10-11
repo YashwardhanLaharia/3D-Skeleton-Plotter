@@ -52,6 +52,22 @@ test("prefers the head_proximal crown point over head_centre and other anchors",
   );
 });
 
+test("keeps the connected body anchored at head_centre when that row is split", () => {
+  const skull = bone("DEF-Skull", [8, 8, 8]);
+  const scene = makeScene({ skull, skullMesh: skullMesh() });
+  const joints = {
+    head_proximal: { x: 1, y: 2, z: 3 },
+    head_centre: { x: 3, y: 2, z: 1 },
+  };
+
+  const result = findPlacementAnchor(joints, scene, {
+    splitJoints: new Set(["head_centre"]),
+  });
+
+  assert.equal(result.jointId, "head_centre");
+  assert.equal(result.modelAnchor, skull);
+});
+
 test("falls back to head_centre when the model has no skull crown mesh", () => {
   const skull = bone("DEF-Skull");
   const scene = makeScene({ skull });

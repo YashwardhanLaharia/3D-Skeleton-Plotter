@@ -94,7 +94,7 @@ function toSceneJoints(coords) {
 // Builds the same object graph MainView does: a wrapper group holding the
 // model, so the whole-body rotation and the placement offset have somewhere to
 // live.
-async function poseIndividual(omit = []) {
+async function poseIndividual(omit = [], splitJoints = new Set(), table = SUPINE) {
   const scene = await loadFreshTestScene();
   const root = new Group();
   root.add(scene);
@@ -102,9 +102,9 @@ async function poseIndividual(omit = []) {
   const rig = createSkeletonRig(scene);
   const solveBone = createSolveBone(scene);
   const restDirections = measureRestDirections(scene);
-  const joints = toSceneJoints(coordsFrom(SUPINE, omit));
+  const joints = toSceneJoints(coordsFrom(table, omit));
 
-  const result = applySolvedPose({ scene, rig, root, joints, solveBone });
+  const result = applySolvedPose({ scene, rig, root, joints, solveBone, splitJoints });
   root.updateMatrixWorld(true);
 
   return { scene, root, rig, joints, restDirections, ...result };
@@ -255,6 +255,23 @@ test("the anchor landmark renders exactly on its coordinate", async () => {
   );
 
   assert.ok(error < 1e-6, `anchor off by ${error}`);
+});
+
+test("a detached skull crown does not drag the connected body anchor", async () => {
+  const { scene, joints, anchor } = await poseIndividual(
+    [],
+    new Set(["head_centre"]),
+    {
+      ...SUPINE,
+      head_proximal: ["1.900", "5.510", "0.340"],
+    },
+  );
+
+  assert.equal(anchor.jointId, "head_centre");
+  const error = worldPoint(scene, LANDMARK_OBJECTS.head_centre).distanceTo(
+    vector(joints.head_centre),
+  );
+  assert.ok(error < 1e-6, `connected head centre off by ${error}`);
 });
 
 test("head_proximal resolves to the skull mesh's most superior vertices", async () => {

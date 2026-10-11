@@ -11,6 +11,8 @@
 // The model reference for each landmark comes from LANDMARK_REFERENCES rather
 // than being repeated here, so placement and bone solving agree on where the
 // crown is. Other landmarks remain fallbacks for files without head_proximal.
+// A split head_centre marks the skull as detached from the body: its crown must
+// not pull the connected skeleton along with it, so placement uses head_centre.
 
 import {
   LANDMARK_OBJECTS,
@@ -49,8 +51,14 @@ export const PLACEMENT_ANCHORS = ANCHOR_PREFERENCE.map((jointId) => ({
   boneName: LANDMARK_OBJECTS[jointId],
 }));
 
-export function findPlacementAnchor(sceneJoints = {}, scene) {
+export function findPlacementAnchor(
+  sceneJoints = {},
+  scene,
+  { splitJoints = new Set() } = {},
+) {
   for (const { jointId } of PLACEMENT_ANCHORS) {
+    if (jointId === "head_proximal" && splitJoints.has("head_centre")) continue;
+
     const measuredAnchor = sceneJoints[jointId];
 
     if (!measuredAnchor) continue;

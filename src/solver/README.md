@@ -280,7 +280,9 @@ point used with the toes for total burial length. The point is resolved from the
 most superior vertices in the Skull mesh's local geometry and transformed to
 world space after posing; it is not `DEF-Skull`'s origin near the skull base.
 `head_centre` and the remaining landmarks are fallbacks when the crown was not
-recorded or the model reference cannot be resolved.
+recorded or the model reference cannot be resolved. When `head_centre` is split,
+the crown belongs to the detached skull, so the connected body stays anchored at
+the recorded `head_centre` point instead of being dragged along with it.
 
 ## Independent Placement
 
