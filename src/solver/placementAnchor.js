@@ -4,17 +4,25 @@
 // exactly and where the model's own proportional error accumulates — the
 // whole-body orientation is solved separately and does not depend on it.
 //
-// head_centre leads as a project requirement. Measured on the synthetic supine
-// set this costs about 5cm at the feet compared to anchoring mid-body on the
-// sacrum, because the residual then sits entirely at the far end.
+// head_proximal leads because it is the measured crown of the skull and the
+// landmark used with the toes for total burial length. The model reference is
+// the crown point on the Skull mesh, not DEF-Skull's origin near the skull base.
 //
-// The bone each landmark sits on comes from LANDMARK_OBJECTS rather than being
-// repeated here, so this list and the solver cannot disagree about where a
-// landmark is on the model.
+// The model reference for each landmark comes from LANDMARK_REFERENCES rather
+// than being repeated here, so placement and bone solving agree on where the
+// crown is. Other landmarks remain fallbacks for files without head_proximal.
+// A split head_centre marks the skull as detached from the body: its crown must
+// not pull the connected skeleton along with it, so placement uses head_centre.
 
-import { LANDMARK_OBJECTS } from "./modelLandmarks.js";
+import {
+  LANDMARK_OBJECTS,
+  landmarkObject,
+  landmarkPoint,
+} from "./modelLandmarks.js";
 
 const ANCHOR_PREFERENCE = [
+  "head_proximal",
+
   "head_centre",
 
   "sacral_promontory",
@@ -43,20 +51,27 @@ export const PLACEMENT_ANCHORS = ANCHOR_PREFERENCE.map((jointId) => ({
   boneName: LANDMARK_OBJECTS[jointId],
 }));
 
-export function findPlacementAnchor(sceneJoints = {}, scene) {
-  for (const { jointId, boneName } of PLACEMENT_ANCHORS) {
+export function findPlacementAnchor(
+  sceneJoints = {},
+  scene,
+  { splitJoints = new Set() } = {},
+) {
+  for (const { jointId } of PLACEMENT_ANCHORS) {
+    if (jointId === "head_proximal" && splitJoints.has("head_centre")) continue;
+
     const measuredAnchor = sceneJoints[jointId];
 
     if (!measuredAnchor) continue;
 
-    const modelAnchor = boneName ? scene?.getObjectByName?.(boneName) : null;
+    const modelPosition = landmarkPoint(scene, jointId);
 
-    if (!modelAnchor) continue;
+    if (!modelPosition) continue;
 
     return {
       jointId,
       measuredAnchor,
-      modelAnchor,
+      modelAnchor: landmarkObject(scene, jointId),
+      modelPosition,
     };
   }
 

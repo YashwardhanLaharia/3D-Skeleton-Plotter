@@ -36,9 +36,13 @@
 //   2. A commanded rotation produces the same angular change in world space.
 //      Asking for 40 degrees about local Z moved the femur exactly 40 degrees.
 
-import { Box3, Quaternion, Vector3 } from "three";
+import { Quaternion, Vector3 } from "three";
 import { computeBoneRotation } from "../rig/solver/computeBoneRotation.js";
 import { BONES } from "./topology.js";
+import {
+  LANDMARK_REFERENCES,
+  resolveLandmarkReference,
+} from "./modelLandmarks.js";
 
 // Fallback for a bone whose distal reference is missing from the model. Kept
 // because it is the convention the model mostly follows, so it is the least
@@ -67,8 +71,8 @@ export const BONE_OBJECTS = {
 };
 
 // Where each bone's DISTAL landmark sits on the model. A string names a bone; a
-// {mesh, corner} names a point on a mesh's bounding box, for the two landmarks
-// that are surfaces rather than joints. Unnamed axes take the box centre.
+// {mesh, corner} names a point on a mesh's local bounding box. Unnamed axes take
+// the box centre. `head_proximal` shares the same reference used by placement.
 //
 // `spine` points at DEF-SpineCervical1 because that is the top of the chain
 // that actually moves when DEF-SpineLumbar5 rotates. Aiming at DEF-Sternum
@@ -89,34 +93,13 @@ export const BONE_DISTAL_REFERENCES = {
   foot_r: "DEF-Distal_Phalange_3_(foot)R",
   spine: "DEF-SpineCervical1",
   // head_proximal is the crown of the skull, chin is the point of the jaw.
-  head: { mesh: "Skull", corner: { y: "max" } },
+  head: LANDMARK_REFERENCES.head_proximal,
   jaw: { mesh: "Mandible", corner: { y: "min", z: "max" } },
 };
 
 /** World position of a distal reference, or null when it cannot be resolved. */
 function referencePoint(scene, reference) {
-  if (!reference) return null;
-
-  if (typeof reference === "string") {
-    const object = scene.getObjectByName(reference);
-    return object ? object.getWorldPosition(new Vector3()) : null;
-  }
-
-  const mesh = scene.getObjectByName(reference.mesh);
-  if (!mesh) return null;
-
-  const box = new Box3().setFromObject(mesh);
-  if (box.isEmpty()) return null;
-
-  const centre = box.getCenter(new Vector3());
-  const pick = (axis) => {
-    const corner = reference.corner?.[axis];
-    if (corner === "min") return box.min[axis];
-    if (corner === "max") return box.max[axis];
-    return centre[axis];
-  };
-
-  return new Vector3(pick("x"), pick("y"), pick("z"));
+  return resolveLandmarkReference(scene, reference);
 }
 
 /**

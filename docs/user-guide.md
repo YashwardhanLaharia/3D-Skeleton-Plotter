@@ -520,17 +520,21 @@ Two individuals with the same landmarks look identical apart from their colour.
 ### Where the skeleton is placed
 
 The whole skeleton is moved so that **one** recorded landmark lands exactly on
-its coordinates. The app uses the first of these that is recorded:
+its coordinates. The app uses the first of these that is recorded and can be
+located on the model:
 
-centre of head → sacral promontory → left acetabulum → right acetabulum → left
-shoulder → right shoulder → left knee → right knee → left elbow → right elbow →
-left wrist → right wrist → left ankle → right ankle.
+head proximal (skull crown) → centre of head → sacral promontory → left acetabulum
+→ right acetabulum → left shoulder → right shoulder → left knee → right knee →
+left elbow → right elbow → left wrist → right wrist → left ankle → right ankle.
 
 The other landmarks of a connected skeleton are reached by building the body
 out from that point, so they can sit away from their recorded positions. Any
-difference collects towards the far end of the body from that landmark: with
-the usual centre-of-head anchor, at the feet. Record the centre of head
-carefully, because it is normally the anchor.
+difference collects towards the far end of the body from that landmark. Record
+head proximal when available; centre of head remains a fallback.
+
+If the centre-of-head row is expanded to place a detached skull, the connected
+skeleton stays anchored at that row's point while the skull is placed from its
+own endpoints.
 
 If none of these landmarks is recorded, the model stays at its starting
 position, standing upright. This is why a newly added individual shows a
@@ -947,10 +951,8 @@ individual/group deletion confirmation.
 | Focus               | Inspect one individual: the camera frames it and the Measurements panel opens. Exit or Esc returns to the previous view.   |
 | Focus alone         | Focus with **Show environment** off: only the focused individual is drawn. Double-click a skeleton or its row to start it. |
 | Context             | In focus with **Show environment** on, how faded the other skeletons are drawn (0–100%).                                   |
-| Placement landmark  | The one recorded landmark the whole skeleton is positioned by, normally the centre of head.                                |
+| Placement landmark  | The recorded point the whole skeleton is positioned by, normally head proximal (skull crown) when available.                |
 | Datum               | The survey's reference level, which need not be sea level.                                                                 |
 | RL                  | The project's recorded distance down from the datum; larger means deeper.                                                  |
 | Floor RL            | Recorded RL of the grave floor used to convert RL into height.                                                             |
 | Contour             | Ordered surveyed points forming a grave top or base boundary.                                                              |
-
-
