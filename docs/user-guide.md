@@ -15,7 +15,7 @@ or proof of alignment with a site photograph.
   built on Electron, which also runs on macOS and Linux, but those need a build
   made from source and are not tested.
 - **Memory:** 4 GB or more.
-- **Disk space:** about 150 MB for the installer and 400 MB once installed.
+- **Disk space:** about 150 MB for the installer and 500 MB once installed.
   Allow 1 GB including your projects.
 - **Graphics:** any graphics card or integrated graphics with up-to-date
   drivers. The 3D view uses WebGL 2.
@@ -32,8 +32,9 @@ or proof of alignment with a site photograph.
    [the SmartScreen warning](#the-smartscreen-warning) below.
 3. There is no setup wizard. A short animation plays while the app installs,
    then Skeleton Plotter opens on its **Home** screen.
-4. A **skeletonplotter** shortcut is added to the Start menu and the desktop.
-   Use either to open the app later.
+4. A **skeletonplotter** shortcut is added to the desktop and to the Start
+   menu, in a folder named **CtrlAltElite** (the publisher). Use either to open
+   the app later.
 
 The app is installed in your user folder (`%LOCALAPPDATA%\skeletonplotter`).
 You do not need to choose a location.
@@ -55,10 +56,10 @@ organisation's IT policy blocks unsigned software, ask your IT team to allow it.
 
 ### First launch
 
-- The app opens on **Home**: **New project**, **Open project**, your **Recent**
-  projects and, when a backup of unsaved edits exists (for example after an
-  unexpected close), an **Autosave** entry to recover them (see
-  [Save your work](#save-your-work)).
+- The app opens on **Home**: **New project**, **Open project**, an
+  **Autosave** section and your **Recent** projects (empty at first). Autosave
+  reads *No autosaved project* until there are unsaved edits to recover, for
+  example after an unexpected close (see [Save your work](#save-your-work)).
 - The colours follow Windows' light or dark setting until you choose one with
   **View → Dark theme** (see [Light and dark mode](#light-and-dark-mode)).
 - **Help → Guide** gives a short tour of the screen, and **Help → FAQ** answers
@@ -71,7 +72,10 @@ organisation's IT policy blocks unsigned software, ask your IT team to allow it.
 - **To update,** run the newer `Setup.exe`. It replaces the installed version.
   Your projects, recent list and theme are kept.
 - **To uninstall,** open Windows **Settings → Apps → Installed apps**, find
-  **skeletonplotter** and choose **Uninstall**.
+  **skeletonplotter** and choose **Uninstall**. The shortcuts are removed. A
+  small `%LOCALAPPDATA%\skeletonplotter` folder (about 5 MB) and an empty
+  **CtrlAltElite** Start menu folder can be left behind; they are safe to
+  delete.
 - Uninstalling never touches your project CSV files, which stay wherever you
   saved them. The app's own settings (recent projects, theme and the autosave
   backup for unsaved projects) are in `%APPDATA%\skeletonplotter`. Delete that
