@@ -219,7 +219,7 @@ surface readable messages to the researcher.
 
 `App.jsx` owns named graves, individual-to-grave assignments, the project overview
 camera and the optional photograph. `GravesPanel` presents these in the viewport
-View panel; `ImageOverlayBar` opens `ImageOverlaySettingsModal` for alignment.
+View panel; photograph Settings opens `ImageOverlaySettingsModal` for alignment.
 These layers do not alter landmark coordinates or the skeleton solver.
 
 `clientGraveFiles.js` reads the supported client XLSX and ROT layouts.

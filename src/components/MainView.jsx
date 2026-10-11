@@ -26,7 +26,6 @@ import { graveDimensionsToGridScale } from "../graveDimensions.js";
 import { graveContourToSceneSpace } from "../graveOutline.js";
 import { toSceneSpace, graveOrigin, DEFAULT_VERTICAL } from "../sceneSpace.js";
 import ImageOverlay from "./ImageOverlay";
-import { overlayCameraView } from "../imageOverlay.js";
 import { captureProjectView, applyProjectView } from "../projectView.js";
 import { makeGLBExportScene } from "../exportScene.js";
 import {
@@ -724,7 +723,6 @@ function FocusCamera({
   controlsRef,
   savedView,
   frameRequest,
-  resetKey,
 }) {
   const { camera, scene, size: viewport } = useThree();
   const saved = useRef(null);
@@ -732,7 +730,7 @@ function FocusCamera({
   useEffect(() => {
     saved.current = null;
     tween.current = null;
-  }, [savedView, frameRequest, resetKey]);
+  }, [savedView, frameRequest]);
 
   useEffect(() => {
     const controls = controlsRef.current;
@@ -861,23 +859,6 @@ function FocusCamera({
   return null;
 }
 
-function OverlayCamera({ overlay, graveDimensions, request, controlsRef }) {
-  const { camera, size } = useThree();
-  useEffect(() => {
-    const controls = controlsRef.current;
-    if (!overlay || !request || !controls) return;
-    const view = overlayCameraView(overlay, graveDimensions, size, globalScale);
-    camera.position.fromArray(view.position);
-    camera.zoom = view.zoom;
-    controls.target.fromArray(view.target);
-    camera.updateProjectionMatrix();
-    controls.update();
-    camera.updateMatrixWorld();
-    // Explicit frame requests do not change the photograph or follow orbit/resize.
-  }, [request, camera, controlsRef]);
-  return null;
-}
-
 function GraveContour({ points = [], graveDimensions, colour, reference }) {
   // Contours keep their own vertical reference (height vs per-contour RL),
   // separate from the project's skeleton `vertical`. graveContourToSceneSpace
@@ -942,10 +923,13 @@ function GraveCamera({
   frameRequest,
   overviewRef,
   onViewChange,
+  onZoom,
 }) {
   const { camera, size: viewport } = useThree();
   const currentViewChange = useRef(onViewChange);
   currentViewChange.current = onViewChange;
+  const zoomSink = useRef(onZoom);
+  zoomSink.current = onZoom;
   const focused = useRef(focusedId);
   focused.current = focusedId;
   useEffect(() => {
@@ -966,6 +950,7 @@ function GraveCamera({
     if (savedView && !frameRequest) {
       applyProjectView(camera, controls, savedView);
       overviewRef.current = captureProjectView(camera, controls);
+      zoomSink.current?.(camera.zoom);
       return;
     }
     const framed = frameRequest?.id
@@ -999,14 +984,20 @@ function GraveCamera({
     const centre = box.getCenter(new Vector3());
     const size = box.getSize(new Vector3());
     const extent = Math.max(size.x, size.y, size.z, 0.01);
-    camera.zoom = Math.min(viewport.width, viewport.height) / (extent * 1.8);
+    // After the dimensions modal closes the canvas can still report a tiny
+    // size for a frame; framing then would pin zoom near the slider floor.
+    // Wait for a real layout — this effect re-runs when the size updates.
+    const viewSpan = Math.min(viewport.width, viewport.height);
+    if (viewSpan < 64) return;
+    camera.zoom = viewSpan / (extent * 1.8);
     camera.position.copy(centre).add(new Vector3(extent, extent, extent * 1.5));
     controls.target.copy(centre);
     camera.updateProjectionMatrix();
     controls.update();
     overviewRef.current = captureProjectView(camera, controls);
+    zoomSink.current?.(camera.zoom);
     // Framing is triggered by changed survey data/dimensions, not orbit or resize.
-  }, [graveDimensions, camera, controlsRef, savedView, frameRequest]);
+  }, [graveDimensions, camera, controlsRef, savedView, frameRequest, graves, focusedId, viewport.width, viewport.height]);
   useFrame(() => {
     if (!focusedId && controlsRef.current)
       overviewRef.current = captureProjectView(camera, controlsRef.current);
@@ -1108,7 +1099,6 @@ const MainView = forwardRef(function MainView(
     onFocusAlone,
     onSolverIssues,
     imageOverlay = null,
-    overlayFrame,
     onOverlayError,
     onSelect,
     onClearSelection,
@@ -1204,12 +1194,6 @@ const MainView = forwardRef(function MainView(
         <SelectionOutline selectedId={selectedId} colour={selectedColour} />
         <IgnoreHiddenObjects />
         <CameraControls controlsRef={controlsRef} />
-        <OverlayCamera
-          overlay={imageOverlay}
-          graveDimensions={graveDimensions}
-          request={overlayFrame}
-          controlsRef={controlsRef}
-        />
         <GraveCamera
           graves={graves}
           graveDimensions={graveDimensions}
@@ -1219,6 +1203,7 @@ const MainView = forwardRef(function MainView(
           frameRequest={frameRequest}
           overviewRef={overviewRef}
           onViewChange={onViewChange}
+          onZoom={onZoom}
         />
         <FocusCamera
           focusedId={focusedId}
@@ -1230,7 +1215,6 @@ const MainView = forwardRef(function MainView(
           controlsRef={controlsRef}
           savedView={savedView}
           frameRequest={frameRequest}
-          resetKey={overlayFrame}
         />
         <PresetCamera
           view={view}

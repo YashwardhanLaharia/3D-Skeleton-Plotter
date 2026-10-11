@@ -24,9 +24,9 @@ import {
 import { CAMERA_PRESETS } from "../cameraViews.js";
 import { AXIS_PRESET } from "../dockMapping.js";
 
-const AXIS_COLORS = { x: "#e2564d", y: "#8fbf4a", z: "#4d7fe2" };
+const AXIS_COLORS = { x: "#dc3545", y: "#198754", z: "#0d6efd" };
 
-const GIZMO_PX = 96;
+const GIZMO_PX = 56;
 
 // Latest main-camera orientation. Written every frame inside the main Canvas,
 // read by the mini loop below. Plain numbers, no reactivity needed.
@@ -55,11 +55,12 @@ function solid(color) {
 function buildOrbitScene() {
   const scene = new Scene();
   const handles = [];
-  const ARM_LEN = 0.58;
-  const ARM_R = 0.026;
-  const STUB_LEN = 0.22;
-  const BALL_R = 0.19;
-  const CENTER_R = 0.24;
+  // Slightly tighter proportions so the widget stays readable at 64px.
+  const ARM_LEN = 0.56;
+  const ARM_R = 0.03;
+  const STUB_LEN = 0.2;
+  const BALL_R = 0.17;
+  const CENTER_R = 0.2;
 
   const at = (axis, dist) => ({
     x: axis === "x" ? dist : 0,
@@ -82,7 +83,7 @@ function buildOrbitScene() {
 
     const stub = new Mesh(
       new CylinderGeometry(ARM_R, ARM_R, STUB_LEN, 12),
-      solid("#6c757d"),
+      solid("#adb5bd"),
     );
 
     if (axis === "x") stub.rotation.z = -Math.PI / 2;
@@ -105,7 +106,7 @@ function buildOrbitScene() {
 
   const center = new Mesh(
     new SphereGeometry(CENTER_R, 24, 16),
-    solid("#495057"),
+    solid("#6c757d"),
   );
   center.userData.handle = { kind: "orbit" };
   scene.add(center);

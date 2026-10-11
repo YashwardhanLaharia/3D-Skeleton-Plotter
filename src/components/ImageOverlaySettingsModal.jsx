@@ -44,7 +44,6 @@ export default function ImageOverlaySettingsModal({
   onHide,
   onApply,
   onLoad,
-  onFrame,
   onRemove,
 }) {
   const [mode, setMode] = useState("size");
@@ -152,13 +151,6 @@ export default function ImageOverlaySettingsModal({
                   onClick={onLoad}
                 >
                   Replace image
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-secondary"
-                  onClick={onFrame}
-                >
-                  Frame image
                 </button>
                 <button
                   type="button"

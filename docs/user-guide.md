@@ -458,14 +458,13 @@ for column order, offsets and the missing client inputs.
 1. Expand **View** and choose **Site photograph → Load** to select an overhead
   PNG or JPEG. The application initially fits it inside the grave dimensions
    while preserving the image aspect ratio.
-2. Click **Settings** on the photograph bar above the viewport. Choose **Size
+2. Open **Settings** beside the photograph filename in **View**. Choose **Size
   and rotation** for a rectangular placement, or **Surveyed corners** to enter
    the image's bottom-left, bottom-right and top-left coordinates in the same
    local X/Y grid as the skeletons. Click **Apply alignment** after numeric edits.
 3. Set **Height above grave floor** in metres. Zero places the image on the floor;
   a raw RL must first be converted using the measured floor reference.
-4. Adjust **Opacity** and **Show photograph** as needed. **Frame** brings the
-  photograph into view without changing its alignment. **Replace** preserves
+4. Adjust **Opacity** and **Show photograph** as needed. **Replace** preserves
    placement; check that the replacement has the same surveyed extent.
 
 One photograph is supported per project. Focus with **Show environment** off
@@ -518,11 +517,9 @@ individual assignments, the photograph bytes and placement, and camera metadata.
 The embedded photograph can be reopened without the original image file.
 
 Camera settings and survey coordinates are separate. Grave visibility is temporary;
-photograph visibility and opacity are saved. A visible photograph is framed when
-opening a project, so the reopened view can differ from the previous camera even
-though placement is preserved. Without this photograph framing, the saved project
-overview restores position, orbit target and zoom. Saving during
-focus keeps the overview camera, not the focused view.
+photograph visibility and opacity are saved. The saved project overview restores
+position, orbit target and zoom. Saving during focus keeps the overview camera,
+not the focused view.
 
 **File → Add Skeletons…** adds individuals without importing the other project's
 graves, photograph or view. **Export → Screenshot** captures the current view;
@@ -718,7 +715,7 @@ recorded positions and are unaffected.
 The viewport uses an orthographic camera, so apparent size does not shrink with
 distance. Drag with the left mouse button to orbit, drag with the right mouse
 button to pan, and use the wheel to zoom. These operations change the camera,
-not the recorded points. Use Frame on a grave or photograph to bring it into view.
+not the recorded points. Use Frame on a grave to bring its outline into view.
 
 Fixed measurement views sit alongside free orbit: Plan (top-down), Front and
 Side elevations. Choose them by tapping the matching ball on the 3D gizmo in
