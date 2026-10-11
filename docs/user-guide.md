@@ -39,6 +39,11 @@ restarts. See [dark mode](dark-mode.md) for details.
 
 ## In-app guide and FAQ
 
+The **Help** menu is available on Windows, Linux and macOS, beside **Export**.
+On Windows and Linux it appears in the application window's menu bar; on macOS
+it appears in the system menu bar. Launch the desktop application to access it;
+the renderer opened directly in a web browser does not include the native menu.
+
 Choose **Help → Guide** to walk through adding individuals and groups, labels,
 coordinate entry, split joints, how the rig works, Skeletons, individual settings,
 offsets, Display, View and history. Each explanation appears beside a highlighted
