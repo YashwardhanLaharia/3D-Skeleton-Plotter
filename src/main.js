@@ -553,8 +553,10 @@ const createWindow = () => {
     mainWindow.webContents.send("request-close");
   });
 
-  // Open the DevTools.
-  mainWindow.webContents.openDevTools();
+  // DevTools are for development only; the packaged app opens without them.
+  if (!app.isPackaged) {
+    mainWindow.webContents.openDevTools();
+  }
 };
 
 app.whenReady().then(() => {

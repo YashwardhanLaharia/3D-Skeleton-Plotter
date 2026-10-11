@@ -4,12 +4,16 @@ const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 module.exports = {
   packagerConfig: {
     asar: true,
+    // No extension: Forge picks icon.ico on Windows (icon.icns would be used on macOS).
+    icon: 'assets/icons/icon',
   },
   rebuildConfig: {},
   makers: [
     {
       name: '@electron-forge/maker-squirrel',
-      config: {},
+      config: {
+        setupIcon: 'assets/icons/icon.ico',
+      },
     },
     {
       name: '@electron-forge/maker-zip',

@@ -704,7 +704,9 @@ bone itself.
 
 When the sacral promontory, shoulders and acetabula are all expanded as
 displaced, there is no connected torso to measure. The app still draws the
-model's pelvis and ribcage, normally placed at the recorded centre of head.
+model's pelvis and ribcage, placed by the placement landmark: the recorded
+centre of head when that row is expanded (a detached skull), otherwise head
+proximal.
 Their position and orientation, and the shoulder- and pelvis-width warnings,
 mean nothing for such an individual and can be ignored. Hide the torso with the
 ⚙ **Display** options. The displaced bones themselves are drawn at their
@@ -840,7 +842,7 @@ available.
 | Camera                           | Frames the individual and keeps the grave in view                 | Frames the individual                                                         |
 | Other skeletons                  | Drawn faded, set by the **Context** slider (0–100%, 25% to start) | Not drawn                                                                     |
 | Grave grid, contours, photograph | Shown                                                             | Not drawn; a small grid follows the underside of the focused skeleton instead |
-| Background                       | Light                                                             | Dark                                                                          |
+| Background                       | Follows **View → Dark theme** (light or dark)                     | Dark                                                                          |
 
 
 - Faded skeletons can still be clicked to select them, even at 0% (see
@@ -915,10 +917,6 @@ one of the placement landmarks is recorded (see
 [Where the skeleton is placed](#where-the-skeleton-is-placed)), the model's
 pelvis and ribcage stand upright at its starting position. Ignore them, or
 hide them with the ⚙ **Display** options.
-- **The skeleton is placed by the centre of head, not head proximal.** Head
-proximal (the top of the skull) is usually recorded more precisely, but it is
-not used to position the skeleton. Record the centre of head as carefully as
-you can.
 - **"Hide shoulder blades" also hides the collarbones.**
 - **Fully faded skeletons can still be clicked.** In focus with **Show
 environment** on, a skeleton faded to 0% can still catch a click or hover
@@ -955,7 +953,9 @@ Use Ctrl on Windows/Linux and Command on macOS for the menu shortcuts below.
 | Export visible CSV            | Ctrl+Shift+C                                    |
 | Export screenshot             | Ctrl+Shift+E                                    |
 | Export GLB                    | Ctrl+Shift+G                                    |
-| Leave focus / clear selection | Esc: leave focus first, then clear selection    |
+| Plan / Front / Side view      | 1 / 2 / 3 (not while typing in a field)         |
+| Back to free orbit            | 4                                               |
+| Step back                     | Esc: leave focus, then the preset view, then clear selection |
 | Coordinate row navigation     | Up, Down, Enter                                 |
 | Form control navigation       | Tab, Shift+Tab                                  |
 
