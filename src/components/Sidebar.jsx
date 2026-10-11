@@ -204,10 +204,11 @@ function IndividualSection({
   groups,
   onSetGroup,
   highlight,
+  settingsOpen,
+  onSettingsChange,
   issues = [],
 }) {
   const [offset, setOffset] = useState({ x: "", y: "", z: "" });
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const offsetValid = Object.values(offset).every((value) => Number.isFinite(Number(value)));
   // A point counts as recorded only when all three axes are filled. Partial
   // entries are treated as not yet done.
@@ -235,16 +236,17 @@ function IndividualSection({
       );
       if (
         settingsRef.current?.contains(event.target) ||
-        settingsButton?.contains(event.target)
+        settingsButton?.contains(event.target) ||
+        event.target.closest("[data-guide-ui]")
       ) {
         return;
       }
-      setSettingsOpen(false);
+      onSettingsChange(false);
     }
 
     function handleKeyDown(event) {
       if (event.key === "Escape") {
-        setSettingsOpen(false);
+        onSettingsChange(false);
       }
     }
 
@@ -254,12 +256,13 @@ function IndividualSection({
       document.removeEventListener("mousedown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [settingsOpen]);
+  }, [settingsOpen, onSettingsChange]);
 
   return (
     // The whole header toggles, so I used a button rather than a div
     <section
       ref={sectionRef}
+      data-guide-individual={individual.id}
       className={`individual border rounded mb-2 bg-body${isSelected ? " individual-selected" : ""}`}
     >
       <div className="individual-header-wrap position-relative">
@@ -324,6 +327,7 @@ function IndividualSection({
           role="button"
           tabIndex={0}
           className={`individual-settings-btn ms-auto${settingsOpen ? " active" : ""}`}
+          data-guide="settings"
           aria-label={`Settings for ${individual.label || "individual"}`}
           aria-expanded={settingsOpen}
           aria-haspopup="dialog"
@@ -331,13 +335,13 @@ function IndividualSection({
           title="Settings"
           onClick={(e) => {
             e.stopPropagation();
-            setSettingsOpen((open) => !open);
+            onSettingsChange(!settingsOpen);
           }}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
               e.stopPropagation();
-              setSettingsOpen((open) => !open);
+              onSettingsChange(!settingsOpen);
             }
           }}
         >
@@ -371,7 +375,7 @@ function IndividualSection({
           role="dialog"
           aria-label="Individual settings"
         >
-          <div className="individual-settings-section">
+          <div className="individual-settings-section" data-guide="display">
             <div className="small fw-semibold mb-1">Display</div>
             <label className="individual-settings-check small d-flex align-items-center gap-2 mb-1">
               <input
@@ -404,7 +408,7 @@ function IndividualSection({
               Hide shoulder blades
             </label>
           </div>
-          <div className="individual-settings-section">
+          <div className="individual-settings-section" data-guide="offset">
             <div className="small fw-semibold mb-1">Offset all joints</div>
             <div className="d-flex align-items-center gap-1 offset-row">
               {["x", "y", "z"].map((axis) => (
@@ -433,7 +437,7 @@ function IndividualSection({
                 onClick={() => {
                   onOffset(individual.id, offset);
                   setOffset({ x: "", y: "", z: "" });
-                  setSettingsOpen(false);
+                  onSettingsChange(false);
                 }}
               >
                 Apply
@@ -460,7 +464,7 @@ function IndividualSection({
           {JOINTS.map((joint) => {
             const isSplit = !!individual.coords[joint.id]?.split;
             return (
-              <div key={joint.id}>
+              <div key={joint.id} data-guide={joint.n === 1 ? "coordinates" : joint.n === 2 ? "split-joint" : undefined}>
                 <JointRow
                   number={joint.n}
                   toggle={{
@@ -698,6 +702,9 @@ export default function Sidebar({
   highlight,
   notice,
   solverIssues = {},
+  settingsId,
+  onSettingsChange,
+  guideIndividualId,
 }) {
   const [pendingRemoval, setPendingRemoval] = useState(null);
   const [pendingGroupRemoval, setPendingGroupRemoval] = useState(null);
@@ -731,6 +738,8 @@ export default function Sidebar({
       <IndividualSection
         key={individual.id}
         individual={individual}
+        settingsOpen={settingsId === individual.id}
+        onSettingsChange={(open) => onSettingsChange(open ? individual.id : null)}
         isOpen={individual.id === openId}
         isSelected={individual.id === selectedId}
         onToggle={onToggle}
@@ -770,6 +779,7 @@ export default function Sidebar({
                 <button
                   type="button"
                   className="btn btn-sm btn-primary"
+                  data-guide="add-individual"
                   onClick={onAdd}
                 >
                   <PersonPlusIcon />
@@ -778,13 +788,14 @@ export default function Sidebar({
                 <button
                   type="button"
                   className="btn btn-sm btn-outline-secondary"
+                  data-guide="add-group"
                   onClick={onAddGroup}
                 >
                   <FolderPlusIcon />
                   Add group
                 </button>
               </div>
-              <div className="d-flex align-items-center gap-1 ms-auto sidebar-header-actions">
+              <div className="d-flex align-items-center gap-1 ms-auto sidebar-header-actions" data-guide="history">
                 <button
                   type="button"
                   className="btn btn-sm btn-outline-secondary history-btn"
@@ -834,7 +845,7 @@ export default function Sidebar({
                         onCommit={onCommit}
                         onRemove={() => setPendingGroupRemoval(group)}
                         empty={members.length === 0}
-                        isOpen={!collapsedGroups.has(group.id)}
+                        isOpen={members.some((member) => member.id === guideIndividualId) || !collapsedGroups.has(group.id)}
                         onToggle={() => toggleGroup(group.id)}
                         contentId={`sidebar-group-${group.id}`}
                       >
@@ -846,7 +857,7 @@ export default function Sidebar({
                   <GroupBlock
                     title="Ungrouped"
                     empty={ungrouped.length === 0}
-                    isOpen={!collapsedGroups.has("ungrouped")}
+                    isOpen={ungrouped.some((member) => member.id === guideIndividualId) || !collapsedGroups.has("ungrouped")}
                     onToggle={() => toggleGroup("ungrouped")}
                     contentId="sidebar-group-ungrouped"
                   >

@@ -382,6 +382,8 @@ const STARTUP_ENABLED_LABELS = new Set([
   "Open…",
   "Quit",
   "Dark theme",
+  "Guide",
+  "FAQ",
 ]);
 
 function buildMenuTemplate(startup, darkTheme) {
@@ -488,6 +490,14 @@ function buildMenuTemplate(startup, darkTheme) {
           enabled: itemEnabled("GLB"),
           click: () => sendToRenderer("menu-export-glb"),
         },
+      ],
+    },
+    {
+      label: "Help",
+      role: "help",
+      submenu: [
+        { label: "Guide", click: () => sendToRenderer("menu-guide") },
+        { label: "FAQ", click: () => sendToRenderer("menu-faq") },
       ],
     },
     {

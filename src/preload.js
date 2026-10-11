@@ -55,7 +55,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return ipcRenderer.invoke('confirm-close');
   },
   onMenuAction(callback) {
-    const channels = ['menu-home', 'menu-new', 'menu-open', 'menu-save', 'menu-save-as', 'menu-export-screenshot', 'menu-export-glb', 'menu-import', 'menu-import-grave-outline', 'menu-export-csv', 'menu-undo', 'menu-redo', 'menu-change-grave-dimensions', 'menu-toggle-dark-theme'];
+    const channels = ['menu-home', 'menu-new', 'menu-open', 'menu-save', 'menu-save-as', 'menu-export-screenshot', 'menu-export-glb', 'menu-import', 'menu-import-grave-outline', 'menu-export-csv', 'menu-undo', 'menu-redo', 'menu-change-grave-dimensions', 'menu-toggle-dark-theme', 'menu-guide', 'menu-faq'];
     const removers = channels.map((channel) => {
       const listener = () => callback(channel);
       ipcRenderer.on(channel, listener);

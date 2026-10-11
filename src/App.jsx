@@ -20,6 +20,9 @@ import Sidebar from "./components/Sidebar";
 import MainView from "./components/MainView";
 import CameraDock from "./components/CameraDock";
 import LayersPanel from "./components/LayersPanel";
+import GuideTour from "./components/GuideTour";
+import HelpFAQ from "./components/HelpFAQ";
+import { GUIDE_STEPS, PROJECT_STEP } from "./guideContent";
 import FocusBar from "./components/FocusBar";
 import InspectionPanel from "./components/InspectionPanel";
 import StartupScreen from "./components/StartupScreen";
@@ -58,6 +61,8 @@ const STARTUP_MENU_ACTIONS = new Set([
   "menu-new",
   "menu-open",
   "menu-toggle-dark-theme",
+  "menu-guide",
+  "menu-faq",
 ]);
 
 const STARTING_STATE = [
@@ -102,6 +107,9 @@ export default function App() {
   const [graveSurvey, setGraveSurvey] = useState(null);
   const [theme, setTheme] = useState(readTheme);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [tour, setTour] = useState(null);
+  const [showFAQ, setShowFAQ] = useState(false);
+  const [settingsId, setSettingsId] = useState(null);
   const [showStartup, setShowStartup] = useState(true);
   const [isGraveDimensionsModalOpen, setIsGraveDimensionsModalOpen] =
     useState(false);
@@ -194,6 +202,57 @@ export default function App() {
   // Which individual rig commands and viewport clicks act on. View state, like
   // `hidden`: not undoable, not saved. openId is only which section is expanded.
   const [selectedId, setSelectedId] = useState("ind-1");
+
+  const guideSteps = tour?.fromHome ? [PROJECT_STEP, ...GUIDE_STEPS] : GUIDE_STEPS;
+  const guideStep = tour ? guideSteps[tour.index] : null;
+  const guideIndividualId = tour
+    ? (individuals.find((individual) => individual.id === tour.individualId)?.id ?? selectedId ?? individuals[0]?.id)
+    : null;
+
+  const closeHelp = useCallback(() => {
+    setTour(null);
+    setShowFAQ(false);
+    setSettingsId(null);
+  }, []);
+
+  function startGuide() {
+    setShowFAQ(false);
+    setSettingsId(null);
+    setFocusedId(null);
+    setIsSidebarOpen(true);
+    setTour({ index: 0, fromHome: showStartup, individualId: selectedId ?? individuals[0]?.id });
+  }
+
+  function openFAQ() {
+    setTour(null);
+    setSettingsId(null);
+    setShowFAQ(true);
+  }
+
+  useEffect(() => {
+    if (!guideStep) return;
+    if (guideStep.id === "project") {
+      if (!showStartup) setTour((current) => ({ ...current, index: current.index + 1, individualId: individuals[0]?.id }));
+      return;
+    }
+    if (showStartup) {
+      setTour({ index: 0, fromHome: true, individualId: null });
+      return;
+    }
+    if (guideStep.individual) {
+      setIsSidebarOpen(true);
+      setOpenId(guideIndividualId);
+      setSelectedId(guideIndividualId);
+    }
+    if (guideStep.id === "settings" && settingsId === guideIndividualId) {
+      setTour((current) => ({ ...current, index: current.index + 1 }));
+    } else if (guideStep.id === "offset" || guideStep.id === "display") {
+      setSettingsId(guideIndividualId);
+    } else if (guideStep.id !== "settings") {
+      setSettingsId(null);
+    }
+    if (guideStep.id === "view") setFocusedId(null);
+  }, [guideStep, guideIndividualId, showStartup, settingsId, openId, individuals]);
 
   const [filePath, setFilePath] = useState(null);
   const [isDirty, setIsDirty] = useState(false);
@@ -435,6 +494,7 @@ export default function App() {
       },
     });
     openAndSelect(id);
+    if (tour) setTour((current) => ({ ...current, individualId: id }));
 
     setIsDirty(true);
   }
@@ -1033,6 +1093,8 @@ export default function App() {
     handleImportGraveOutline,
     handleExportCsv,
     handleEscape,
+    startGuide,
+    openFAQ,
     handleToggleDarkTheme: () =>
       setTheme((current) => (current === "dark" ? "light" : "dark")),
     showStartup,
@@ -1044,6 +1106,8 @@ export default function App() {
       if (actionsRef.current.showStartup && !STARTUP_MENU_ACTIONS.has(action))
         return;
       if (action === "menu-home") actionsRef.current.handleHome();
+      if (action === "menu-guide") actionsRef.current.startGuide();
+      if (action === "menu-faq") actionsRef.current.openFAQ();
       if (action === "menu-new") actionsRef.current.handleNew();
       if (action === "menu-open") actionsRef.current.handleOpen();
       if (action === "menu-save") actionsRef.current.handleSave(false);
@@ -1246,6 +1310,9 @@ export default function App() {
           onLabelChange={handleLabelChange}
           onColourChange={handleColourChange}
           isOpen={isSidebarOpen}
+          settingsId={settingsId}
+          onSettingsChange={setSettingsId}
+          guideIndividualId={guideStep?.individual ? guideIndividualId : null}
         />
 
         <button
@@ -1260,7 +1327,7 @@ export default function App() {
           <span aria-hidden="true">{isSidebarOpen ? "‹" : "›"}</span>
         </button>
 
-        <div className="viewport-wrap flex-grow-1 position-relative d-flex">
+        <div className="viewport-wrap flex-grow-1 position-relative d-flex" data-guide="viewport">
           <MainView
             ref={viewportRef}
             individuals={individuals}
@@ -1338,6 +1405,7 @@ export default function App() {
           >
             {!focusedId && (
               <GravesPanel
+                guideOpen={guideStep?.id === "view"}
                 graves={graves}
                 individuals={individuals}
                 assignments={graveAssignments}
@@ -1389,6 +1457,7 @@ export default function App() {
               />
             )}
             <LayersPanel
+              guideOpen={guideStep?.id === "skeletons"}
               individuals={individuals}
               groups={groups}
               hidden={hidden}
@@ -1402,6 +1471,22 @@ export default function App() {
           </div>
         </div>
       </div>
+      {tour && guideStep && !isGraveDimensionsModalOpen && !graveSurvey && !showOverlaySettings && (
+        <GuideTour
+          step={guideStep}
+          stepIndex={tour.index}
+          stepCount={guideSteps.length}
+          individualId={guideIndividualId}
+          waiting={guideStep.id === "project" || guideStep.id === "settings"}
+          onBack={() => {
+            setSettingsId(null);
+            setTour((current) => ({ ...current, index: current.index - 1 }));
+          }}
+          onNext={() => setTour((current) => ({ ...current, index: current.index + 1 }))}
+          onClose={closeHelp}
+        />
+      )}
+      {showFAQ && <HelpFAQ onClose={closeHelp} />}
     </div>
   );
 }

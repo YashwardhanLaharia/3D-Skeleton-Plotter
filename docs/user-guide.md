@@ -14,8 +14,9 @@ The app opens on **Home**, with **New project**, **Open project** and a
 window has three parts:
 
 - **Menu bar**: **File** (Home, New…, Open…, Add Skeletons…, Import Grave
-Outline…, Save, Save As…, Quit), **Edit** (Undo, Redo, Set Grave Dimensions)
-and **Export** (Visible skeletons (CSV), Screenshot, GLB).
+Outline…, Save, Save As…, Quit), **Edit** (Undo, Redo, Set Grave Dimensions),
+**View** (Dark theme), **Export** (Visible skeletons (CSV), Screenshot, GLB)
+and **Help** (Guide, FAQ).
 - **Sidebar** on the left: **Add individual**, **Add group** and the undo/redo
 buttons at the top, then one section per individual. Each header shows the
 individual's colour, label, group, a landmark counter such as **24/25**, ⚠ when
@@ -35,6 +36,29 @@ The sections below describe each part in detail.
 Use **View → Dark theme** to switch between light and dark mode. A
 checkmark shows when dark mode is on. The app remembers your choice across
 restarts. See [dark mode](dark-mode.md) for details.
+
+## In-app guide and FAQ
+
+Choose **Help → Guide** to walk through adding individuals and groups, labels,
+coordinate entry, split joints, how the rig works, Skeletons, individual settings,
+offsets, Display, View and history. Each explanation appears beside a highlighted
+control and shows **Step n of 12**. On Home, an additional opening step helps you
+create or open a project, giving 13 steps in total.
+
+Use **Next** and **Back** to move through the guide. At the settings step, click
+the highlighted ⚙ beside the individual's landmark count (or focus it and press
+Enter or Space). The guide then explains **Offset all joints** and **Display**
+beside their controls. You can read these steps without applying an offset or
+changing a checkbox. The guide itself changes only the view; any edits you make
+with the highlighted controls are normal project edits.
+
+Use the close button or **Esc** to exit, and reopen **Help → Guide** to restart.
+**Help → FAQ** answers common questions about coordinates, rig behaviour, missing
+bones, split joints, offsets, Display, groups, focus, saving and exports. Both
+help views support keyboard navigation and use the application's light or dark
+theme colours. Switch through **View → Dark theme** in the application menu,
+including while the guide is open; your current step is preserved. The native
+macOS Help menu also includes its search field.
 
 ## Quick start with the supplied sample
 
@@ -952,5 +976,3 @@ individual/group deletion confirmation.
 | RL                  | The project's recorded distance down from the datum; larger means deeper.                                                  |
 | Floor RL            | Recorded RL of the grave floor used to convert RL into height.                                                             |
 | Contour             | Ordered surveyed points forming a grave top or base boundary.                                                              |
-
-
