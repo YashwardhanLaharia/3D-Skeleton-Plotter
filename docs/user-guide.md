@@ -7,6 +7,80 @@ viewing, exports and known issues.
 The sample is synthetic and demonstrates the software; it is not a client burial
 or proof of alignment with a site photograph.
 
+## Installing and first launch
+
+### System requirements
+
+- **Windows 10 or Windows 11, 64-bit.** This is the official build. The app is
+  built on Electron, which also runs on macOS and Linux, but those need a build
+  made from source and are not tested.
+- **Memory:** 4 GB or more.
+- **Disk space:** about 150 MB for the installer and 500 MB once installed.
+  Allow 1 GB including your projects.
+- **Graphics:** any graphics card or integrated graphics with up-to-date
+  drivers. The 3D view uses WebGL 2.
+- **No administrator rights are needed.** The app installs for your Windows
+  user account only.
+- **No internet connection is needed** to install or use the app (see
+  [Your data stays on your computer](#your-data-stays-on-your-computer)).
+
+### Install
+
+1. Copy `skeletonplotter-1.0.0 Setup.exe` to the computer, for example to
+   **Downloads**, and double-click it.
+2. If Windows shows **"Windows protected your PC"**, see
+   [the SmartScreen warning](#the-smartscreen-warning) below.
+3. There is no setup wizard. A short animation plays while the app installs,
+   then Skeleton Plotter opens on its **Home** screen.
+4. A **skeletonplotter** shortcut is added to the desktop and to the Start
+   menu, in a folder named **CtrlAltElite** (the publisher). Use either to open
+   the app later.
+
+The app is installed in your user folder (`%LOCALAPPDATA%\skeletonplotter`).
+You do not need to choose a location.
+
+### The SmartScreen warning
+
+The installer is not code-signed, so Windows does not know who published it.
+When you open a downloaded copy, Microsoft Defender SmartScreen may show
+**"Windows protected your PC"** with only a **Don't run** button. This is
+expected for unsigned software and does not mean a virus was found.
+
+1. Click **More info**. The publisher shows as *Unknown publisher*.
+2. Check the file is `skeletonplotter-1.0.0 Setup.exe` from the project team.
+3. Click **Run anyway**.
+
+Windows remembers your choice for that file. Copies that did not come from the
+internet (for example from a USB drive) may not show the warning at all. If your
+organisation's IT policy blocks unsigned software, ask your IT team to allow it.
+
+### First launch
+
+- The app opens on **Home**: **New project**, **Open project**, an
+  **Autosave** section and your **Recent** projects (empty at first). Autosave
+  reads *No autosaved project* until there are unsaved edits to recover, for
+  example after an unexpected close (see [Save your work](#save-your-work)).
+- The colours follow Windows' light or dark setting until you choose one with
+  **View → Dark theme** (see [Light and dark mode](#light-and-dark-mode)).
+- **Help → Guide** gives a short tour of the screen, and **Help → FAQ** answers
+  common questions.
+- To try the app straight away, follow the
+  [Quick start](#quick-start-with-the-supplied-sample).
+
+### Updating and uninstalling
+
+- **To update,** run the newer `Setup.exe`. It replaces the installed version.
+  Your projects, recent list and theme are kept.
+- **To uninstall,** open Windows **Settings → Apps → Installed apps**, find
+  **skeletonplotter** and choose **Uninstall**. The shortcuts are removed. A
+  small `%LOCALAPPDATA%\skeletonplotter` folder (about 5 MB) and an empty
+  **CtrlAltElite** Start menu folder can be left behind; they are safe to
+  delete.
+- Uninstalling never touches your project CSV files, which stay wherever you
+  saved them. The app's own settings (recent projects, theme and the autosave
+  backup for unsaved projects) are in `%APPDATA%\skeletonplotter`. Delete that
+  folder to remove them too.
+
 ## Screen layout
 
 The app opens on **Home**, with **New project**, **Open project** and a
@@ -704,7 +778,9 @@ bone itself.
 
 When the sacral promontory, shoulders and acetabula are all expanded as
 displaced, there is no connected torso to measure. The app still draws the
-model's pelvis and ribcage, normally placed at the recorded centre of head.
+model's pelvis and ribcage, placed by the placement landmark: the recorded
+centre of head when that row is expanded (a detached skull), otherwise head
+proximal.
 Their position and orientation, and the shoulder- and pelvis-width warnings,
 mean nothing for such an individual and can be ignored. Hide the torso with the
 ⚙ **Display** options. The displaced bones themselves are drawn at their
@@ -840,7 +916,7 @@ available.
 | Camera                           | Frames the individual and keeps the grave in view                 | Frames the individual                                                         |
 | Other skeletons                  | Drawn faded, set by the **Context** slider (0–100%, 25% to start) | Not drawn                                                                     |
 | Grave grid, contours, photograph | Shown                                                             | Not drawn; a small grid follows the underside of the focused skeleton instead |
-| Background                       | Light                                                             | Dark                                                                          |
+| Background                       | Follows **View → Dark theme** (light or dark)                     | Dark                                                                          |
 
 
 - Faded skeletons can still be clicked to select them, even at 0% (see
@@ -915,10 +991,6 @@ one of the placement landmarks is recorded (see
 [Where the skeleton is placed](#where-the-skeleton-is-placed)), the model's
 pelvis and ribcage stand upright at its starting position. Ignore them, or
 hide them with the ⚙ **Display** options.
-- **The skeleton is placed by the centre of head, not head proximal.** Head
-proximal (the top of the skull) is usually recorded more precisely, but it is
-not used to position the skeleton. Record the centre of head as carefully as
-you can.
 - **"Hide shoulder blades" also hides the collarbones.**
 - **Fully faded skeletons can still be clicked.** In focus with **Show
 environment** on, a skeleton faded to 0% can still catch a click or hover
@@ -955,7 +1027,9 @@ Use Ctrl on Windows/Linux and Command on macOS for the menu shortcuts below.
 | Export visible CSV            | Ctrl+Shift+C                                    |
 | Export screenshot             | Ctrl+Shift+E                                    |
 | Export GLB                    | Ctrl+Shift+G                                    |
-| Leave focus / clear selection | Esc: leave focus first, then clear selection    |
+| Plan / Front / Side view      | 1 / 2 / 3 (not while typing in a field)         |
+| Back to free orbit            | 4                                               |
+| Step back                     | Esc: leave focus, then the preset view, then clear selection |
 | Coordinate row navigation     | Up, Down, Enter                                 |
 | Form control navigation       | Tab, Shift+Tab                                  |
 

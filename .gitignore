@@ -90,3 +90,6 @@ typings/
 
 # Electron-Forge
 out/
+
+# Autosave backups written next to opened projects (e.g. when editing docs/examples)
+autosave*.csv
