@@ -1,4 +1,4 @@
-# 3D Skeleton Plotter
+# CITS3200 - Group58 - 3D Skeleton Plotter
 
 Desktop app for forensic and bioarchaeological research: enter or import joint
 coordinates and reconstruct skeletons in a 3D grave scene. Each scene is saved
